@@ -1,0 +1,191 @@
+@charset "utf-8";
+/**************************\
+	Stylesheet(main.css)
+\**************************/
+
+* {
+	margin: 0 auto;
+	padding: 0;
+}
+
+body {
+	background: url("../img/dark-wood-background.jpg") repeat scroll 0 0 #FFFFFF;
+	font-family: "Helvetica Neue", helvetica, sans-serif;
+	font-size: 100%;
+}
+
+#page_wrapper {
+	width: 1000px;
+	margin-top: 25px;
+	margin-bottom: 5px;
+}
+
+#app_info  {
+	display: block;
+	float: left;
+	color: #FFFFFF;
+	padding: 25px 0 0;
+	width: 498px;
+	height: auto;
+	text-align: right;
+}
+
+#app_info h3 {
+	font-size: 5.55em;
+	color: #f59120;
+	padding: 1px 0 20px;
+	text-shadow: 1px 3px 1px rgba(0, 0, 0, 1);
+}
+
+#app_info p {
+	padding: 10px 0 0;
+	line-height: 1.875em;
+	font-size: 0.875em;
+	color: #BEBEBE;
+}
+
+#app_info img {
+	width: 100px;
+	height: 100px;
+	display: inline-block;
+	float: left;
+	margin-left: 40px;
+}
+
+div  #mcell {
+	display: flex;
+	width: 500px;
+	height: 600px;
+	background-color: transparent;
+	background-image: url("../img/mcell-clean-sized.png");
+	background-size: auto;
+	background-repeat: no-repeat; 
+	background-position: center;
+	position: relative;
+	float: right;
+}
+
+#feature img {
+	overflow: hidden;
+	width: 284px;
+	height: 470px;
+	display: inline-block;
+	vertical-align: middle;
+	position: absolute;
+	padding: 65px 0 0 108px;
+}
+
+#github {
+	display: inline-block;
+	margin-top: 25px;
+	font-size: 0.875em;
+	font-weight: bold;
+	color: #bebebe;
+	text-decoration: none;
+	text-shadow: 1px 3px 1px rgba(0, 0, 0, 1.00);
+}
+
+#github span {
+	margin-left: 10px;
+	display: inline-block;
+	width: 32px;
+	height: 32px;	
+	background-image: url("../img/github-mark-light-32px.png");
+	background-repeat: no-repeat; 
+	background-position: center;
+	box-shadow: 3px 3px 10px #000000;
+	border-radius: 15px;
+}
+
+.dark-orange-txt {
+	color: #d24027;
+	font-size: 1.25em;
+	text-shadow: 1px 3px 1px rgba(0, 0, 0, 1);
+}
+
+/*** Footer Section ***/
+footer {
+	clear: both;
+    position: relative;
+    width: auto;
+	color: #767676;
+	font-size: 0.625em;
+	text-align: left;
+}
+
+/*********************\
+	BUTTONS SECTION
+\*********************/
+#buttons {
+	margin: 15px 0;
+	float: right;
+}
+
+.btn {
+	text-decoration: none;
+	float: left;
+	margin: 0 0 15px 30px;
+	border-radius: 5px;
+	color: #ffffff;
+	display: inline-block;
+	font-size: 0.875em;
+	font-weight: bold;
+	margin-right: 2px;
+	padding: 20px 25px;
+	text-align: left;
+	text-shadow: 1px 1px rgba(0, 0, 0, 0.85);
+	width: 150px;
+	box-shadow: 3px 3px 10px #000000;
+}
+
+.btn span.icon {
+    background: url("../img/btn-ico-sprite.png") no-repeat scroll left top rgba(0, 0, 0, 0);
+    display: block;
+    float: left;
+    width: 30px;
+	height: 35px;
+    margin-right: 12px;
+}
+
+/* Android button */
+#android.btn {
+	background: -moz-linear-gradient(center top , #98d463 0%, #66891d 100%) repeat scroll 0 0 rgba(0, 0, 0, 0);
+	background: -webkit-linear-gradient(top, #98d463 0%,#66891d 100%);
+}
+
+#android.btn span.icon {
+    background-position: 0 -35px;
+}
+
+#android.btn:hover, #android.btn:visited {
+    background: -moz-linear-gradient(center top , #9dda67 0%, #70971f 100%) repeat scroll 0 0 rgba(0, 0, 0, 0);
+	background: -webkit-linear-gradient(top, #9dda67 0%,#70971f 100%);
+}
+
+/* Download button */
+#download.btn {
+    background: -moz-linear-gradient(center top , #2cbbfd 0%, #006b9d 100%) repeat scroll 0 0 rgba(0, 0, 0, 0);
+	background: -webkit-linear-gradient(top, #2cbbfd 0%,#006b9d 100%);
+}
+
+#download.btn:hover, #download.btn:visited {
+    background: -moz-linear-gradient(center top , #4cc6ff 0%, #0078b0 100%) repeat scroll 0 0 rgba(0, 0, 0, 0);
+	background: -webkit-linear-gradient(top, #4cc6ff 0%,#0078b0 100%);
+}
+/*** END BUTTON SECTION ***/
+
+/*** Other Fixes ***/
+.clear {
+	clear: both;
+}
+
+/*	HTML5 - Titles in sectioning elements-
+*	Document outline and SEO imlpications
+*	Hide whole element (div,header,section,aside...)
+*	and encourage search engines not to miss it out.
+*/
+.hidden-element {
+	position: absolute;
+	clip: rect(1px 1px 1px 1px); /* IE6 & 7 */
+	clip: rect(1px, 1px, 1px, 1px);
+}

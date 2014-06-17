@@ -1,1 +1,90 @@
-Bukanir Page
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Bukanir - watch movies on your android tablet or smartphone</title>
+<meta name="author" content="bogdan.glavinic[at]gmail.com" />
+<meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0, user=scalable=yes" />
+<meta name="description" content="Stream movies from bittorent magnet links" />
+<link href="assets/img/favicon.png" rel="shortcut icon" />
+<link href="assets/css/main.css" type="text/css" rel="stylesheet" />
+<script type="text/javascript" src="assets/js/jquery-1.11.1.min.js"></script>
+<script type="text/javascript" src="assets/js/jquery.cycle.all.js"></script>
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-52018062-1', 'bukanir.com');
+  ga('send', 'pageview');
+</script>
+<script type="text/javascript">
+    $(function() {
+        $('#mcell').cycle({
+            fx: 'fade',
+            speed: 250,
+            timeout: 3000,
+            next: '#mcell',
+            pause: 1
+        });
+    });
+
+    $('[href$="apk"]').live("click", function(){
+        var apkLink = $(this).attr("href"),	apkLocation = apkLink.substr(apkLink.lastIndexOf("/")).replace("/","");
+        _gaq.push(['_trackPageview', apkLocation]);
+    });
+</script>
+</head>
+
+<body>
+<div id="page_wrapper">
+
+    <header id="main" class="hidden-element">
+        <section id="banner">
+            <h1>Bukanir</h1>
+        </section>
+    </header>
+
+    <section id="content">
+
+        <h2 class="hidden-element">App info</h2>
+
+        <article id="app_info">
+            <a href="index.html"><img src="assets/img/logo.png" alt="Bukanir"></a>
+            <h3>Bukanir</h3>
+            <p><b class="dark-orange-txt">Bukanir streams movies from bittorrent magnet links</b></p>
+            <p>Supports devices with large screen sizes</p>
+            <p>Many languages to choose for subtitles</p>
+            <p>You need free space available for whole file, it is deleted once you stop player</p>
+            <p>Seeking in video is not possible</p>
+            <br />
+            <div id="buttons">
+                <a id="android" class="btn" href="https://play.google.com/store/apps/details?id=com.bukanir.android"><span class="icon"></span>Get it on Google play</a>
+                <a id="download" class="btn" href="https://github.com/gen2brain/bukanir/releases/download/1.0/bukanir-1.0.apk"><span class="icon"></span>Direct Download</a>
+                <div class="clear"></div>
+                <a id="github" href="https://github.com/gen2brain/bukanir">Source code on GitHub<span></span></a>
+            </div>
+        </article>
+
+        <article id="feature">
+            <h3 class="hidden-element">Feature sreen</h3>
+            <div id="mcell" class="pics">
+                <img src="assets/img/screen/screen-01.jpg" alt="Screenshot" />
+                <img src="assets/img/screen/screen-02.jpg" alt="Screenshot" />
+                <img src="assets/img/screen/screen-03.jpg" alt="Screenshot" />
+                <img src="assets/img/screen/screen-04.jpg" alt="Screenshot" />
+            </div>
+        </article>
+
+    </section>
+
+    <footer>
+        <p>This app is not related to thepiratebay.org.</p>
+        <p>This product uses the TMDb API but is not endorsed or certified by TMDb.</p>
+        <p>The Android robot is reproduced or modified from work created and shared by Google and used according to terms described in the Creative Commons 3.0 Attribution License.</p>
+    </footer>
+
+</div>
+</body>
+</html>
