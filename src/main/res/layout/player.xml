@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black"
+    android:orientation="vertical" >
+ 
+    <SurfaceView
+        android:id="@+id/surface"
+		android:layout_width="match_parent"
+		android:layout_height="match_parent"
+		android:layout_centerHorizontal="true"
+		android:layout_centerVertical="true" />
+    
+    <TextView
+        android:id="@+id/sub1"
+        style="@style/SubText"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:minHeight="24dp"
+        android:layout_alignBottom="@+id/surface" />
+
+</RelativeLayout>

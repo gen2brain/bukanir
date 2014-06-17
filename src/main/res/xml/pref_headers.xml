@@ -1,0 +1,19 @@
+<preference-headers xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <header
+        android:fragment="com.bukanir.android.activities.SettingsActivity$GeneralPreferenceFragment"
+        android:title="@string/pref_header_general" />
+
+    <header
+        android:fragment="com.bukanir.android.activities.SettingsActivity$PlayerPreferenceFragment"
+        android:title="@string/pref_header_player" />
+
+    <header
+        android:fragment="com.bukanir.android.activities.SettingsActivity$SubtitlesPreferenceFragment"
+        android:title="@string/pref_header_subtitles" />
+
+    <header
+        android:fragment="com.bukanir.android.activities.SettingsActivity$TorrentsPreferenceFragment"
+        android:title="@string/pref_header_torrent" />
+
+</preference-headers>

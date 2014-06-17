@@ -1,0 +1,38 @@
+<PreferenceScreen xmlns:picker="http://schemas.android.com/apk/res/com.bukanir.android"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <CheckBoxPreference
+        android:key="encryption"
+        android:title="@string/pref_encryption_title"
+        android:summary="@string/pref_encryption_description"
+        android:defaultValue="true" />
+
+    <ListPreference
+        android:key="download_rate"
+        android:title="@string/pref_download_rate"
+        android:defaultValue="0"
+        android:entries="@array/pref_rate_entries"
+        android:entryValues="@array/pref_rate_values" />
+
+    <ListPreference
+        android:key="upload_rate"
+        android:title="@string/pref_upload_rate"
+        android:defaultValue="0"
+        android:entries="@array/pref_rate_entries"
+        android:entryValues="@array/pref_rate_values" />
+
+    <com.quietlycoding.android.picker.NumberPickerPreference
+        android:key="port_lower"
+        android:title="@string/pref_port_lower"
+        picker:defaultValue="6900"
+        picker:startRange="1024"
+        picker:endRange="65535" />
+
+    <com.quietlycoding.android.picker.NumberPickerPreference
+        android:key="port_upper"
+        android:title="@string/pref_port_upper"
+        picker:defaultValue="6999"
+        picker:startRange="1024"
+        picker:endRange="65535" />
+
+</PreferenceScreen>

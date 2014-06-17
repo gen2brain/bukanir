@@ -1,0 +1,143 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:padding ="20dip"
+    android:orientation="vertical">
+
+    <ScrollView
+        android:id="@+id/scroll"
+        android:fillViewport="true"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent">
+
+        <RelativeLayout
+            xmlns:android="http://schemas.android.com/apk/res/android"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                xmlns:android="http://schemas.android.com/apk/res/android"
+                android:id="@+id/left_layout"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="left|top"
+                android:orientation="vertical" >
+
+                <ImageView
+                    android:id="@+id/image"
+                    android:layout_width="@dimen/poster_width"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="left|top"
+                    android:contentDescription="@string/poster_description"
+                    android:adjustViewBounds="true" />
+
+                <Button
+                    android:id="@+id/watch"
+                    android:layout_width="@dimen/poster_width"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dip"
+                    android:text="@string/action_watch" />
+
+                <TextView
+                    android:id="@+id/downloading"
+                    android:layout_width="@dimen/poster_width"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dip"
+                    android:visibility="invisible"
+                    android:singleLine="true"
+                    android:ellipsize="none"
+                    android:textSize="@dimen/movie_progress" />
+
+                <ProgressBar
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="@dimen/poster_width"
+                    android:layout_height="wrap_content"
+                    android:visibility="invisible"
+                    android:id="@+id/progressBar" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                xmlns:android="http://schemas.android.com/apk/res/android"
+                android:id="@+id/right_layout"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="15dip"
+                android:layout_gravity="left|top"
+                android:layout_toRightOf="@+id/left_layout"
+                android:orientation="vertical" >
+
+                <TextView
+                    android:id="@+id/title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="@dimen/movie_title" />
+
+                <TextView
+                    android:id="@+id/info"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dip"
+                    android:textSize="@dimen/movie_info" />
+
+                <TextView
+                    android:id="@+id/info2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dip"
+                    android:textSize="@dimen/movie_info" />
+
+                <TextView
+                    android:id="@+id/tagline"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dip"
+                    android:layout_marginBottom="10dip"
+                    android:textSize="@dimen/movie_tagline" />
+
+                <TextView
+                    android:id="@+id/cast"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dip"
+                    android:textSize="@dimen/movie_info" />
+            </LinearLayout>
+
+            <LinearLayout
+                xmlns:android="http://schemas.android.com/apk/res/android"
+                android:id="@+id/bottom_layout"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="left|bottom"
+                android:layout_below="@+id/left_layout"
+                android:orientation="vertical" >
+
+                <TextView
+                    android:id="@+id/overview"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dip"
+                    android:textSize="@dimen/movie_info" />
+
+                <ImageView
+                    android:id="@+id/tmdb_logo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/tmdb"
+                    android:layout_marginTop="15dp" />
+
+                <TextView
+                    android:id="@+id/tmdb_desc"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/tmdb_desc"
+                    android:textSize="@dimen/tmdb_text"
+                    android:textStyle="italic" />
+
+            </LinearLayout>
+
+        </RelativeLayout>
+
+    </ScrollView>
+
+</LinearLayout>

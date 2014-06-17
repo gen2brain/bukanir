@@ -1,0 +1,15 @@
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <CheckBoxPreference
+        android:key="wifi_high"
+        android:title="@string/pref_wifi_high_title"
+        android:summary="@string/pref_wifi_high_description"
+        android:defaultValue="true" />
+
+    <CheckBoxPreference
+        android:key="hw_decode"
+        android:title="@string/pref_hw_decode_title"
+        android:summary="@string/pref_hw_decode_description"
+        android:defaultValue="false" />
+
+</PreferenceScreen>

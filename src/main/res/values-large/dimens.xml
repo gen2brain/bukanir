@@ -1,0 +1,8 @@
+<resources>
+    <dimen name="poster_width">192dp</dimen>
+    <dimen name="movie_title">22sp</dimen>
+    <dimen name="movie_tagline">18sp</dimen>
+    <dimen name="movie_info">12sp</dimen>
+    <dimen name="movie_progress">12sp</dimen>
+    <dimen name="tmdb_text">12sp</dimen>
+</resources>
