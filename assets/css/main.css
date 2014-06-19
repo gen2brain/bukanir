@@ -105,12 +105,14 @@ div  #mcell {
 
 /*** Footer Section ***/
 footer {
-	clear: both;
+    clear: both;
     position: relative;
     width: auto;
-	color: #767676;
-	font-size: 0.625em;
-	text-align: left;
+    color: #767676;
+    font-size: 0.625em;
+    text-align: center;
+    margin-top: 2em;
+    float: left;
 }
 
 /*********************\
