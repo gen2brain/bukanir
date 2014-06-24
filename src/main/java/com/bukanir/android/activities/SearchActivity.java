@@ -290,7 +290,7 @@ public class SearchActivity extends ActionBarActivity {
                 } catch (Exception e) {
                 }
             }
-            if(!results.isEmpty()) {
+            if(results != null && !results.isEmpty()) {
                 Collections.sort(results);
                 movies = results;
                 beginTransaction(results);
