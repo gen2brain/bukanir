@@ -45,7 +45,10 @@ public class Subtitle implements Comparable<Subtitle>, Serializable {
 		if(s.score.isEmpty() || this.score.isEmpty()) {
 			return 0;
 		}
-		return Double.compare(Double.parseDouble(s.score), Double.parseDouble(this.score));
+		return Double.compare(
+                Double.parseDouble(s.score.replace(",", ".")),
+                Double.parseDouble(this.score.replace(",", "."))
+        );
 	}	
 
 }
