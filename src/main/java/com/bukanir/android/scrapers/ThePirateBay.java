@@ -29,7 +29,7 @@ public class ThePirateBay {
     public static final String TPB_HOST_PROXY4 = "pirateproxy.net";
 
 	private static final String TOP_URL = "%s/top/%s";
-	private static final String QUERY_URL = "%s/search/%s/0/%s/201,202,207";
+	private static final String QUERY_URL = "%s/search/%s/%s/%s/201,202,207";
 	
 	public static final String SORT_SEEDS = "7";
 	
@@ -69,9 +69,12 @@ public class ThePirateBay {
 			throw e;
 		}
 		
-		final String url = String.format(QUERY_URL, TPB_URL, encodedQuery, order);
-        Log.d("QUERY_URL", url);
-		return parseHTML(url);
+        Log.d("QUERY_URL", String.format(QUERY_URL, TPB_URL, encodedQuery, "0", order));
+
+        ArrayList<ArrayList<String>> results = new ArrayList<>();
+        results.addAll(parseHTML(String.format(QUERY_URL, TPB_URL, encodedQuery, "0", order)));
+        results.addAll(parseHTML(String.format(QUERY_URL, TPB_URL, encodedQuery, "1",order)));
+		return results;
 	}
 	
 	public ArrayList<ArrayList<String>> top(String category) throws Exception {
