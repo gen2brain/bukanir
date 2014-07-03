@@ -15,7 +15,6 @@
   (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
   m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
   })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
-
   ga('create', 'UA-52018062-1', 'bukanir.com');
   ga('send', 'pageview');
 </script>
@@ -28,11 +27,6 @@
             next: '#mcell',
             pause: 1
         });
-    });
-
-    $('[href$="apk"]').live("click", function(){
-        var apkLink = $(this).attr("href"),	apkLocation = apkLink.substr(apkLink.lastIndexOf("/")).replace("/","");
-        _gaq.push(['_trackPageview', apkLocation]);
     });
 </script>
 </head>
@@ -61,7 +55,7 @@
             <br />
             <div id="buttons">
                 <a id="android" class="btn" href="https://play.google.com/store/apps/details?id=com.bukanir.android"><span class="icon"></span>Get it on Google play</a>
-                <a id="download" class="btn" href="https://github.com/gen2brain/bukanir/releases/download/1.0/bukanir-1.0.apk"><span class="icon"></span>Direct Download</a>
+                <a id="download" class="btn" href="https://github.com/gen2brain/bukanir/releases/download/1.0/bukanir-1.0.apk" target="_blank" onclick="ga('send', 'event', 'Direct Download', 'bukanir-1.0.apk')"><span class="icon"></span>Direct Download</a>
                 <div class="clear"></div>
                 <a id="github" href="https://github.com/gen2brain/bukanir">Source code on GitHub<span></span></a>
             </div>
