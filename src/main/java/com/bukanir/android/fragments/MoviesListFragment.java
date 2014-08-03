@@ -178,7 +178,12 @@ public class MoviesListFragment extends Fragment {
         protected Movie doInBackground(Movie... params) {
             movie = params[0];
             while(movie.overview == null) {
-                movie.getSummary();
+                try {
+                    movie.getSummary();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
                 if(isCancelled()) {
                     break;
                 }

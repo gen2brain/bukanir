@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Build;
+import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
@@ -394,14 +395,14 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
                     break;
                 }
 
-                TheMovieDb tmdb = new TheMovieDb();
                 String torrentTitle = torrent.get(0);
                 String torrentYear = torrent.get(1);
 
                 ArrayList<String> tmdbResults = null;
                 try {
+                    TheMovieDb tmdb = new TheMovieDb();
                     tmdbResults = tmdb.search(torrentTitle, torrentYear);
-                } catch (Exception e) {
+                } catch(Exception e) {
                     e.printStackTrace();
                 }
 
@@ -437,7 +438,7 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
             progressFragment.setProgress(progress[0]);
         }
 
-        protected void onPostExecute(ArrayList<Movie> results) {
+        protected void onPostExecute(final ArrayList<Movie> results) {
             if(progressFragment != null) {
                 try {
                     progressFragment.dismiss();
@@ -451,7 +452,15 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
                     movies = results;
                     Cache.saveObject(category, getCacheDir(), results);
                 }
-                beginTransaction(results, query);
+                new Handler().post(new Runnable() {
+                    public void run() {
+                        try {
+                            beginTransaction(results, query);
+                        } catch(Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                });
             }
         }
 
