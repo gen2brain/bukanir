@@ -84,7 +84,11 @@ public class ThePirateBay {
 	}
 	
 	private ArrayList<ArrayList<String>> parseHTML(String url) throws Exception {
-		Document doc = Jsoup.connect(url).timeout(10*1000).get();
+		Document doc = Jsoup
+                .connect(url)
+                .userAgent("Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:25.0) Gecko/20100101 Firefox/25.0")
+                .timeout(10*1000)
+                .get();
 		Elements nodes = doc.select("div[class=detName]");
 		
 		ArrayList<ArrayList<String>> results = new ArrayList<ArrayList<String>>();
