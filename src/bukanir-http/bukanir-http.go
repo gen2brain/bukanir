@@ -408,27 +408,6 @@ func boostMagnet(magnet string) string {
 	return magnet
 }
 
-func sizeStrToInt(s string) int {
-	var multiply int
-	if len(s) < 5 {
-		return 0
-	}
-	multiply = 1
-	ext := s[len(s)-3:]
-	if ext == "MiB" {
-		multiply = 1024 * 1024
-	} else if ext == "KiB" {
-		multiply = 1024
-	} else if ext == "GiB" {
-		multiply = 1024 * 1024 * 1024
-	}
-	size, err := strconv.ParseFloat(s[:len(s)-5], 64)
-	if err != nil {
-		return 0
-	}
-	return int(size) * multiply
-}
-
 func saveCache(key string, data []byte) {
 	file := filepath.Join(*cacheDir, key+".json")
 	err := ioutil.WriteFile(file, data, 0644)
