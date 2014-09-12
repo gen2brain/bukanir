@@ -29,7 +29,6 @@ import com.bukanir.android.entities.Subtitle;
 import com.bukanir.android.services.Torrent2HttpService;
 import com.bukanir.android.utils.Utils;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -73,7 +72,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
         sub = (String) bundle.get("sub");
         subtitle = (Subtitle) bundle.getSerializable("subtitle");
 
-        if(sub != null && file != null && subtitle != null) {
+        if(sub != "null" && file != "null" && subtitle != null) {
             Log.d(TAG, "sub:" + sub.toString());
             Log.d(TAG, "file:" + file.toString());
             Log.d(TAG, "subtitle:" + subtitle.toString());

@@ -16,6 +16,8 @@ import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import com.bukanir.android.BukanirClient;
+import com.bukanir.android.entities.Summary;
 import com.nostra13.universalimageloader.core.DisplayImageOptions;
 import com.nostra13.universalimageloader.core.ImageLoader;
 import com.nostra13.universalimageloader.core.ImageLoaderConfiguration;
@@ -65,7 +67,8 @@ public class SearchFragment extends Fragment {
             movies = (ArrayList<Movie>) getArguments().getSerializable("search");
         }
 
-        twoPane = (boolean) getArguments().getBoolean("twoPane");
+        twoPane = getArguments().getBoolean("twoPane");
+        getActivity().setProgressBarIndeterminateVisibility(false);
 
         View rootView = inflater.inflate(R.layout.fragment_movie_list, container, false);
 
@@ -112,9 +115,9 @@ public class SearchFragment extends Fragment {
         }
     }
 
-    private void beginTransaction(Movie result) {
+    private void beginTransaction(Movie movie, Summary summary) {
         getActivity().getSupportFragmentManager().beginTransaction()
-                .replace(R.id.movie_container, MovieFragment.newInstance(result))
+                .replace(R.id.movie_container, MovieFragment.newInstance(movie, summary))
                 .commit();
     }
 
@@ -128,18 +131,29 @@ public class SearchFragment extends Fragment {
         }
     }
 
-    private class MovieTask extends AsyncTask<Movie, Void, Movie> {
+    private class MovieTask extends AsyncTask<Movie, Void, Summary> {
 
         private Movie movie;
 
-        protected Movie doInBackground(Movie... params) {
-            movie = params[0];
-            movie.getSummary();
-            return movie;
+        protected void onPreExecute() {
+            super.onPreExecute();
+            getActivity().setProgressBarIndeterminateVisibility(true);
         }
 
-        protected void onPostExecute(Movie result) {
-            beginTransaction(result);
+        protected Summary doInBackground(Movie... params) {
+            movie = params[0];
+
+            if(isCancelled()) {
+                return null;
+            }
+
+            Summary summary = BukanirClient.getSummary(Integer.valueOf(movie.id));
+            return summary;
+        }
+
+        protected void onPostExecute(Summary summary) {
+            getActivity().setProgressBarIndeterminateVisibility(false);
+            beginTransaction(movie, summary);
         }
 
     }

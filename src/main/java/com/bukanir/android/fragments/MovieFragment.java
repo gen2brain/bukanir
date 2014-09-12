@@ -20,6 +20,7 @@ import android.widget.Toast;
 
 import com.bukanir.android.R;
 import com.bukanir.android.activities.PlayerActivity;
+import com.bukanir.android.entities.Summary;
 import com.bukanir.android.scrapers.Podnapisi;
 import com.nostra13.universalimageloader.cache.disc.impl.UnlimitedDiscCache;
 import com.nostra13.universalimageloader.core.DisplayImageOptions;
@@ -45,6 +46,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
     public static final String TAG = "MovieFragment";
 
     Movie movie;
+    Summary summary;
     Button buttonWatch;
     Subtitle subtitle;
     String subtitlePath;
@@ -56,10 +58,11 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
     Torrent2HttpTask torrent2HttpTask;
     SubtitleTask subtitleTask;
 
-    public static MovieFragment newInstance(Movie movie) {
+    public static MovieFragment newInstance(Movie movie, Summary summary) {
         MovieFragment fragment = new MovieFragment();
         Bundle args = new Bundle();
         args.putSerializable("movie", movie);
+        args.putSerializable("summary", summary);
         fragment.setArguments(args);
         return fragment;
     }
@@ -69,8 +72,10 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         Log.d(TAG, "onCreateView");
         if(savedInstanceState != null) {
             movie = (Movie) savedInstanceState.getSerializable("movie");
+            summary = (Summary) savedInstanceState.getSerializable("summary");
         } else {
             movie = (Movie) getArguments().getSerializable("movie");
+            summary = (Summary) getArguments().getSerializable("summary");
         }
 
         getActivity().setProgressBarIndeterminateVisibility(false);
@@ -145,6 +150,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         Log.d(TAG, "onSaveInstanceState");
         super.onSaveInstanceState(outState);
         outState.putSerializable("movie", movie);
+        outState.putSerializable("summary", summary);
     }
 
     @Override
@@ -185,16 +191,16 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         TextView tagline = (TextView) rootView.findViewById(R.id.tagline);
         TextView overview = (TextView) rootView.findViewById(R.id.overview);
 
-        if(movie == null) {
+        if(movie == null || summary == null) {
             return;
         }
 
         title.setText(Utils.toTitleCase(movie.title));
-        cast.setText(movie.cast + "...");
-        overview.setText(movie.overview);
+        cast.setText(summary.cast);
+        overview.setText(summary.overview);
 
-        if(!movie.tagline.isEmpty()) {
-            tagline.setText(movie.tagline);
+        if(!summary.tagline.isEmpty()) {
+            tagline.setText(summary.tagline);
         } else {
             tagline.setVisibility(View.GONE);
         }
@@ -204,16 +210,16 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
             year = String.format("(%s)  ", movie.year);
         }
         String rating = "";
-        if(!movie.rating.equals("0.0")) {
-            rating = String.format("%s / 10  ", movie.rating);
+        if(!summary.rating.equals("0.0")) {
+            rating = String.format("%s / 10  ", summary.rating);
         }
         String runtime = "";
-        if(!movie.runtime.equals("0")) {
-            runtime = String.format("%s min  ", movie.runtime);
+        if(!summary.runtime.equals("0")) {
+            runtime = String.format("%s min  ", summary.runtime);
         }
         String size = "";
-        if(!movie.size.isEmpty()) {
-            size = movie.size;
+        if(!movie.sizeHuman.isEmpty()) {
+            size = movie.sizeHuman;
         }
         if(!runtime.isEmpty() && !size.isEmpty()) {
             runtime += "/ ";
@@ -347,7 +353,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
             Movie m = params[0];
 
             Podnapisi podnapisi = new Podnapisi();
-            ArrayList<ArrayList<String>> subtitles = null;
+            ArrayList<ArrayList<String>> subtitles;
             try {
                 subtitles = podnapisi.search(m.title, m.year, m.release, subtitleLanguage);
             } catch(Exception e) {
@@ -382,7 +388,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
                 return null;
             }
 
-            ArrayList<Subtitle> results = new ArrayList<Subtitle>();
+            ArrayList<Subtitle> results = new ArrayList<>();
             for (ArrayList<String> sub : subtitles) {
                 String score = String.valueOf(Utils.compareRelease(m.release, sub.get(3)));
                 sub.add(score);

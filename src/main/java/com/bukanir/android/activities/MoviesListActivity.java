@@ -23,26 +23,19 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.Window;
 import android.widget.ArrayAdapter;
 import android.widget.Toast;
 
+import com.bukanir.android.BukanirClient;
 import com.bukanir.android.R;
 import com.bukanir.android.entities.Movie;
 import com.bukanir.android.fragments.MoviesListFragment;
-import com.bukanir.android.fragments.ProgressFragment;
-import com.bukanir.android.scrapers.TheMovieDb;
-import com.bukanir.android.scrapers.ThePirateBay;
-import com.bukanir.android.utils.Cache;
+import com.bukanir.android.services.BukanirHttpService;
 import com.bukanir.android.utils.Utils;
 import com.thinkfree.showlicense.android.ShowLicense;
 
-import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 import io.vov.vitamio.LibsChecker;
 
@@ -55,7 +48,6 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
     private MoviesTask moviesTask;
     private String category;
     private int listCount;
-    private boolean proxy;
 
     private static final String STATE_SELECTED_NAVIGATION_ITEM = "selected_navigation_item";
 
@@ -67,6 +59,13 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
         if(!LibsChecker.checkVitamioLibs(this)) {
             return;
         }
+
+        if(!Utils.isHttpServiceRunning(this)) {
+            Intent intent = new Intent(this, BukanirHttpService.class);
+            startService(intent);
+        }
+
+        supportRequestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
 
         setContentView(R.layout.activity_movie_list);
 
@@ -95,6 +94,11 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
         Log.d(TAG, "onDestroy");
         super.onDestroy();
         cancelMovieTask();
+
+        if(Utils.isHttpServiceRunning(this)) {
+            Intent intent = new Intent(this, BukanirHttpService.class);
+            stopService(intent);
+        }
     }
 
     @Override
@@ -158,7 +162,7 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
                 return true;
             case R.id.action_sync:
                 if(category != null) {
-                    startMovieTask();
+                    startMovieTask(true);
                 }
                 return true;
             case R.id.action_licenses:
@@ -173,20 +177,14 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
     public boolean onNavigationItemSelected(int position, long id) {
         Log.d(TAG, "onNavigationItemSelected");
         if(position == 0) {
-            category = ThePirateBay.CATEGORY_MOVIES;
+            category = "201";
         } else if(position == 1) {
-            category = ThePirateBay.CATEGORY_HD_MOVIES;
+            category = "207";
         } else if(position == 2) {
-            category = ThePirateBay.CATEGORY_MOVIES_DVDR;
+            category = "202";
         }
 
-        movies = Cache.getObject(category, getCacheDir(), this);
-
-        if(movies != null) {
-            beginTransaction(movies, null);
-        } else {
-            startMovieTask();
-        }
+        startMovieTask(false);
 
         return true;
     }
@@ -232,7 +230,7 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
 
         actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_LIST);
         actionBar.setListNavigationCallbacks(
-                new ArrayAdapter<String>(
+                new ArrayAdapter<>(
                         actionBar.getThemedContext(),
                         android.R.layout.simple_list_item_1,
                         android.R.id.text1,
@@ -246,17 +244,23 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
         );
     }
 
-    private void startMovieTask() {
+    private void startMovieTask(boolean refresh) {
         if(Utils.isNetworkAvailable(this)) {
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
             listCount = Integer.valueOf(prefs.getString("list_count", "30"));
-            proxy = prefs.getBoolean("proxy", true);
+
+            String force;
+            if(refresh) {
+                force = "1";
+            } else {
+                force = "0";
+            }
 
             moviesTask = new MoviesTask();
             if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-                moviesTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, null, category);
+                moviesTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, null, category, force);
             } else {
-                moviesTask.execute(null, category);
+                moviesTask.execute(null, category, force);
             }
         } else {
             Toast.makeText(this, getString(R.string.network_not_available), Toast.LENGTH_LONG).show();
@@ -303,9 +307,11 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
     }
 
     private void handleSearchIntent(Intent intent) {
+        Log.d(TAG, "handleSearchIntent");
         if(Intent.ACTION_SEARCH.equals(intent.getAction())) {
             String query = intent.getStringExtra(SearchManager.QUERY);
             if(Utils.isNetworkAvailable(this)) {
+                Log.d(TAG, "networkAvailable");
                 moviesTask = new MoviesTask();
                 if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
                     moviesTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, query, null);
@@ -315,11 +321,6 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
             } else {
                 Toast.makeText(this, getString(R.string.network_not_available), Toast.LENGTH_LONG).show();
             }
-        } else {
-            movies = Cache.getObject(category, getCacheDir(), this);
-            if(movies != null) {
-                beginTransaction(movies, null);
-            }
         }
     }
 
@@ -327,140 +328,61 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
 
         String query;
         String category;
-        ProgressFragment progressFragment;
 
         protected void onPreExecute() {
             super.onPreExecute();
-            progressFragment = ProgressFragment.newInstance(getString(R.string.downloading_metadata));
-            FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
-            if(twoPane) {
-                Fragment prev = getSupportFragmentManager().findFragmentByTag("dialog");
-                if (prev != null) {
-                    ft.remove(prev);
-                }
-                progressFragment.show(getSupportFragmentManager(), "dialog");
-            } else {
-                Fragment prev = getSupportFragmentManager().findFragmentById(R.id.container);
-                if (prev != null) {
-                    ft.remove(prev);
-                }
-                ft.replace(R.id.container, progressFragment);
-                ft.commit();
-            }
+            setSupportProgressBarIndeterminateVisibility(true);
         }
 
         protected ArrayList<Movie> doInBackground(String... params) {
 
             query = params[0];
             category = params[1];
-            ArrayList<Movie> results = new ArrayList<>();
 
-            ThePirateBay tpb = new ThePirateBay(proxy);
-            List<ArrayList<String>> torrents;
+            String force;
+            if(params.length == 3) {
+                force = params[2];
+            } else {
+                force = "0";
+            }
+            ArrayList<Movie> results;
 
-            if(isCancelled()) {
-                return null;
+            boolean refresh = false;
+            if(force.equals("1")) {
+                refresh = true;
+            }
+
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
 
             try {
                 if(query != null) {
-                    ArrayList<ArrayList<String>> search = tpb.search(query, ThePirateBay.SORT_SEEDS);
-                    Map<String, ArrayList<String>> map = new HashMap<>();
-                    for(ArrayList<String> torrent : search) {
-                        if(!map.containsKey(torrent.get(0))) {
-                            map.put(torrent.get(0), torrent);
-                        }
-                    }
-                    torrents = new ArrayList<>(map.values());
+                    results = BukanirClient.getSearchMovies(query, -1);
                 } else {
-                    torrents = tpb.top(category);
-                    if(torrents.size() >= listCount) {
-                        torrents = torrents.subList(0, listCount);
-                    }
+                    results = BukanirClient.getTopMovies(category, listCount, refresh);
                 }
-            } catch(UnknownHostException e) {
-                e.printStackTrace();
-                return null;
             } catch(Exception e) {
                 e.printStackTrace();
                 return null;
             }
 
-            float torrentNum = 0;
-            float torrentsLength = torrents.size();
-
-            for(ArrayList<String> torrent : torrents) {
-
-                if(isCancelled()) {
-                    break;
-                }
-
-                String torrentTitle = torrent.get(0);
-                String torrentYear = torrent.get(1);
-
-                ArrayList<String> tmdbResults = null;
-                try {
-                    TheMovieDb tmdb = new TheMovieDb();
-                    tmdbResults = tmdb.search(torrentTitle, torrentYear);
-                } catch(Exception e) {
-                    e.printStackTrace();
-                }
-
-                if(tmdbResults != null && !tmdbResults.isEmpty()) {
-                    String id = tmdbResults.get(0);
-                    String title = tmdbResults.get(1);
-                    String year = tmdbResults.get(2);
-                    String posterSmall = tmdbResults.get(3);
-                    String posterMedium = tmdbResults.get(4);
-                    String posterLarge = tmdbResults.get(5);
-                    String posterXLarge = tmdbResults.get(6);
-                    String rating = tmdbResults.get(7);
-                    String release = torrent.get(2);
-                    String size = torrent.get(5);
-                    String seeders = torrent.get(7);
-                    String magnetLink = torrent.get(3);
-
-                    results.add(new Movie(Arrays.asList(id, title, year,
-                            posterSmall, posterMedium, posterLarge, posterXLarge,
-                            rating, release, size, seeders, magnetLink)));
-                }
-
-                torrentNum++;
-                float progress = torrentNum/torrentsLength * 100;
-                publishProgress((int) progress);
-            }
-
             return results;
         }
 
-        protected void onProgressUpdate(Integer... progress) {
-            super.onProgressUpdate(progress[0]);
-            progressFragment.setProgress(progress[0]);
-        }
-
         protected void onPostExecute(final ArrayList<Movie> results) {
-            if(progressFragment != null) {
-                try {
-                    progressFragment.dismiss();
-                    progressFragment = null;
-                } catch (Exception e) {
-                }
-            }
+            setSupportProgressBarIndeterminateVisibility(false);
             if(results != null && !results.isEmpty()) {
-                Collections.sort(results);
                 if(category != null) {
                     movies = results;
-                    Cache.saveObject(category, getCacheDir(), results);
                 }
-                new Handler().post(new Runnable() {
-                    public void run() {
-                        try {
-                            beginTransaction(results, query);
-                        } catch(Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-                });
+                try {
+                    beginTransaction(results, query);
+                } catch(Exception e) {
+                    e.printStackTrace();
+                }
             }
         }
 

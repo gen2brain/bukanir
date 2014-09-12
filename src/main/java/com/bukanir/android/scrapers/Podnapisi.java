@@ -68,7 +68,7 @@ public class Podnapisi {
 			String downloadUrl = URL_BASE + subtitle_page_link.attr("href");
 			Document downloadDoc = Jsoup.connect(downloadUrl).timeout(10*1000).get();
 			Element downloadHref = downloadDoc.select("a[class=button big download]").first();
-			downloadLink = URL_BASE + downloadHref.attr("href");
+			downloadLink = URL_BASE + downloadHref.attr("href").replace("predownload", "download");
 			
 			id = downloadHref.attr("href").split("/")[downloadHref.attr("href").split("/").length - 1];
 			title = subtitle_page_link.text().replace(subtitle_year.text(), "");

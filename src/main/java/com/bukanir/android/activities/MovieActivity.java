@@ -12,8 +12,10 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.Window;
 
+import com.bukanir.android.BukanirClient;
 import com.bukanir.android.R;
 import com.bukanir.android.entities.Movie;
+import com.bukanir.android.entities.Summary;
 import com.bukanir.android.fragments.MovieFragment;
 import com.bukanir.android.utils.Utils;
 import com.thinkfree.showlicense.android.ShowLicense;
@@ -31,8 +33,7 @@ public class MovieActivity extends ActionBarActivity {
         Log.d(TAG, "onCreate");
         super.onCreate(savedInstanceState);
 
-        requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
-        setProgressBarIndeterminateVisibility(false);
+        supportRequestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
 
         setContentView(R.layout.activity_movie);
 
@@ -103,22 +104,26 @@ public class MovieActivity extends ActionBarActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    private class MovieTask extends AsyncTask<Void, Void, Movie> {
+    private class MovieTask extends AsyncTask<Void, Void, Summary> {
 
-        protected Movie doInBackground(Void... params) {
-            while(movie.overview == null) {
-                movie.getSummary();
-                if(isCancelled()) {
-                    break;
-                }
-            }
-            Log.d(TAG, "movie:" + movie.toString());
-            return movie;
+        protected void onPreExecute() {
+            super.onPreExecute();
+            setSupportProgressBarIndeterminateVisibility(true);
         }
 
-        protected void onPostExecute(Movie result) {
+        protected Summary doInBackground(Void... params) {
+            if(isCancelled()) {
+                return null;
+            }
+
+            Summary summary = BukanirClient.getSummary(Integer.valueOf(movie.id));
+            return summary;
+        }
+
+        protected void onPostExecute(Summary summary) {
+            setSupportProgressBarIndeterminateVisibility(false);
             fragmentManager.beginTransaction()
-                    .add(R.id.container, MovieFragment.newInstance(result))
+                    .add(R.id.container, MovieFragment.newInstance(movie, summary))
                     .commit();
         }
 
