@@ -1,31 +1,33 @@
 package main
 
 import (
-	"os"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-	"net"
-	"net/http"
-	"net/url"
-	"io/ioutil"
-	"path/filepath"
-	"encoding/json"
 
 	"code.google.com/p/go.net/html"
+	"github.com/PuerkitoBio/goquery"
 	tmdb "github.com/amahi/go-themoviedb"
 	humanize "github.com/dustin/go-humanize"
+	"github.com/xrash/smetrics"
 )
 
 var (
 	appName    = "bukanir-http"
-	appVersion = "1.0"
+	appVersion = "1.1"
 )
 
 type Torrent struct {
@@ -34,7 +36,7 @@ type Torrent struct {
 	MagnetLink     string
 	Year           string
 	Size           uint64
-	SizeHuman 	   string
+	SizeHuman      string
 	Seeders        int
 }
 
@@ -62,15 +64,41 @@ type Summary struct {
 	Runtime  int     `json:"runtime"`
 }
 
+type Subtitle struct {
+	Id	         string  `json:"id"`
+	Title        string  `json:"title"`
+	Year         string  `json:"year"`
+	Release      string  `json:"release"`
+	DownloadLink string  `json:"downloadLink"`
+	Score        float64 `json:"score"`
+}
+
+type Release struct {
+	Name  string
+	Score float64
+}
+
 type BySeeders []Movie
 
 func (a BySeeders) Len() int           { return len(a) }
 func (a BySeeders) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a BySeeders) Less(i, j int) bool { return a[i].Seeders > a[j].Seeders }
 
+type ReleaseByScore []Release
+
+func (a ReleaseByScore) Len() int           { return len(a) }
+func (a ReleaseByScore) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ReleaseByScore) Less(i, j int) bool { return a[i].Score > a[j].Score }
+
+type ByScore []Subtitle
+
+func (a ByScore) Len() int           { return len(a) }
+func (a ByScore) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByScore) Less(i, j int) bool { return a[i].Score > a[j].Score }
+
+var tpbTopUrl string = "http://%s/top/%s"
+var tpbSearchUrl string = "http://%s/search/%s/0/7/201,202"
 const tmdbApiKey = "YOUR_API_KEY"
-const tpbTopUrl string = "http://%s/top/%s"
-const tpbSearchUrl string = "http://%s/search/%s/0/7/201,202,207"
 
 var (
 	reYear   = regexp.MustCompile(`(.*)(19\d{2}|20\d{2})(.*)`)
@@ -103,6 +131,8 @@ var trackers = []string{
 var movies []Movie
 var summary Summary
 var torrents []Torrent
+var releases []Release
+var subtitles []Subtitle
 var wg sync.WaitGroup
 
 var cacheDir = flag.String("cachedir", "/tmp", "Cache directory")
@@ -235,6 +265,141 @@ func TMDBSummary(id int) {
 		res.Overview,
 		res.Runtime,
 	}
+}
+
+func Podnapisi(movie string, year string, torrentRelease string, lang string) {
+	baseUrl := "http://www.podnapisi.net"
+	searchUrl := baseUrl + "/en/ppodnapisi/search?sT=-1&sK=%s&sJ=%s&sY=%s&sAKA=0&sS=downloads&sO=desc"
+
+	url := fmt.Sprintf(searchUrl, url.QueryEscape(movie), lang, year)
+
+	doc, err := goquery.NewDocument(url)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	nodes := doc.Find(`table.list.first_column_title`)
+	trs := nodes.Find(`tr[class=" "]`)
+
+	length := trs.Length()
+	if length == 0 {
+
+	}
+
+	getSubtitle := func(tr *goquery.Selection) {
+		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Print("Recovered in getSubtitle: ", r)
+			}
+		}()
+
+		subtitlePageLink := tr.Find(`a.subtitle_page_link`).First()
+		subtitleYear := subtitlePageLink.Find(`b`).First().Text()
+
+		rl, _ := tr.Find(`span.release`).Attr(`html_title`)
+		subtitleReleases := strings.Split(rl, "<br/>")
+
+		releases = make([]Release, 0)
+		for _, rel := range subtitleReleases {
+			if rel == "" {
+				continue
+			}
+			score := compareRelease(torrentRelease, rel)
+			r := Release{rel, score}
+			releases = append(releases, r)
+		}
+		sort.Sort(ReleaseByScore(releases))
+
+		var release Release
+		if len(releases) > 0 {
+			release = releases[0]
+		} else {
+			release = Release{"", 0}
+		}
+
+		subtitleHref, _ := subtitlePageLink.Attr(`href`)
+		downloadUrl := baseUrl + subtitleHref
+		downloadDoc, err := goquery.NewDocument(downloadUrl)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		downloadHref := downloadDoc.Find(`a.button.big.download`).First()
+		href, _ := downloadHref.Attr(`href`)
+		downloadLink := baseUrl + strings.Replace(href, "predownload", "download", -1)
+
+		split := strings.Split(href, "/")
+		id := split[len(split)-1]
+		title := strings.Replace(subtitlePageLink.Text(), subtitleYear, "", -1)
+		year := getYear(subtitleYear)
+
+		subtitle := Subtitle{id, title, year, release.Name, downloadLink, release.Score}
+		subtitles = append(subtitles, subtitle)
+	}
+
+	wg.Add(len(trs.Nodes))
+	for i := range trs.Nodes {
+		tr := trs.Eq(i)
+		go getSubtitle(tr)
+	}
+	wg.Wait()
+}
+
+func Titlovi(movie string, torrentRelease string) {
+	searchUrl := "http://en.titlovi.com/subtitles/subtitles.aspx?subtitle=%s"
+	downloadUrl := "http://titlovi.com/downloads/default.ashx?type=1&mediaid=%s"
+
+	url := fmt.Sprintf(searchUrl, url.QueryEscape(movie))
+
+	doc, err := goquery.NewDocument(url)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	nodes := doc.Find(`li.listing`)
+	divs := nodes.Find(`div.title.c1`)
+
+	length := divs.Length()
+	if length == 0 {
+
+	}
+
+	reNum := regexp.MustCompile(`[^0-9]`)
+
+	for i := range divs.Nodes {
+		div := divs.Eq(i)
+
+		link := div.Find(`a`).First()
+		href, _ := link.Attr("href")
+
+		title := strings.TrimSpace(link.Text())
+
+		subtitleYear := div.Find(`span.year`).First().Text()
+		year := getYear(subtitleYear)
+
+		subtitleRelease := div.Find(`span.release`).First().Text()
+		release := strings.TrimSpace(subtitleRelease)
+
+		score := compareRelease(torrentRelease, release)
+
+		split := strings.Split(href, "-")
+		id := split[len(split) - 1]
+		id = reNum.ReplaceAllString(id, "")
+
+		downloadLink := fmt.Sprintf(downloadUrl, id)
+
+		subtitle := Subtitle{id, title, year, release, downloadLink, score}
+		subtitles = append(subtitles, subtitle)
+	}
+}
+
+func compareRelease(torrentRelease string, subtitleRelease string) float64 {
+	torrentRelease = strings.Replace(torrentRelease, ".", " ", -1)
+	torrentRelease = strings.Replace(torrentRelease, "-", " ", -1)
+	subtitleRelease = strings.Replace(subtitleRelease, ".", " ", -1)
+	subtitleRelease = strings.Replace(subtitleRelease, "-", " ", -1)
+	return smetrics.Jaro(torrentRelease, subtitleRelease)
 }
 
 func httpGet(url string) (*http.Response, error) {
@@ -482,9 +647,9 @@ func handleCategory(w http.ResponseWriter, r *http.Request) {
 
 		if len(paths) >= 3 {
 			limit, _ := strconv.Atoi(paths[2])
-            if limit > len(torrents) {
-                limit = len(torrents)
-            }
+			if limit > len(torrents) {
+				limit = len(torrents)
+			}
 			torrents = torrents[0:limit]
 		}
 
@@ -530,9 +695,9 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 
 	if len(paths) == 3 {
 		limit, _ := strconv.Atoi(paths[2])
-        if limit > len(torrents) {
-            limit = len(torrents)
-        }
+		if limit > len(torrents) {
+			limit = len(torrents)
+		}
 		torrents = torrents[0:limit]
 	}
 
@@ -580,13 +745,48 @@ func handleSummary(w http.ResponseWriter, r *http.Request) {
 	w.Write(js)
 }
 
+func handleSubtitle(w http.ResponseWriter, r *http.Request) {
+	setServer(w)
+	path := html.EscapeString(r.URL.Path[1:])
+	path = strings.TrimRight(path, "/")
+	paths := strings.Split(path, "/")
+
+	if len(paths) < 5 {
+		http.Error(w, "403 Forbidden", http.StatusForbidden)
+		return
+	}
+
+	subtitles = make([]Subtitle, 0)
+	Podnapisi(paths[1], paths[2], paths[3], paths[4])
+	if paths[4] == "36" {
+		Titlovi(paths[1], paths[3])
+	}
+	sort.Sort(ByScore(subtitles))
+
+	js, err := json.MarshalIndent(subtitles, "", "    ")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Write(js)
+}
+
 func main() {
 	bind := flag.String("bind", ":7314", "Bind address")
 	flag.Parse()
 
 	http.HandleFunc("/", handleIndex)
 	http.HandleFunc("/search/", handleSearch)
-	http.HandleFunc("/summary/", handleSummary)
 	http.HandleFunc("/category/", handleCategory)
-	http.ListenAndServe(*bind, nil)
+	http.HandleFunc("/summary/", handleSummary)
+	http.HandleFunc("/subtitle/", handleSubtitle)
+
+    l, err := net.Listen("tcp4", *bind)
+    if err != nil {
+        log.Fatal(err)
+    }
+    http.Serve(l, nil)
+	defer l.Close()
 }
