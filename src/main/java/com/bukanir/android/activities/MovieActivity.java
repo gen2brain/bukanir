@@ -1,5 +1,6 @@
 package com.bukanir.android.activities;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -7,10 +8,12 @@ import android.support.v4.app.FragmentManager;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.Window;
+import android.view.View;
+import android.widget.ProgressBar;
 
 import com.bukanir.android.BukanirClient;
 import com.bukanir.android.R;
@@ -18,6 +21,8 @@ import com.bukanir.android.entities.Movie;
 import com.bukanir.android.entities.Summary;
 import com.bukanir.android.fragments.MovieFragment;
 import com.bukanir.android.utils.Utils;
+import com.google.android.gms.analytics.HitBuilders;
+import com.google.android.gms.analytics.Tracker;
 import com.thinkfree.showlicense.android.ShowLicense;
 
 public class MovieActivity extends ActionBarActivity {
@@ -26,6 +31,7 @@ public class MovieActivity extends ActionBarActivity {
 
     private Movie movie;
     private MovieTask movieTask;
+    private ProgressBar progressBar;
     private static FragmentManager fragmentManager;
 
     @Override
@@ -33,21 +39,30 @@ public class MovieActivity extends ActionBarActivity {
         Log.d(TAG, "onCreate");
         super.onCreate(savedInstanceState);
 
-        supportRequestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
-
         setContentView(R.layout.activity_movie);
 
         fragmentManager = getSupportFragmentManager();
 
-        final ActionBar actionBar = getSupportActionBar();
-        actionBar.setDisplayShowTitleEnabled(true);
-        actionBar.setDisplayHomeAsUpEnabled(true);
+        progressBar = (ProgressBar) findViewById(R.id.progressbar);
+
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        toolbar.setLogo(R.drawable.ic_launcher);
+        setSupportActionBar(toolbar);
+
+        getSupportActionBar().setDisplayShowTitleEnabled(true);
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
         if(savedInstanceState != null) {
             movie = (Movie) savedInstanceState.getSerializable("movie");
         } else {
             Bundle bundle = getIntent().getExtras();
             movie = (Movie) bundle.get("movie");
+
+            getSupportActionBar().setSubtitle(movie.title);
+
+            Tracker tracker = Utils.getTracker(this);
+            tracker.setScreenName(movie.title);
+            tracker.send(new HitBuilders.AppViewBuilder().build());
 
             movieTask = new MovieTask();
             if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
@@ -97,8 +112,13 @@ public class MovieActivity extends ActionBarActivity {
                 onBackPressed();
                 return true;
             case R.id.action_licenses:
-                Intent licenses = ShowLicense.createActivityIntent(this, null, Utils.projectList);
-                startActivity(licenses);
+                AlertDialog licenses = ShowLicense.createDialog(this, null, Utils.projectList);
+                licenses.setIcon(R.drawable.ic_launcher);
+                licenses.setTitle(getString(R.string.action_licenses));
+                licenses.show();
+                return true;
+            case R.id.action_about:
+                Utils.showAbout(this);
                 return true;
         }
         return super.onOptionsItemSelected(item);
@@ -108,7 +128,9 @@ public class MovieActivity extends ActionBarActivity {
 
         protected void onPreExecute() {
             super.onPreExecute();
-            setSupportProgressBarIndeterminateVisibility(true);
+            if(progressBar != null) {
+                progressBar.setVisibility(View.VISIBLE);
+            }
         }
 
         protected Summary doInBackground(Void... params) {
@@ -121,7 +143,9 @@ public class MovieActivity extends ActionBarActivity {
         }
 
         protected void onPostExecute(Summary summary) {
-            setSupportProgressBarIndeterminateVisibility(false);
+            if(progressBar != null) {
+                progressBar.setVisibility(View.GONE);
+            }
             fragmentManager.beginTransaction()
                     .add(R.id.container, MovieFragment.newInstance(movie, summary))
                     .commit();

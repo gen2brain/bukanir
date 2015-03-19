@@ -12,6 +12,11 @@
         android:orderInCategory="200"
         app:showAsAction="never" />
 
+    <item android:id="@+id/action_about"
+        android:title="@string/action_about"
+        android:orderInCategory="300"
+        app:showAsAction="never" />
+
     <item android:id="@+id/action_search"
         android:title="@string/action_search"
         android:icon="@drawable/ic_search"

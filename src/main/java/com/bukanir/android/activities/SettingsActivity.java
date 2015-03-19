@@ -11,7 +11,20 @@ import android.preference.PreferenceActivity;
 import android.preference.PreferenceCategory;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
+import android.support.v7.internal.widget.TintCheckBox;
+import android.support.v7.internal.widget.TintCheckedTextView;
+import android.support.v7.internal.widget.TintEditText;
+import android.support.v7.internal.widget.TintRadioButton;
+import android.support.v7.internal.widget.TintSpinner;
+import android.support.v7.widget.Toolbar;
+import android.util.AttributeSet;
 import android.util.Log;
+import android.util.TypedValue;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.LinearLayout;
+import android.widget.ListView;
 
 import com.bukanir.android.R;
 import com.quietlycoding.android.picker.NumberPickerPreference;
@@ -28,7 +41,70 @@ public class SettingsActivity extends PreferenceActivity {
     protected void onPostCreate(Bundle savedInstanceState) {
         super.onPostCreate(savedInstanceState);
 
+        Toolbar toolbar;
+
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+            LinearLayout root = (LinearLayout) findViewById(android.R.id.list).getParent().getParent().getParent();
+            toolbar = (Toolbar) LayoutInflater.from(this).inflate(R.layout.toolbar_settings, root, false);
+            root.addView(toolbar, 0);
+        } else {
+            ViewGroup root = (ViewGroup) findViewById(android.R.id.content);
+            ListView content = (ListView) root.getChildAt(0);
+
+            root.removeAllViews();
+
+            toolbar = (Toolbar) LayoutInflater.from(this).inflate(R.layout.toolbar_settings, root, false);
+
+            int height;
+            TypedValue tv = new TypedValue();
+            if(getTheme().resolveAttribute(R.attr.actionBarSize, tv, true)) {
+                height = TypedValue.complexToDimensionPixelSize(tv.data, getResources().getDisplayMetrics());
+            } else {
+                height = toolbar.getHeight();
+            }
+
+            content.setPadding(0, height, 0, 0);
+
+            root.addView(content);
+            root.addView(toolbar);
+        }
+
+        toolbar.setNavigationOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                finish();
+            }
+        });
+
         setupSimplePreferencesScreen();
+    }
+
+    @Override
+    public View onCreateView(String name, Context context, AttributeSet attrs) {
+        // Allow super to try and create a view first
+        final View result = super.onCreateView(name, context, attrs);
+        if(result != null) {
+            return result;
+        }
+
+        if(Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            // If we're running pre-L, we need to 'inject' our tint aware Views in place of the
+            // standard framework versions
+            switch (name) {
+                case "EditText":
+                    return new TintEditText(this, attrs);
+                case "Spinner":
+                    return new TintSpinner(this, attrs);
+                case "CheckBox":
+                    return new TintCheckBox(this, attrs);
+                case "RadioButton":
+                    return new TintRadioButton(this, attrs);
+                case "CheckedTextView":
+                    return new TintCheckedTextView(this, attrs);
+            }
+        }
+
+        return null;
     }
 
     private void setupSimplePreferencesScreen() {

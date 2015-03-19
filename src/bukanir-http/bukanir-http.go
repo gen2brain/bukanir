@@ -27,7 +27,7 @@ import (
 
 var (
 	appName    = "bukanir-http"
-	appVersion = "1.1"
+	appVersion = "1.2"
 )
 
 type Torrent struct {
@@ -65,7 +65,7 @@ type Summary struct {
 }
 
 type Subtitle struct {
-	Id	         string  `json:"id"`
+	Id           string  `json:"id"`
 	Title        string  `json:"title"`
 	Year         string  `json:"year"`
 	Release      string  `json:"release"`
@@ -96,8 +96,9 @@ func (a ByScore) Len() int           { return len(a) }
 func (a ByScore) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByScore) Less(i, j int) bool { return a[i].Score > a[j].Score }
 
-var tpbTopUrl string = "http://%s/top/%s"
-var tpbSearchUrl string = "http://%s/search/%s/0/7/201,202"
+var tpbTopUrl string = "https://%s/top/%s/%d"
+var tpbSearchUrl string = "https://%s/search/%s/%d/7/201,207"
+
 const tmdbApiKey = "YOUR_API_KEY"
 
 var (
@@ -108,16 +109,11 @@ var (
 
 var categories = []string{
 	"201",
-	"202",
 	"207",
 }
 
 var hosts = []string{
 	"thepiratebay.se",
-	"thepiratebay.mg",
-	"thepiratebay.si",
-	"thepiratebay.je",
-	"pirateproxy.net",
 }
 
 var trackers = []string{
@@ -137,7 +133,7 @@ var wg sync.WaitGroup
 
 var cacheDir = flag.String("cachedir", "/tmp", "Cache directory")
 
-func TPBTop(category string) {
+func TPBTop(category string, page int) {
 	defer wg.Done()
 	defer func() {
 		if r := recover(); r != nil {
@@ -146,7 +142,7 @@ func TPBTop(category string) {
 	}()
 
 	host := getHost()
-	res, err := httpGet(fmt.Sprintf(tpbTopUrl, host, category))
+	res, err := httpGet(fmt.Sprintf(tpbTopUrl, host, category, page))
 	if err != nil {
 		log.Print("Error making TPB call: %v", err.Error())
 		return
@@ -161,7 +157,7 @@ func TPBTop(category string) {
 	loopDOM(doc)
 }
 
-func TPBSearch(query string) {
+func TPBSearch(query string, page int) {
 	defer wg.Done()
 	defer func() {
 		if r := recover(); r != nil {
@@ -170,7 +166,7 @@ func TPBSearch(query string) {
 	}()
 
 	host := getHost()
-	res, err := httpGet(fmt.Sprintf(tpbSearchUrl, host, url.QueryEscape(query)))
+	res, err := httpGet(fmt.Sprintf(tpbSearchUrl, host, url.QueryEscape(query), page))
 	if err != nil {
 		log.Print("Error making TPB call: %v", err.Error())
 		return
@@ -214,6 +210,11 @@ func TMDBMovie(torrent Torrent) {
 	}
 
 	if res.Id == 0 {
+		return
+	}
+
+	size := len(config.Images.Poster_sizes)
+	if size < 5 {
 		return
 	}
 
@@ -384,7 +385,7 @@ func Titlovi(movie string, torrentRelease string) {
 		score := compareRelease(torrentRelease, release)
 
 		split := strings.Split(href, "-")
-		id := split[len(split) - 1]
+		id := split[len(split)-1]
 		id = reNum.ReplaceAllString(id, "")
 
 		downloadLink := fmt.Sprintf(downloadUrl, id)
@@ -436,7 +437,6 @@ func loopDOM(n *html.Node) {
 }
 
 func extractTorrents(n *html.Node) {
-	torrents = make([]Torrent, 0)
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		if c.Type == html.ElementNode && c.Data == "tr" {
 			var torrent Torrent
@@ -641,8 +641,12 @@ func handleCategory(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		wg.Add(1)
-		go TPBTop(category)
+		torrents = make([]Torrent, 0)
+
+		wg.Add(3)
+		go TPBTop(category, 0)
+		go TPBTop(category, 1)
+		go TPBTop(category, 2)
 		wg.Wait()
 
 		if len(paths) >= 3 {
@@ -667,7 +671,9 @@ func handleCategory(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		saveCache(category, js)
+		if len(movies) > 0 {
+			saveCache(category, js)
+		}
 
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.Write(js)
@@ -688,9 +694,13 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	torrents = make([]Torrent, 0)
+
 	query := paths[1]
-	wg.Add(1)
-	go TPBSearch(query)
+	wg.Add(3)
+	go TPBSearch(query, 0)
+	go TPBSearch(query, 1)
+	go TPBSearch(query, 2)
 	wg.Wait()
 
 	if len(paths) == 3 {
@@ -730,6 +740,7 @@ func handleSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	summary = Summary{}
 	id, _ := strconv.Atoi(paths[1])
 	wg.Add(1)
 	go TMDBSummary(id)
@@ -783,10 +794,10 @@ func main() {
 	http.HandleFunc("/summary/", handleSummary)
 	http.HandleFunc("/subtitle/", handleSubtitle)
 
-    l, err := net.Listen("tcp4", *bind)
-    if err != nil {
-        log.Fatal(err)
-    }
-    http.Serve(l, nil)
+	l, err := net.Listen("tcp4", *bind)
+	if err != nil {
+		log.Fatal(err)
+	}
+	http.Serve(l, nil)
 	defer l.Close()
 }

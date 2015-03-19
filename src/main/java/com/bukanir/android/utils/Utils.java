@@ -1,14 +1,22 @@
 package com.bukanir.android.utils;
 
+import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Environment;
+import android.view.LayoutInflater;
+import android.view.View;
 
+import com.bukanir.android.R;
 import com.bukanir.android.entities.Movie;
 import com.bukanir.android.services.BukanirHttpService;
 import com.bukanir.android.services.Torrent2HttpService;
+import com.google.android.gms.analytics.GoogleAnalytics;
+import com.google.android.gms.analytics.Tracker;
 import com.thinkfree.showlicense.License;
 import com.thinkfree.showlicense.LicensedProject;
 
@@ -234,6 +242,61 @@ public class Utils {
             return null;
         }
 
+    }
+
+    public static void showAbout(Context ctx) {
+        LayoutInflater inflater = (LayoutInflater) ctx.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        View messageView = inflater.inflate(R.layout.about_dialog, null, false);
+
+        String ver = Update.getCurrentVersion(ctx);
+        String title = String.format("%s %s", ctx.getResources().getString(R.string.app_name), ver);
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(ctx);
+        builder.setIcon(R.drawable.ic_launcher);
+        builder.setTitle(title);
+        builder.setView(messageView);
+        builder.create();
+        builder.show();
+    }
+
+    public static void showUpdate(Context ctx) {
+        final Context context = ctx;
+        AlertDialog.Builder builder = new AlertDialog.Builder(ctx);
+        builder.setIcon(R.drawable.ic_launcher);
+        builder.setTitle(R.string.update_available);
+        builder.setMessage(R.string.update_download);
+        builder.setPositiveButton("OK",
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int whichButton) {
+                        Update.downloadUpdate(context);
+                    }
+                }
+        );
+        builder.setNegativeButton("Cancel",
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int whichButton) {
+                        dialog.dismiss();
+                    }
+                }
+        );
+        builder.create();
+        builder.show();
+    }
+
+    public static Tracker getTracker(Context ctx) {
+        Tracker tracker;
+        String trackingId = "UA-60883832-1";
+        Activity activity = (Activity) ctx;
+
+        GoogleAnalytics analytics = GoogleAnalytics.getInstance(ctx);
+        analytics.enableAutoActivityReports(activity.getApplication());
+        tracker = analytics.newTracker(trackingId);
+        tracker.setAnonymizeIp(true);
+        return tracker;
+    }
+
+    public static long getUnixTime() {
+        return System.currentTimeMillis() / 1000L;
     }
 
     public static LicensedProject[] projectList = new LicensedProject[] {

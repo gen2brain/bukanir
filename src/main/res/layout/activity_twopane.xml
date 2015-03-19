@@ -9,6 +9,8 @@
     android:showDividers="middle"
     tools:context="com.bukanir.android.activities.MoviesListActivity">
 
+    <include layout="@layout/toolbar"/>
+
     <!--
     This layout is a two-pane layout for the Items
     master/detail flow. See res/values-large-land-land/refs.xml and

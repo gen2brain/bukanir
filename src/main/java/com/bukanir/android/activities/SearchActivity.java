@@ -1,6 +1,8 @@
 package com.bukanir.android.activities;
 
+import android.app.AlertDialog;
 import android.app.SearchManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.AsyncTask;
@@ -8,13 +10,14 @@ import android.os.Build;
 import android.support.v4.app.NavUtils;
 import android.support.v4.view.MenuItemCompat;
 import android.support.v7.app.ActionBarActivity;
-import android.support.v7.app.ActionBar;
 import android.support.v7.widget.SearchView;
 import android.os.Bundle;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.Window;
+import android.view.View;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.bukanir.android.BukanirClient;
@@ -22,6 +25,8 @@ import com.bukanir.android.R;
 import com.bukanir.android.entities.Movie;
 import com.bukanir.android.fragments.SearchFragment;
 import com.bukanir.android.utils.Utils;
+import com.google.android.gms.analytics.HitBuilders;
+import com.google.android.gms.analytics.Tracker;
 import com.thinkfree.showlicense.android.ShowLicense;
 
 import java.util.ArrayList;
@@ -33,15 +38,22 @@ public class SearchActivity extends ActionBarActivity {
     private boolean twoPane;
     private ArrayList<Movie> movies;
     private SearchTask searchTask;
+    private ProgressBar progressBar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Log.d(TAG, "onCreate");
         super.onCreate(savedInstanceState);
 
-        supportRequestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
-
         setContentView(R.layout.activity_movie_list);
+
+        progressBar = (ProgressBar) findViewById(R.id.progressbar);
+
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        toolbar.setLogo(R.drawable.ic_launcher);
+        setSupportActionBar(toolbar);
+
+        getSupportActionBar().setDisplayShowTitleEnabled(true);
 
         if(findViewById(R.id.movie_container) != null) {
             twoPane = true;
@@ -49,16 +61,12 @@ public class SearchActivity extends ActionBarActivity {
 
         if(savedInstanceState != null) {
             movies = (ArrayList<Movie>) savedInstanceState.getSerializable("search");
+            if(movies != null) {
+                beginTransaction(movies);
+            }
         } else {
-            Bundle bundle = getIntent().getExtras();
-            movies = (ArrayList<Movie>) bundle.get("search");
+            handleSearchIntent(getIntent());
         }
-
-        final ActionBar actionBar = getSupportActionBar();
-        actionBar.setDisplayShowTitleEnabled(true);
-        actionBar.setDisplayHomeAsUpEnabled(true);
-
-        beginTransaction(movies);
     }
 
     @Override
@@ -89,12 +97,35 @@ public class SearchActivity extends ActionBarActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.search, menu);
+        final MenuItem searchItem = menu.findItem(R.id.action_search);
 
-        MenuItem searchItem = menu.findItem(R.id.action_search);
         SearchManager searchManager = (SearchManager) getSystemService(Context.SEARCH_SERVICE);
         SearchView searchView = (SearchView) MenuItemCompat.getActionView(searchItem);
-        searchView.setSearchableInfo(searchManager.getSearchableInfo(getComponentName()));
+        searchView.setSearchableInfo(searchManager.getSearchableInfo(new ComponentName(getApplicationContext(), SearchActivity.class)));
         searchView.setIconifiedByDefault(false);
+        searchView.setSubmitButtonEnabled(true);
+
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                return false;
+            }
+
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                if (searchItem != null) {
+                    MenuItemCompat.collapseActionView(searchItem);
+                }
+                return false;
+            }
+        });
+
+        searchView.setOnCloseListener(new SearchView.OnCloseListener() {
+            @Override
+            public boolean onClose() {
+                return false;
+            }
+        });
 
         return true;
     }
@@ -114,8 +145,13 @@ public class SearchActivity extends ActionBarActivity {
                 NavUtils.navigateUpFromSameTask(this);
                 return true;
             case R.id.action_licenses:
-                Intent licenses = ShowLicense.createActivityIntent(this, null, Utils.projectList);
-                startActivity(licenses);
+                AlertDialog licenses = ShowLicense.createDialog(this, null, Utils.projectList);
+                licenses.setIcon(R.drawable.ic_launcher);
+                licenses.setTitle(getString(R.string.action_licenses));
+                licenses.show();
+                return true;
+            case R.id.action_about:
+                Utils.showAbout(this);
                 return true;
         }
         return super.onOptionsItemSelected(item);
@@ -145,7 +181,13 @@ public class SearchActivity extends ActionBarActivity {
         Log.d(TAG, "handleSearchIntent");
         if(Intent.ACTION_SEARCH.equals(intent.getAction())) {
             String query = intent.getStringExtra(SearchManager.QUERY);
+            getSupportActionBar().setSubtitle(query);
+
             if(Utils.isNetworkAvailable(this)) {
+                Tracker tracker = Utils.getTracker(this);
+                tracker.setScreenName(query);
+                tracker.send(new HitBuilders.AppViewBuilder().build());
+
                 searchTask = new SearchTask();
                 if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
                     searchTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, query);
@@ -163,7 +205,9 @@ public class SearchActivity extends ActionBarActivity {
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
-            setSupportProgressBarIndeterminateVisibility(true);
+            if(progressBar != null) {
+                progressBar.setVisibility(View.VISIBLE);
+            }
         }
 
         protected ArrayList<Movie> doInBackground(String... params) {
@@ -181,7 +225,9 @@ public class SearchActivity extends ActionBarActivity {
         }
 
         protected void onPostExecute(ArrayList<Movie> results) {
-            setSupportProgressBarIndeterminateVisibility(false);
+            if(progressBar != null) {
+                progressBar.setVisibility(View.GONE);
+            }
             if(results != null && !results.isEmpty()) {
                 movies = results;
                 beginTransaction(results);

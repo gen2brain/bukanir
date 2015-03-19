@@ -52,11 +52,12 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
     String subtitlePath;
     String subtitleLanguage;
     DisplayImageOptions options;
-    ProgressBar progressBar;
+    ProgressBar torrentProgressBar;
     TextView downloadingText;
     ImageLoader imageLoader = ImageLoader.getInstance();
     Torrent2HttpTask torrent2HttpTask;
     SubtitleTask subtitleTask;
+    private ProgressBar progressBar;
 
     public static MovieFragment newInstance(Movie movie, Summary summary) {
         MovieFragment fragment = new MovieFragment();
@@ -78,8 +79,6 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
             summary = (Summary) getArguments().getSerializable("summary");
         }
 
-        getActivity().setProgressBarIndeterminateVisibility(false);
-
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
         subtitleLanguage = prefs.getString("sub_lang", "2");
 
@@ -94,8 +93,8 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
 
         View rootView = inflater.inflate(R.layout.fragment_movie, container, false);
 
-        progressBar = (ProgressBar) rootView.findViewById(R.id.progressBar);
-        progressBar.setVisibility(View.INVISIBLE);
+        torrentProgressBar = (ProgressBar) rootView.findViewById(R.id.progressBar);
+        torrentProgressBar.setVisibility(View.INVISIBLE);
 
         downloadingText = (TextView) rootView.findViewById(R.id.downloading);
         downloadingText.setVisibility(View.INVISIBLE);
@@ -124,6 +123,15 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
     }
 
     @Override
+    public void onViewCreated(View view, Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        View v = getView().getRootView();
+        if(v != null) {
+            progressBar = (ProgressBar) v.findViewById(R.id.progressbar);
+        }
+    }
+
+    @Override
     public void onDestroy() {
         Log.d(TAG, "onDestroy");
         super.onDestroy();
@@ -135,7 +143,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         if(torrent2HttpTask != null) {
             if(torrent2HttpTask.getStatus().equals(AsyncTask.Status.RUNNING)) {
                 torrent2HttpTask.cancel(true);
-                progressBar.setVisibility(View.INVISIBLE);
+                torrentProgressBar.setVisibility(View.INVISIBLE);
                 downloadingText.setVisibility(View.INVISIBLE);
             }
         }
@@ -251,11 +259,14 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
 
         protected void onPreExecute() {
             super.onPreExecute();
-            progressBar.setProgress(0);
-            progressBar.setVisibility(View.VISIBLE);
-            progressBar.setMax(100);
+            torrentProgressBar.setProgress(0);
+            torrentProgressBar.setVisibility(View.VISIBLE);
+            torrentProgressBar.setMax(100);
             downloadingText.setVisibility(View.VISIBLE);
-            getActivity().setProgressBarIndeterminateVisibility(true);
+
+            if(progressBar != null) {
+                progressBar.setVisibility(View.VISIBLE);
+            }
         }
 
         protected TorrentFile doInBackground(Void... params) {
@@ -304,7 +315,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
 
         protected void onProgressUpdate(Integer... progress) {
             super.onProgressUpdate(progress[0]);
-            progressBar.setProgress(progress[0]);
+            torrentProgressBar.setProgress(progress[0]);
             int state = progress[1];
             if(state == 0) {
                 downloadingText.setText(getString(R.string.queued));
@@ -324,10 +335,13 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
 
         protected void onPostExecute(TorrentFile torrentFile) {
             buttonWatch.setEnabled(true);
-            progressBar.setVisibility(View.INVISIBLE);
+            torrentProgressBar.setVisibility(View.INVISIBLE);
             downloadingText.setText("");
             downloadingText.setVisibility(View.INVISIBLE);
-            getActivity().setProgressBarIndeterminateVisibility(false);
+
+            if(progressBar != null) {
+                progressBar.setVisibility(View.GONE);
+            }
 
             if(torrentFile != null) {
                 Log.d(TAG, torrentFile.toString());

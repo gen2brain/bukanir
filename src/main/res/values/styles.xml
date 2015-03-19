@@ -1,8 +1,11 @@
 <resources>
 
     <!-- Base application theme. -->
-    <style name="AppTheme" parent="Theme.AppCompat">
-        <!-- Customize your theme here. -->
+    <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
+        <item name="actionBarStyle">@style/Widget.AppCompat.Toolbar</item>
+        <item name="colorPrimary">@color/primary_material_light</item>
+        <item name="colorPrimaryDark">@color/primary_material_dark</item>
+        <item name="colorAccent">@color/accent_material_light</item>
     </style>
 
     <style name="MediaController_Text">

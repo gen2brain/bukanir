@@ -17,6 +17,7 @@ import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.ListAdapter;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -51,6 +52,7 @@ public class MoviesListFragment extends Fragment {
     private MovieTask movieTask;
     DisplayImageOptions options;
     ListView listView;
+    private ProgressBar progressBar;
 
     protected ImageLoader imageLoader = ImageLoader.getInstance();
 
@@ -74,7 +76,6 @@ public class MoviesListFragment extends Fragment {
         }
 
         twoPane = getArguments().getBoolean("twoPane");
-        getActivity().setProgressBarIndeterminateVisibility(false);
 
         View rootView = inflater.inflate(R.layout.fragment_movie_list, container, false);
 
@@ -102,6 +103,15 @@ public class MoviesListFragment extends Fragment {
         prepareListView(rootView);
 
         return rootView;
+    }
+
+    @Override
+    public void onViewCreated(View view, Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        View v = getView().getRootView();
+        if(v != null) {
+            progressBar = (ProgressBar) v.findViewById(R.id.progressbar);
+        }
     }
 
     @Override
@@ -180,7 +190,9 @@ public class MoviesListFragment extends Fragment {
 
         protected void onPreExecute() {
             super.onPreExecute();
-            getActivity().setProgressBarIndeterminateVisibility(true);
+            if(progressBar != null) {
+                progressBar.setVisibility(View.VISIBLE);
+            }
         }
 
         protected Summary doInBackground(Movie... params) {
@@ -195,7 +207,9 @@ public class MoviesListFragment extends Fragment {
         }
 
         protected void onPostExecute(Summary summary) {
-            getActivity().setProgressBarIndeterminateVisibility(false);
+            if(progressBar != null) {
+                progressBar.setVisibility(View.GONE);
+            }
             beginTransaction(movie, summary);
         }
 
@@ -213,7 +227,11 @@ public class MoviesListFragment extends Fragment {
 
         @Override
         public int getCount() {
-            return movies.size();
+            if(movies != null) {
+                return movies.size();
+            } else {
+                return 0;
+            }
         }
 
         @Override

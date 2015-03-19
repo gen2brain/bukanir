@@ -3,14 +3,17 @@ package com.bukanir.android.activities;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.app.DownloadManager;
 import android.app.SearchManager;
+import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Build;
-import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
@@ -20,11 +23,13 @@ import android.support.v7.app.ActionBarActivity;
 import android.support.v7.app.ActionBar;
 import android.support.v7.widget.SearchView;
 import android.os.Bundle;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.Window;
+import android.view.View;
 import android.widget.ArrayAdapter;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.bukanir.android.BukanirClient;
@@ -32,7 +37,10 @@ import com.bukanir.android.R;
 import com.bukanir.android.entities.Movie;
 import com.bukanir.android.fragments.MoviesListFragment;
 import com.bukanir.android.services.BukanirHttpService;
+import com.bukanir.android.utils.Update;
 import com.bukanir.android.utils.Utils;
+import com.google.android.gms.analytics.HitBuilders;
+import com.google.android.gms.analytics.Tracker;
 import com.thinkfree.showlicense.android.ShowLicense;
 
 import java.util.ArrayList;
@@ -48,6 +56,9 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
     private MoviesTask moviesTask;
     private String category;
     private int listCount;
+    private ProgressBar progressBar;
+
+    private BroadcastReceiver downloadReceiver;
 
     private static final String STATE_SELECTED_NAVIGATION_ITEM = "selected_navigation_item";
 
@@ -65,14 +76,35 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
             startService(intent);
         }
 
-        supportRequestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
-
         setContentView(R.layout.activity_movie_list);
+
+        progressBar = (ProgressBar) findViewById(R.id.progressbar);
+
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        toolbar.setLogo(R.drawable.ic_launcher);
+        setSupportActionBar(toolbar);
+
+        getSupportActionBar().setTitle(null);
 
         if(findViewById(R.id.movie_container) != null) {
             twoPane = true;
         } else {
             twoPane = false;
+        }
+
+        Tracker tracker = Utils.getTracker(this);
+        tracker.setScreenName("Movies List");
+        tracker.send(new HitBuilders.AppViewBuilder().build());
+
+        if(Update.checkUpdate(this)) {
+            downloadReceiver = Update.getDownloadReceiver(this);
+            registerReceiver(downloadReceiver, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
+
+            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                new UpdateTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+            } else {
+                new UpdateTask().execute();
+            }
         }
 
         if(savedInstanceState != null) {
@@ -92,6 +124,9 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
     @Override
     public void onDestroy() {
         Log.d(TAG, "onDestroy");
+        if(downloadReceiver != null) {
+            unregisterReceiver(downloadReceiver);
+        }
         super.onDestroy();
         cancelMovieTask();
 
@@ -111,13 +146,6 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
     protected void onResume() {
         Log.d(TAG, "onResume");
         super.onResume();
-    }
-
-    @Override
-    protected void onNewIntent(Intent intent) {
-        Log.d(TAG, "onNewIntent");
-        super.onNewIntent(intent);
-        handleSearchIntent(intent);
     }
 
     @Override
@@ -141,11 +169,36 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.main, menu);
-        MenuItem searchItem = menu.findItem(R.id.action_search);
+        final MenuItem searchItem = menu.findItem(R.id.action_search);
+
         SearchManager searchManager = (SearchManager) getSystemService(Context.SEARCH_SERVICE);
         SearchView searchView = (SearchView) MenuItemCompat.getActionView(searchItem);
-        searchView.setSearchableInfo(searchManager.getSearchableInfo(getComponentName()));
+        searchView.setSearchableInfo(searchManager.getSearchableInfo(new ComponentName(getApplicationContext(), SearchActivity.class)));
         searchView.setIconifiedByDefault(false);
+        searchView.setSubmitButtonEnabled(true);
+
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                return false;
+            }
+
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                if(searchItem != null) {
+                    MenuItemCompat.collapseActionView(searchItem);
+                }
+                return false;
+            }
+        });
+
+        searchView.setOnCloseListener(new SearchView.OnCloseListener() {
+            @Override
+            public boolean onClose() {
+                return false;
+            }
+        });
+
         return true;
     }
 
@@ -166,8 +219,13 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
                 }
                 return true;
             case R.id.action_licenses:
-                Intent licenses = ShowLicense.createActivityIntent(this, null, Utils.projectList);
-                startActivity(licenses);
+                AlertDialog licenses = ShowLicense.createDialog(this, null, Utils.projectList);
+                licenses.setIcon(R.drawable.ic_launcher);
+                licenses.setTitle(getString(R.string.action_licenses));
+                licenses.show();
+                return true;
+            case R.id.action_about:
+                Utils.showAbout(this);
                 return true;
         }
         return super.onOptionsItemSelected(item);
@@ -180,8 +238,6 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
             category = "201";
         } else if(position == 1) {
             category = "207";
-        } else if(position == 2) {
-            category = "202";
         }
 
         startMovieTask(false);
@@ -237,7 +293,6 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
                         new String[]{
                                 getString(R.string.title_section1),
                                 getString(R.string.title_section2),
-                                getString(R.string.title_section3),
                         }
                 ),
                 this
@@ -258,9 +313,9 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
 
             moviesTask = new MoviesTask();
             if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-                moviesTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, null, category, force);
+                moviesTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, category, force);
             } else {
-                moviesTask.execute(null, category, force);
+                moviesTask.execute(category, force);
             }
         } else {
             Toast.makeText(this, getString(R.string.network_not_available), Toast.LENGTH_LONG).show();
@@ -275,73 +330,43 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
         }
     }
 
-    private void beginTransaction(ArrayList<Movie> results, String query) {
+    private void beginTransaction(ArrayList<Movie> results) {
         FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
         if(twoPane) {
-            if(query != null) {
-                Intent intent = new Intent(this, SearchActivity.class);
-                intent.putExtra("search", results);
-                startActivity(intent);
-            } else {
-                Fragment prev = getSupportFragmentManager().findFragmentById(R.id.list_container);
-                if (prev != null) {
-                    ft.remove(prev);
-                }
-                ft.replace(R.id.list_container, MoviesListFragment.newInstance(results, twoPane));
-                ft.commit();
+            Fragment prev = getSupportFragmentManager().findFragmentById(R.id.list_container);
+            if (prev != null) {
+                ft.remove(prev);
             }
+            ft.replace(R.id.list_container, MoviesListFragment.newInstance(results, twoPane));
+            ft.commit();
         } else {
-            if(query != null) {
-                Intent intent = new Intent(this, SearchActivity.class);
-                intent.putExtra("search", results);
-                startActivity(intent);
-            } else {
-                Fragment prev = getSupportFragmentManager().findFragmentById(R.id.container);
-                if (prev != null) {
-                    ft.remove(prev);
-                }
-                ft.replace(R.id.container, MoviesListFragment.newInstance(results, twoPane));
-                ft.commit();
+            Fragment prev = getSupportFragmentManager().findFragmentById(R.id.container);
+            if (prev != null) {
+                ft.remove(prev);
             }
-        }
-    }
-
-    private void handleSearchIntent(Intent intent) {
-        Log.d(TAG, "handleSearchIntent");
-        if(Intent.ACTION_SEARCH.equals(intent.getAction())) {
-            String query = intent.getStringExtra(SearchManager.QUERY);
-            if(Utils.isNetworkAvailable(this)) {
-                Log.d(TAG, "networkAvailable");
-                moviesTask = new MoviesTask();
-                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-                    moviesTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, query, null);
-                } else {
-                    moviesTask.execute(query, null);
-                }
-            } else {
-                Toast.makeText(this, getString(R.string.network_not_available), Toast.LENGTH_LONG).show();
-            }
+            ft.replace(R.id.container, MoviesListFragment.newInstance(results, twoPane));
+            ft.commit();
         }
     }
 
     private class MoviesTask extends AsyncTask<String, Integer, ArrayList<Movie>> {
 
-        String query;
         String category;
 
         protected void onPreExecute() {
             super.onPreExecute();
-            setSupportProgressBarIndeterminateVisibility(true);
+            if(progressBar != null) {
+                progressBar.setVisibility(View.VISIBLE);
+            }
         }
 
         protected ArrayList<Movie> doInBackground(String... params) {
 
-            query = params[0];
-            category = params[1];
+            category = params[0];
 
             String force;
-            if(params.length == 3) {
-                force = params[2];
+            if(params.length == 2) {
+                force = params[1];
             } else {
                 force = "0";
             }
@@ -359,11 +384,7 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
             }
 
             try {
-                if(query != null) {
-                    results = BukanirClient.getSearchMovies(query, -1);
-                } else {
-                    results = BukanirClient.getTopMovies(category, listCount, refresh);
-                }
+                results = BukanirClient.getTopMovies(category, listCount, refresh);
             } catch(Exception e) {
                 e.printStackTrace();
                 return null;
@@ -373,19 +394,36 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
         }
 
         protected void onPostExecute(final ArrayList<Movie> results) {
-            setSupportProgressBarIndeterminateVisibility(false);
+            if(progressBar != null) {
+                progressBar.setVisibility(View.GONE);
+            }
             if(results != null && !results.isEmpty()) {
-                if(category != null) {
-                    movies = results;
-                }
+                movies = results;
                 try {
-                    beginTransaction(results, query);
+                    beginTransaction(results);
                 } catch(Exception e) {
                     e.printStackTrace();
                 }
             }
         }
 
+    }
+
+    private class UpdateTask extends AsyncTask<Void, Void, Boolean> {
+
+        protected void onPreExecute() {
+            super.onPreExecute();
+        }
+
+        protected Boolean doInBackground(Void... params) {
+            return Update.updateExists(getApplication());
+        }
+
+        protected void onPostExecute(Boolean result) {
+            if(result) {
+                Utils.showUpdate(MoviesListActivity.this);
+            }
+        }
     }
 
 }
