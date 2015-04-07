@@ -30,18 +30,15 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.DefaultHttpClient;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URL;
 import java.text.DecimalFormat;
-import java.util.Arrays;
-import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -62,7 +59,15 @@ public class Utils {
     }
 
     public static boolean isFreeSpaceAvailable(Context context, Movie m) {
-        long freeSpace = Environment.getExternalStorageDirectory().getUsableSpace();
+        long freeSpace;
+
+        String sdcard = getExternalSdcardDirectory();
+        if(sdcard != null && !sdcard.equals("")) {
+            File dir = new File(sdcard);
+            freeSpace = dir.getUsableSpace();
+        } else {
+            freeSpace = context.getExternalCacheDir().getUsableSpace();
+        }
 
         if(freeSpace > Long.valueOf(m.size)) {
             return true;
@@ -90,39 +95,38 @@ public class Utils {
         return false;
     }
 
-    public static boolean isStorageVfat(Context context) {
+    public static String getExternalSdcardDirectory() {
+        FileInputStream fis;
         try {
-            String cacheDir = context.getExternalCacheDir().toString();
-            List<String> items = Arrays.asList(cacheDir.split("/"));
-            String path = items.get(1) + "/" + items.get(2);
+            fis = new FileInputStream(new File("/etc/vold.fstab"));
+        } catch (FileNotFoundException e) {
+            return null;
+        }
 
-            String cmd = String.format("/system/bin/mount | grep '%s'", path);
-            String[] command = {"/system/bin/sh", "-c", cmd};
+        try {
+            byte[] buffer = new byte[4096];
+            int n=0;
 
-            Process process = Runtime.getRuntime().exec(command, null, new File("/system/bin"));
-            try {
-                process.waitFor();
-            } catch(InterruptedException e) {
-                e.printStackTrace();
+            String file = "";
+            while((n=fis.read(buffer, 0, 4096))>0) {
+                file += new String(buffer, 0, n);
             }
+            fis.close();
 
-            String line;
-            String output = "";
-            BufferedReader in = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            while((line = in.readLine()) != null) {
-                output += line;
-            }
-
-            List<String> outputItems = Arrays.asList(output.split(" "));
-            if(outputItems.size() >= 3) {
-                if(outputItems.get(2).equals("vfat")) {
-                    return true;
+            String[] rows = file.split("\n");
+            for(String row: rows) {
+                String trimmedRow = row.trim();
+                if(trimmedRow.startsWith("#") || trimmedRow.equals("")) {
+                    continue;
+                } else if(trimmedRow.equals(Environment.getExternalStorageDirectory().getAbsolutePath())) {
+                    continue;
+                } else {
+                    return trimmedRow.split(" ")[2];
                 }
             }
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch(IOException e) {
         }
-        return false;
+        return null;
     }
 
     public static String toTitleCase(String input) {

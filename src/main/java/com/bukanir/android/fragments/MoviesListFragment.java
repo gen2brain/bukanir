@@ -153,11 +153,13 @@ public class MoviesListFragment extends Fragment {
     private void beginTransaction(Movie movie, Summary summary) {
         FragmentTransaction ft = getActivity().getSupportFragmentManager().beginTransaction();
         Fragment prev = getActivity().getSupportFragmentManager().findFragmentById(R.id.movie_container);
-        if (prev != null) {
+        if(prev != null) {
             ft.remove(prev);
         }
-        ft.replace(R.id.movie_container, MovieFragment.newInstance(movie, summary));
-        ft.commit();
+        if(getActivity().findViewById(R.id.movie_container) != null) {
+            ft.replace(R.id.movie_container, MovieFragment.newInstance(movie, summary));
+            ft.commit();
+        }
     }
 
     private void startMovieActivity(int position) {
