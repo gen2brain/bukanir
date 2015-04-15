@@ -24,12 +24,15 @@ import com.bukanir.android.BukanirClient;
 import com.bukanir.android.R;
 import com.bukanir.android.entities.Movie;
 import com.bukanir.android.fragments.SearchFragment;
+import com.bukanir.android.utils.Connectivity;
 import com.bukanir.android.utils.Utils;
 import com.google.android.gms.analytics.HitBuilders;
 import com.google.android.gms.analytics.Tracker;
 import com.thinkfree.showlicense.android.ShowLicense;
 
 import java.util.ArrayList;
+
+import go.Go;
 
 public class SearchActivity extends ActionBarActivity {
 
@@ -44,6 +47,8 @@ public class SearchActivity extends ActionBarActivity {
     protected void onCreate(Bundle savedInstanceState) {
         Log.d(TAG, "onCreate");
         super.onCreate(savedInstanceState);
+
+        Go.init(getApplicationContext());
 
         setContentView(R.layout.activity_movie_list);
 
@@ -183,7 +188,7 @@ public class SearchActivity extends ActionBarActivity {
             String query = intent.getStringExtra(SearchManager.QUERY);
             getSupportActionBar().setSubtitle(query);
 
-            if(Utils.isNetworkAvailable(this)) {
+            if(Connectivity.isConnected(this)) {
                 Tracker tracker = Utils.getTracker(this);
                 tracker.setScreenName(query);
                 tracker.send(new HitBuilders.AppViewBuilder().build());

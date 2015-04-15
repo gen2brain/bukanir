@@ -5,8 +5,6 @@ import java.util.List;
 
 public class Subtitle implements Comparable<Subtitle>, Serializable {
 	
-	private static final long serialVersionUID = 6325576090541429026L;
-
     public String id;
 	public String title;
 	public String year;

@@ -3,6 +3,7 @@ package com.bukanir.android.fragments;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.preference.PreferenceManager;
@@ -18,10 +19,10 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.bukanir.android.BukanirClient;
 import com.bukanir.android.R;
 import com.bukanir.android.activities.PlayerActivity;
 import com.bukanir.android.entities.Summary;
-import com.bukanir.android.scrapers.Podnapisi;
 import com.nostra13.universalimageloader.cache.disc.impl.UnlimitedDiscCache;
 import com.nostra13.universalimageloader.core.DisplayImageOptions;
 import com.nostra13.universalimageloader.core.ImageLoader;
@@ -31,15 +32,19 @@ import com.bukanir.android.entities.Movie;
 import com.bukanir.android.entities.Subtitle;
 import com.bukanir.android.entities.TorrentFile;
 import com.bukanir.android.entities.TorrentStatus;
-import com.bukanir.android.scrapers.Titlovi;
 import com.bukanir.android.services.Torrent2HttpService;
 import com.bukanir.android.utils.Utils;
+import com.nostra13.universalimageloader.core.assist.ImageLoadingListener;
+import com.nostra13.universalimageloader.core.assist.SimpleImageLoadingListener;
+import com.nostra13.universalimageloader.core.display.FadeInBitmapDisplayer;
 import com.nostra13.universalimageloader.core.display.SimpleBitmapDisplayer;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
 
 public class MovieFragment extends Fragment implements View.OnClickListener {
 
@@ -80,7 +85,9 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         }
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
-        subtitleLanguage = prefs.getString("sub_lang", "2");
+        subtitleLanguage = prefs.getString("sub_lang", "en");
+
+        ImageLoadingListener animateFirstListener = new AnimateFirstDisplayListener();
 
         options = new DisplayImageOptions.Builder()
                 .showImageOnLoading(R.drawable.ic_stub)
@@ -117,7 +124,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
                     .build();
             imageLoader.init(config);
         }
-        imageLoader.displayImage(movie.posterLarge, image, options);
+        imageLoader.displayImage(movie.posterLarge, image, options, animateFirstListener);
 
         return rootView;
     }
@@ -147,7 +154,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
                 downloadingText.setVisibility(View.INVISIBLE);
             }
         }
-        if(Utils.isServiceRunning(getActivity())) {
+        if(Utils.isTorrentServiceRunning(getActivity())) {
             Intent intent = new Intent(getActivity(), Torrent2HttpService.class);
             getActivity().stopService(intent);
         }
@@ -207,10 +214,20 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         cast.setText(summary.cast);
         overview.setText(summary.overview);
 
-        if(!summary.tagline.isEmpty()) {
-            tagline.setText(summary.tagline);
+        if(movie.category.equals("205")) {
+            int season = Integer.valueOf(movie.season);
+            int episode = Integer.valueOf(movie.episode);
+            if(season != 0 && episode != 0) {
+                tagline.setText(String.format("S%02dE%02d", season, episode));
+            } else {
+                tagline.setVisibility(View.GONE);
+            }
         } else {
-            tagline.setVisibility(View.GONE);
+            if (!summary.tagline.isEmpty()) {
+                tagline.setText(summary.tagline);
+            } else {
+                tagline.setVisibility(View.GONE);
+            }
         }
 
         String year = "";
@@ -360,61 +377,27 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         String cacheDir;
 
         protected void onPreExecute() {
-            cacheDir = getActivity().getExternalCacheDir().toString() + File.separator + "movie";
+            cacheDir = Utils.getStorage(getActivity());
         }
 
         protected String doInBackground(Movie... params) {
             Movie m = params[0];
 
-            Podnapisi podnapisi = new Podnapisi();
-            ArrayList<ArrayList<String>> subtitles;
-            try {
-                subtitles = podnapisi.search(m.title, m.year, m.release, subtitleLanguage);
-            } catch(Exception e) {
-                e.printStackTrace();
-                return null;
-            }
-
             if(isCancelled()) {
                 return null;
             }
 
-            if(subtitles == null) {
-                if(subtitleLanguage.equals("36") || subtitleLanguage.equals("6") || subtitleLanguage.equals("11")) {
-                    try {
-                        Titlovi titlovi = new Titlovi();
-                        subtitles = titlovi.search(m.title);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        return null;
-                    }
-                } else {
-                    try {
-                        subtitles = podnapisi.search(m.title, m.year, m.release, "2");
-                    } catch(Exception e) {
-                        e.printStackTrace();
-                        return null;
-                    }
-                }
-            }
+            ArrayList<Subtitle> subtitles = BukanirClient.getSubtitles(m.title, m.year, m.release, subtitleLanguage, m.category, m.season, m.episode);
 
-            if(subtitles == null || isCancelled()) {
+            if(subtitles == null || subtitles.isEmpty() || isCancelled()) {
                 return null;
             }
 
-            ArrayList<Subtitle> results = new ArrayList<>();
-            for (ArrayList<String> sub : subtitles) {
-                String score = String.valueOf(Utils.compareRelease(m.release, sub.get(3)));
-                sub.add(score);
-                results.add(new Subtitle(sub));
-            }
-
-            Collections.sort(results);
-            subtitle = results.get(0);
+            subtitle = subtitles.get(0);
             String zipFile = cacheDir + "/" + subtitle.id + ".zip";
             try {
                 Utils.saveURL(subtitle.downloadLink, zipFile);
-            } catch (IOException e) {
+            } catch(IOException e) {
                 e.printStackTrace();
                 return null;
             }
@@ -426,6 +409,23 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
             subtitlePath = subPath;
         }
 
+    }
+
+    private static class AnimateFirstDisplayListener extends SimpleImageLoadingListener {
+
+        static final List<String> displayedImages = Collections.synchronizedList(new LinkedList<String>());
+
+        @Override
+        public void onLoadingComplete(String imageUri, View view, Bitmap loadedImage) {
+            if(loadedImage != null) {
+                ImageView imageView = (ImageView) view;
+                boolean firstDisplay = !displayedImages.contains(imageUri);
+                if(firstDisplay) {
+                    FadeInBitmapDisplayer.animate(imageView, 500);
+                    displayedImages.add(imageUri);
+                }
+            }
+        }
     }
 
 }

@@ -5,8 +5,6 @@ import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.os.Environment;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -20,15 +18,6 @@ import com.google.android.gms.analytics.Tracker;
 import com.thinkfree.showlicense.License;
 import com.thinkfree.showlicense.LicensedProject;
 
-import net.ricecode.similarity.JaroWinklerStrategy;
-import net.ricecode.similarity.SimilarityStrategy;
-import net.ricecode.similarity.StringSimilarityService;
-import net.ricecode.similarity.StringSimilarityServiceImpl;
-
-import org.apache.http.HttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
-
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -36,23 +25,12 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
+import java.net.HttpURLConnection;
 import java.net.URL;
-import java.text.DecimalFormat;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class Utils {
-
-    public static boolean isNetworkAvailable(Context context) {
-        final ConnectivityManager conMgr =  (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-        final NetworkInfo activeNetwork = conMgr.getActiveNetworkInfo();
-        if (activeNetwork != null && activeNetwork.isConnected()) {
-            return true;
-        } else {
-            return false;
-        }
-    }
 
     public static boolean isStorageAvailable() {
         return Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState());
@@ -75,7 +53,7 @@ public class Utils {
         return false;
     }
 
-    public static boolean isServiceRunning(Context context) {
+    public static boolean isTorrentServiceRunning(Context context) {
         ActivityManager manager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
         for(ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
             if(Torrent2HttpService.class.getName().equals(service.service.getClassName())) {
@@ -95,6 +73,14 @@ public class Utils {
         return false;
     }
 
+    public static boolean isX86() {
+        String arch = System.getProperty("os.arch").toLowerCase();
+        if(arch.startsWith("x86") || arch.startsWith("i686")) {
+            return true;
+        }
+        return false;
+    }
+
     public static String getExternalSdcardDirectory() {
         FileInputStream fis;
         try {
@@ -105,7 +91,7 @@ public class Utils {
 
         try {
             byte[] buffer = new byte[4096];
-            int n=0;
+            int n;
 
             String file = "";
             while((n=fis.read(buffer, 0, 4096))>0) {
@@ -127,6 +113,18 @@ public class Utils {
         } catch(IOException e) {
         }
         return null;
+    }
+
+    public static String getStorage(Context context) {
+        String cacheDir;
+        String sdcard = getExternalSdcardDirectory();
+        if(sdcard != null && !sdcard.equals("")) {
+            cacheDir = sdcard;
+        } else {
+            cacheDir = context.getExternalCacheDir().toString();
+        }
+        cacheDir = cacheDir + File.separator + "bukanir";
+        return cacheDir;
     }
 
     public static String toTitleCase(String input) {
@@ -157,18 +155,15 @@ public class Utils {
         return dir.delete();
     }
 
-    public static InputStream getURL(String url){
-        URI uri;
-        InputStream data = null;
-        DefaultHttpClient httpClient = new DefaultHttpClient();
+    public static InputStream getURL(String uri) {
         try {
-            uri = new URI(url);
-            HttpGet method = new HttpGet(uri);
-            HttpResponse response = httpClient.execute(method);
-            data = response.getEntity().getContent();
+            URL url = new URL(uri);
+            HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+            return urlConnection.getInputStream();
         } catch(Exception e) {
+            //e.printStackTrace();
+            return null;
         }
-        return data;
     }
 
     public static void saveURL(String url, String filename) throws IOException {
@@ -191,16 +186,6 @@ public class Utils {
                 fout.close();
             }
         }
-    }
-
-    public static String compareRelease(String torrentRelease, String subtitleRelease) {
-        SimilarityStrategy strategy = new JaroWinklerStrategy();
-        StringSimilarityService service = new StringSimilarityServiceImpl(strategy);
-        torrentRelease = torrentRelease.replace(".", " ").replace("-", " ");
-        subtitleRelease = subtitleRelease.replace(".", " ").replace("-", " ");
-        DecimalFormat df = new DecimalFormat("#.##");
-        double score = service.score(torrentRelease, subtitleRelease);
-        return df.format(score);
     }
 
     public static String unzipSubtitle(String zip, String path) {
@@ -306,10 +291,8 @@ public class Utils {
     public static LicensedProject[] projectList = new LicensedProject[] {
             new LicensedProject("app-bits icons", null, "http://app-bits.com/free-icons.html", License.CC_BY_ND_3),
             new LicensedProject("gson", null, "https://code.google.com/p/google-gson/", License.APACHE2),
-            new LicensedProject("jsoup", null, "http://jsoup.org/", License.MIT),
             new LicensedProject("numberpicker", null, "https://github.com/baynezy/numberpicker", License.APACHE2),
             new LicensedProject("showlicense", null, "https://github.com/behumble/showlicense", License.APACHE2),
-            new LicensedProject("string-similarity", null, "https://github.com/rrice/java-string-similarity", License.MIT),
             new LicensedProject("torrent2http", null, "https://github.com/steeve/torrent2http", License.GPL3),
             new LicensedProject("universal-image-loader", null, "https://github.com/nostra13/Android-Universal-Image-Loader", License.APACHE2),
             new LicensedProject("vitamio", null, "https://github.com/yixia/VitamioBundle", License.APACHE2),

@@ -62,9 +62,8 @@ public class Update {
             HttpsURLConnection conn = (HttpsURLConnection) new URL(url).openConnection();
             conn.setRequestMethod("HEAD");
             return (conn.getResponseCode() == 302);
-        }
-        catch(Exception e) {
-            e.printStackTrace();
+        } catch(Exception e) {
+            //e.printStackTrace();
             return false;
         }
     }

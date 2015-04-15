@@ -15,10 +15,8 @@ Dependencies
 ------------
 
 * https://code.google.com/p/google-gson/
-* http://jsoup.org/
 * https://github.com/baynezy/numberpicker
 * https://github.com/behumble/showlicense
-* https://github.com/rrice/java-string-similarity
 * https://github.com/steeve/torrent2http
 * https://github.com/nostra13/Android-Universal-Image-Loader
 * https://github.com/yixia/VitamioBundle

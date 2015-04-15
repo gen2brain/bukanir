@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.support.v4.app.FragmentManager;
-import android.support.v7.app.ActionBar;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
@@ -25,6 +24,8 @@ import com.google.android.gms.analytics.HitBuilders;
 import com.google.android.gms.analytics.Tracker;
 import com.thinkfree.showlicense.android.ShowLicense;
 
+import go.Go;
+
 public class MovieActivity extends ActionBarActivity {
 
     public static final String TAG = "MovieActivity";
@@ -38,6 +39,8 @@ public class MovieActivity extends ActionBarActivity {
     protected void onCreate(Bundle savedInstanceState) {
         Log.d(TAG, "onCreate");
         super.onCreate(savedInstanceState);
+
+        Go.init(getApplicationContext());
 
         setContentView(R.layout.activity_movie);
 
@@ -138,7 +141,7 @@ public class MovieActivity extends ActionBarActivity {
                 return null;
             }
 
-            Summary summary = BukanirClient.getSummary(Integer.valueOf(movie.id));
+            Summary summary = BukanirClient.getSummary(Integer.valueOf(movie.id), Integer.valueOf(movie.category), Integer.valueOf(movie.season));
             return summary;
         }
 

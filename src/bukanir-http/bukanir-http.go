@@ -1,13 +1,18 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
+	"encoding/xml"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -18,7 +23,6 @@ import (
 	"sync"
 	"time"
 
-	"code.google.com/p/go.net/html"
 	"github.com/PuerkitoBio/goquery"
 	tmdb "github.com/amahi/go-themoviedb"
 	humanize "github.com/dustin/go-humanize"
@@ -27,10 +31,10 @@ import (
 
 var (
 	appName    = "bukanir-http"
-	appVersion = "1.2"
+	appVersion = "1.3"
 )
 
-type Torrent struct {
+type torrent struct {
 	Title          string
 	FormattedTitle string
 	MagnetLink     string
@@ -38,9 +42,12 @@ type Torrent struct {
 	Size           uint64
 	SizeHuman      string
 	Seeders        int
+	Category       int
+	Season         int
+	Episode        int
 }
 
-type Movie struct {
+type movie struct {
 	Id           int    `json:"id"`
 	Title        string `json:"title"`
 	Year         string `json:"year"`
@@ -53,9 +60,12 @@ type Movie struct {
 	Seeders      int    `json:"seeders"`
 	MagnetLink   string `json:"magnetLink"`
 	Release      string `json:"release"`
+	Category     int    `json:"category"`
+	Season       int    `json:"season"`
+	Episode      int    `json:"episode"`
 }
 
-type Summary struct {
+type summary struct {
 	Id       int     `json:"id"`
 	Cast     string  `json:"cast"`
 	Rating   float64 `json:"rating"`
@@ -64,7 +74,7 @@ type Summary struct {
 	Runtime  int     `json:"runtime"`
 }
 
-type Subtitle struct {
+type subtitle struct {
 	Id           string  `json:"id"`
 	Title        string  `json:"title"`
 	Year         string  `json:"year"`
@@ -73,47 +83,39 @@ type Subtitle struct {
 	Score        float64 `json:"score"`
 }
 
-type Release struct {
-	Name  string
-	Score float64
-}
+type bySeeders []movie
 
-type BySeeders []Movie
+func (a bySeeders) Len() int           { return len(a) }
+func (a bySeeders) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a bySeeders) Less(i, j int) bool { return a[i].Seeders > a[j].Seeders }
 
-func (a BySeeders) Len() int           { return len(a) }
-func (a BySeeders) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a BySeeders) Less(i, j int) bool { return a[i].Seeders > a[j].Seeders }
+type byScore []subtitle
 
-type ReleaseByScore []Release
-
-func (a ReleaseByScore) Len() int           { return len(a) }
-func (a ReleaseByScore) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ReleaseByScore) Less(i, j int) bool { return a[i].Score > a[j].Score }
-
-type ByScore []Subtitle
-
-func (a ByScore) Len() int           { return len(a) }
-func (a ByScore) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByScore) Less(i, j int) bool { return a[i].Score > a[j].Score }
-
-var tpbTopUrl string = "https://%s/top/%s/%d"
-var tpbSearchUrl string = "https://%s/search/%s/%d/7/201,207"
+func (a byScore) Len() int           { return len(a) }
+func (a byScore) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a byScore) Less(i, j int) bool { return a[i].Score > a[j].Score }
 
 const tmdbApiKey = "YOUR_API_KEY"
 
 var (
+	reHTML   = regexp.MustCompile(`<[^>]*>`)
 	reYear   = regexp.MustCompile(`(.*)(19\d{2}|20\d{2})(.*)`)
-	reTitle1 = regexp.MustCompile(`(.*?)(dvdrip|xvid|dvdscr|brrip|bdrip|divx|klaxxon|hc|webrip|hdrip|camrip|hdtv|eztv|proper|720p|1080p|[\*\{\(\[]?[0-9]{4}).*`)
+	reTitle1 = regexp.MustCompile(`(.*?)(dvdrip|xvid|dvdscr|brrip|bdrip|divx|klaxxon|hc|webrip|hdrip|camrip|hdtv|eztv|proper|x264|480p|720p|1080p|[\*\{\(\[]?[0-9]{4}).*`)
 	reTitle2 = regexp.MustCompile(`(.*?)\(.*\)(.*)`)
+	reSeason = regexp.MustCompile(`(?i:s|season)(\d{2})(?i:e|x|episode)(\d{2})`)
 )
 
 var categories = []string{
 	"201",
 	"207",
+	"205",
 }
 
 var hosts = []string{
 	"thepiratebay.se",
+	"thepiratebay.mk",
+	"thepiratebay.cd",
+	"thepiratebay.lv",
 }
 
 var trackers = []string{
@@ -124,87 +126,207 @@ var trackers = []string{
 	"udp://tracker.coppersurfer.tk:80",
 }
 
-var movies []Movie
-var summary Summary
-var torrents []Torrent
-var releases []Release
-var subtitles []Subtitle
+var movies []movie
+var torrents []torrent
+var subtitles []subtitle
+var movieSummary summary
 var wg sync.WaitGroup
 
-var cacheDir = flag.String("cachedir", "/tmp", "Cache directory")
+var chain = `-----BEGIN CERTIFICATE-----
+MIIFRzCCBC+gAwIBAgISESGXNII/8fVUAIsyFQbH5pmTMA0GCSqGSIb3DQEBBQUA
+MF0xCzAJBgNVBAYTAkJFMRkwFwYDVQQKExBHbG9iYWxTaWduIG52LXNhMTMwMQYD
+VQQDEypHbG9iYWxTaWduIE9yZ2FuaXphdGlvbiBWYWxpZGF0aW9uIENBIC0gRzIw
+HhcNMTQxMDExMTAwODE1WhcNMTUxMDEyMTAwODE1WjBuMQswCQYDVQQGEwJVUzEL
+MAkGA1UECBMCQ0ExFjAUBgNVBAcTDVNhbiBGcmFuY2lzY28xGTAXBgNVBAoTEENs
+b3VkRmxhcmUsIEluYy4xHzAdBgNVBAMTFnNzbDIwMDAuY2xvdWRmbGFyZS5jb20w
+ggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCsrcZa6V46wy4fFmaLfHT1
+FPZXa+2qDvaWpAbrT5N9ibIuLnJ0yvpkB5WvI3R21pXOeqqAZsSKTeukUIQV2fTD
+yxynffWFPdSsj5kRu5tR0JvDS4fQz5NZaxYemhjPSe7mV+fvNk0aWW8xBbU1jJfr
+i/84f62sgcjQJy0SV+6/sXZzcQt6DM4MPn1aNWWritxNDwx8l0T38Zj0x6Zcy4tV
+2B4kfDMA9+8kuC+HaSkzNIQKt2uN5xrUivs7nA6H6oZlV7YDOm6nhC2OtOmjXQKH
+Gga4Nq9+UefCQ9rLL9cylYWvO0BqHh0nLbxaCEOlo+362E6TDptm/qoN+mg083RH
+AgMBAAGjggHuMIIB6jAOBgNVHQ8BAf8EBAMCBaAwSQYDVR0gBEIwQDA+BgZngQwB
+AgIwNDAyBggrBgEFBQcCARYmaHR0cHM6Ly93d3cuZ2xvYmFsc2lnbi5jb20vcmVw
+b3NpdG9yeS8wQwYDVR0RBDwwOoIWc3NsMjAwMC5jbG91ZGZsYXJlLmNvbYIOY2xv
+dWRmbGFyZS5jb22CECouY2xvdWRmbGFyZS5jb20wCQYDVR0TBAIwADAdBgNVHSUE
+FjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwRQYDVR0fBD4wPDA6oDigNoY0aHR0cDov
+L2NybC5nbG9iYWxzaWduLmNvbS9ncy9nc29yZ2FuaXphdGlvbnZhbGcyLmNybDCB
+lgYIKwYBBQUHAQEEgYkwgYYwRwYIKwYBBQUHMAKGO2h0dHA6Ly9zZWN1cmUuZ2xv
+YmFsc2lnbi5jb20vY2FjZXJ0L2dzb3JnYW5pemF0aW9udmFsZzIuY3J0MDsGCCsG
+AQUFBzABhi9odHRwOi8vb2NzcDIuZ2xvYmFsc2lnbi5jb20vZ3Nvcmdhbml6YXRp
+b252YWxnMjAdBgNVHQ4EFgQUH6U3xLIIaPv8vcp1Zzi6jFtNa94wHwYDVR0jBBgw
+FoAUXUayjcRLdBy77fVztjq3OI91nn4wDQYJKoZIhvcNAQEFBQADggEBAEviNeXx
+Qv6zHbRs/AhmbtdJDaiNZVe6RF20CnPev+X4H8XVwha80GgNqdUCBIuQZIJ+L7lB
+NMxAAp+XuCW/4F959ZQtAsZkiFaMUf7NI7Bpl61W15aQPVplt18EkMpCf3CBXFCq
+J8R/oJilzJRdh0bQ2yIL6IDIG/bCZ9GXh9TKBKJC6MUzsf1GMziihytg/510dng0
+Nwp1/q+0XioOsxpOp3qX2LnC/datjsEIHtjIr8LnZZojh3RG2cuMTS3n5fiwxXp2
+9Gg/FqkTXHfWBgdzZ7wD8NAPxak03AlDjQthXEn4YwB/c8CjKqn+r77o4pvLm+JE
+bJLtKDaYbNmULxY=
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+MIIEYDCCA0igAwIBAgILBAAAAAABL07hRQwwDQYJKoZIhvcNAQEFBQAwVzELMAkG
+A1UEBhMCQkUxGTAXBgNVBAoTEEdsb2JhbFNpZ24gbnYtc2ExEDAOBgNVBAsTB1Jv
+b3QgQ0ExGzAZBgNVBAMTEkdsb2JhbFNpZ24gUm9vdCBDQTAeFw0xMTA0MTMxMDAw
+MDBaFw0yMjA0MTMxMDAwMDBaMF0xCzAJBgNVBAYTAkJFMRkwFwYDVQQKExBHbG9i
+YWxTaWduIG52LXNhMTMwMQYDVQQDEypHbG9iYWxTaWduIE9yZ2FuaXphdGlvbiBW
+YWxpZGF0aW9uIENBIC0gRzIwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB
+AQDdNR3yIFQmGtDvpW+Bdllw3Of01AMkHyQOnSKf1Ccyeit87ovjYWI4F6+0S3qf
+ZyEcLZVUunm6tsTyDSF0F2d04rFkCJlgePtnwkv3J41vNnbPMYzl8QbX3FcOW6zu
+zi2rqqlwLwKGyLHQCAeV6irs0Z7kNlw7pja1Q4ur944+ABv/hVlrYgGNguhKujiz
+4MP0bRmn6gXdhGfCZsckAnNate6kGdn8AM62pI3ffr1fsjqdhDFPyGMM5NgNUqN+
+ARvUZ6UYKOsBp4I82Y4d5UcNuotZFKMfH0vq4idGhs6dOcRmQafiFSNrVkfB7cVT
+5NSAH2v6gEaYsgmmD5W+ZoiTAgMBAAGjggElMIIBITAOBgNVHQ8BAf8EBAMCAQYw
+EgYDVR0TAQH/BAgwBgEB/wIBADAdBgNVHQ4EFgQUXUayjcRLdBy77fVztjq3OI91
+nn4wRwYDVR0gBEAwPjA8BgRVHSAAMDQwMgYIKwYBBQUHAgEWJmh0dHBzOi8vd3d3
+Lmdsb2JhbHNpZ24uY29tL3JlcG9zaXRvcnkvMDMGA1UdHwQsMCowKKAmoCSGImh0
+dHA6Ly9jcmwuZ2xvYmFsc2lnbi5uZXQvcm9vdC5jcmwwPQYIKwYBBQUHAQEEMTAv
+MC0GCCsGAQUFBzABhiFodHRwOi8vb2NzcC5nbG9iYWxzaWduLmNvbS9yb290cjEw
+HwYDVR0jBBgwFoAUYHtmGkUNl8qJUC99BM00qP/8/UswDQYJKoZIhvcNAQEFBQAD
+ggEBABvgiADHBREc/6stSEJSzSBo53xBjcEnxSxZZ6CaNduzUKcbYumlO/q2IQen
+fPMOK25+Lk2TnLryhj5jiBDYW2FQEtuHrhm70t8ylgCoXtwtI7yw07VKoI5lkS/Z
+9oL2dLLffCbvGSuXL+Ch7rkXIkg/pfcNYNUNUUflWP63n41edTzGQfDPgVRJEcYX
+pOBWYdw9P91nbHZF2krqrhqkYE/Ho9aqp9nNgSvBZnWygI/1h01fwlr1kMbawb30
+hag8IyrhFHvBN91i0ZJsumB9iOQct+R2UTjEqUdOqCsukNK1OFHrwZyKarXMsh3o
+wFZUTKiL8IkyhtyTMr5NGvo1dbU=
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+MIIFZDCCBQmgAwIBAgIRAIxVL2C5eOVJT5AmeRKBrGIwCgYIKoZIzj0EAwIwgZIx
+CzAJBgNVBAYTAkdCMRswGQYDVQQIExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNV
+BAcTB1NhbGZvcmQxGjAYBgNVBAoTEUNPTU9ETyBDQSBMaW1pdGVkMTgwNgYDVQQD
+Ey9DT01PRE8gRUNDIERvbWFpbiBWYWxpZGF0aW9uIFNlY3VyZSBTZXJ2ZXIgQ0Eg
+MjAeFw0xNTA0MDEwMDAwMDBaFw0xNTA5MzAyMzU5NTlaMGsxITAfBgNVBAsTGERv
+bWFpbiBDb250cm9sIFZhbGlkYXRlZDEhMB8GA1UECxMYUG9zaXRpdmVTU0wgTXVs
+dGktRG9tYWluMSMwIQYDVQQDExpzbmkzMzc4MC5jbG91ZGZsYXJlc3NsLmNvbTBZ
+MBMGByqGSM49AgEGCCqGSM49AwEHA0IABCOCgOk1v/kBW5YJQlP3ZdXKEv84hJDs
+DIEHlt3yKkEKjG0u0XCL6emo8VPC6hq7Sk0YTiiFhZuiveYjvAnPSLCjggNkMIID
+YDAfBgNVHSMEGDAWgBRACWFn8LyDcU/eEggsb9TUK3Y9ljAdBgNVHQ4EFgQUAsKS
+prtyTgwn073RV3zrgvLwmYwwDgYDVR0PAQH/BAQDAgeAMAwGA1UdEwEB/wQCMAAw
+HQYDVR0lBBYwFAYIKwYBBQUHAwEGCCsGAQUFBwMCME8GA1UdIARIMEYwOgYLKwYB
+BAGyMQECAgcwKzApBggrBgEFBQcCARYdaHR0cHM6Ly9zZWN1cmUuY29tb2RvLmNv
+bS9DUFMwCAYGZ4EMAQIBMFYGA1UdHwRPME0wS6BJoEeGRWh0dHA6Ly9jcmwuY29t
+b2RvY2E0LmNvbS9DT01PRE9FQ0NEb21haW5WYWxpZGF0aW9uU2VjdXJlU2VydmVy
+Q0EyLmNybDCBiAYIKwYBBQUHAQEEfDB6MFEGCCsGAQUFBzAChkVodHRwOi8vY3J0
+LmNvbW9kb2NhNC5jb20vQ09NT0RPRUNDRG9tYWluVmFsaWRhdGlvblNlY3VyZVNl
+cnZlckNBMi5jcnQwJQYIKwYBBQUHMAGGGWh0dHA6Ly9vY3NwLmNvbW9kb2NhNC5j
+b20wggGrBgNVHREEggGiMIIBnoIac25pMzM3ODAuY2xvdWRmbGFyZXNzbC5jb22C
+ECouYWNyZXN0cnVzdC5jb22CDCouYWR1d2F0YS5sa4INKi5iZWVlZWVyLm9yZ4IV
+Ki5rbmlnaHRhc2NlbnNpb24uY29tgg4qLnB1bmRyb2lkLmNvbYIOKi50ZXJyYWlj
+dC5jb22CESoudGhlcGlyYXRlYmF5LnNlghUqLnRyYXZlbHdvbmRlcjM2NS5jb22C
+CCoudWNlLnB3gg8qLnVwbG9hZGJheS5vcmeCHyoueG4tLTEyY2FhNmhnMWEzYTJi
+NWQwZDljdmgud3OCDmFjcmVzdHJ1c3QuY29tggphZHV3YXRhLmxrggtiZWVlZWVy
+Lm9yZ4ITa25pZ2h0YXNjZW5zaW9uLmNvbYIMcHVuZHJvaWQuY29tggx0ZXJyYWlj
+dC5jb22CD3RoZXBpcmF0ZWJheS5zZYITdHJhdmVsd29uZGVyMzY1LmNvbYIGdWNl
+LnB3gg11cGxvYWRiYXkub3Jngh14bi0tMTJjYWE2aGcxYTNhMmI1ZDBkOWN2aC53
+czAKBggqhkjOPQQDAgNJADBGAiEAxfsGDGwsOfSYaLdeVunpv5Exjy010KZp9l1+
+9Yd9eDICIQDjZ4weh631w+0AnIZF4crePccCxsZpSFphWmUA7kpRmg==
+-----END CERTIFICATE-----`
 
-func TPBTop(category string, page int) {
+func decodePem(certInput string) tls.Certificate {
+	var cert tls.Certificate
+	certPEMBlock := []byte(certInput)
+	var certDERBlock *pem.Block
+	for {
+		certDERBlock, certPEMBlock = pem.Decode(certPEMBlock)
+		if certDERBlock == nil {
+			break
+		}
+		if certDERBlock.Type == "CERTIFICATE" {
+			cert.Certificate = append(cert.Certificate, certDERBlock.Bytes)
+		}
+	}
+	return cert
+}
+
+func getTLSConfig() tls.Config {
+	certChain := decodePem(chain)
+	conf := tls.Config{}
+	conf.RootCAs = x509.NewCertPool()
+	for _, cert := range certChain.Certificate {
+		x509Cert, err := x509.ParseCertificate(cert)
+		if err != nil {
+			panic(err)
+		}
+		conf.RootCAs.AddCert(x509Cert)
+	}
+	conf.BuildNameToCertificate()
+	return conf
+}
+
+func tpbTop(category string) {
 	defer wg.Done()
 	defer func() {
 		if r := recover(); r != nil {
-			log.Print("Recovered in TPBTop: ", r)
+			log.Print("Recovered in tpbTop: ", r)
 		}
 	}()
 
 	host := getHost()
-	res, err := httpGet(fmt.Sprintf(tpbTopUrl, host, category, page))
+	uri := "https://%s/top/%s"
+
+	doc, err := getDocument(fmt.Sprintf(uri, host, category))
 	if err != nil {
 		log.Print("Error making TPB call: %v", err.Error())
 		return
 	}
 
-	doc, err := html.Parse(res.Body)
-	if err != nil {
-		log.Print("Error parsing TPB html: %v", err.Error())
-		return
-	}
-
-	loopDOM(doc)
+	getTorrents(doc)
 }
 
-func TPBSearch(query string, page int) {
+func tpbSearch(query string, page int) {
 	defer wg.Done()
 	defer func() {
 		if r := recover(); r != nil {
-			log.Print("Recovered in TPBSearch: ", r)
+			log.Print("Recovered in tpbSearch: ", r)
 		}
 	}()
 
 	host := getHost()
-	res, err := httpGet(fmt.Sprintf(tpbSearchUrl, host, url.QueryEscape(query), page))
+	uri := "https://%s/search/%s/%d/7/201,207,205"
+
+	doc, err := getDocument(fmt.Sprintf(uri, host, url.QueryEscape(query), page))
 	if err != nil {
 		log.Print("Error making TPB call: %v", err.Error())
 		return
 	}
 
-	doc, err := html.Parse(res.Body)
-	if err != nil {
-		log.Print("Error parsing TPB html: %v", err.Error())
-		return
-	}
-
-	loopDOM(doc)
+	getTorrents(doc)
 }
 
-func TMDBMovie(torrent Torrent) {
+func tmdbSearch(t torrent) {
 	defer wg.Done()
 	defer func() {
 		if r := recover(); r != nil {
-			log.Print("Recovered in TMDBMovie: ", r)
+			log.Print("Recovered in tmdbSearch: ", r)
 		}
 	}()
 
 	md := tmdb.Init(tmdbApiKey)
 	config, _ := md.GetConfig()
 
-	results, _ := md.SearchMovie(torrent.FormattedTitle)
+	var results tmdb.TmdbResponse
+	if t.Category == 205 {
+		results, _ = md.SearchTmdbtv(t.FormattedTitle)
+	} else {
+		results, _ = md.SearchMovie(t.FormattedTitle)
+	}
+
 	if results.Total_results == 0 {
 		return
 	}
 
-	res := new(tmdb.TmdbResult)
-	for _, result := range results.Results {
-		if result.Release_date != "" && torrent.Year != "" {
-			tmdbYear, _ := strconv.Atoi(getYear(result.Release_date))
-			torrentYear, _ := strconv.Atoi(torrent.Year)
-			if tmdbYear == torrentYear || tmdbYear == torrentYear-1 || tmdbYear == torrentYear+1 {
-				res = &result
-				break
+	var res *tmdb.TmdbResult
+	if t.Category == 205 {
+		res = &results.Results[0]
+	} else {
+		res = new(tmdb.TmdbResult)
+		for _, result := range results.Results {
+			if result.Release_date != "" && t.Year != "" {
+				tmdbYear, _ := strconv.Atoi(getYear(result.Release_date))
+				torrentYear, _ := strconv.Atoi(t.Year)
+				if tmdbYear == torrentYear || tmdbYear == torrentYear-1 || tmdbYear == torrentYear+1 {
+					res = &result
+					break
+				}
 			}
 		}
 	}
@@ -213,52 +335,96 @@ func TMDBMovie(torrent Torrent) {
 		return
 	}
 
+	var p tmdb.TmdbPoster
+	if t.Category == 205 {
+		p, _ = md.GetTmdbTvImages(strconv.Itoa(res.Id), t.Season)
+	}
+
+	var posterSmall, posterMedium, posterLarge, posterXLarge string
+	if t.Category == 205 && len(p.Posters) > 0 {
+		posterSmall = config.Images.Base_url + config.Images.Poster_sizes[0] + p.Posters[0].File_path
+		posterMedium = config.Images.Base_url + config.Images.Poster_sizes[3] + p.Posters[0].File_path
+		posterLarge = config.Images.Base_url + config.Images.Poster_sizes[3] + p.Posters[0].File_path
+		posterXLarge = config.Images.Base_url + config.Images.Poster_sizes[4] + p.Posters[0].File_path
+	} else {
+		posterSmall = config.Images.Base_url + config.Images.Poster_sizes[0] + res.Poster_path
+		posterMedium = config.Images.Base_url + config.Images.Poster_sizes[3] + res.Poster_path
+		posterLarge = config.Images.Base_url + config.Images.Poster_sizes[3] + res.Poster_path
+		posterXLarge = config.Images.Base_url + config.Images.Poster_sizes[4] + res.Poster_path
+	}
+
 	size := len(config.Images.Poster_sizes)
 	if size < 5 {
 		return
 	}
 
-	movie := Movie{
-		res.Id,
-		res.Title,
-		getYear(res.Release_date),
-		config.Images.Base_url + config.Images.Poster_sizes[0] + res.Poster_path,
-		config.Images.Base_url + config.Images.Poster_sizes[3] + res.Poster_path,
-		config.Images.Base_url + config.Images.Poster_sizes[3] + res.Poster_path,
-		config.Images.Base_url + config.Images.Poster_sizes[4] + res.Poster_path,
-		torrent.Size,
-		torrent.SizeHuman,
-		torrent.Seeders,
-		torrent.MagnetLink,
-		torrent.Title,
+	var title string
+	var year string
+	if t.Category == 205 {
+		title = res.Original_name
+		year = getYear(res.First_air_date)
+	} else {
+		title = res.Title
+		year = getYear(res.Release_date)
 	}
-	movies = append(movies, movie)
+
+	m := movie{
+		res.Id,
+		title,
+		year,
+		posterSmall,
+		posterMedium,
+		posterLarge,
+		posterXLarge,
+		t.Size,
+		t.SizeHuman,
+		t.Seeders,
+		t.MagnetLink,
+		t.Title,
+		t.Category,
+		t.Season,
+		t.Episode,
+	}
+	movies = append(movies, m)
 }
 
-func TMDBSummary(id int) {
+func tmdbSummary(id int, category int, season int) {
 	defer wg.Done()
 	defer func() {
 		if r := recover(); r != nil {
-			log.Print("Recovered in TMDBSummary: ", r)
+			log.Print("Recovered in tmdbSummary: ", r)
 		}
 	}()
 
 	md := tmdb.Init(tmdbApiKey)
 
-	res, err := md.GetMovieDetails(strconv.Itoa(id))
+	var err error
+	var res tmdb.MovieMetadata
+
+	if category == 205 {
+		res, err = md.GetTmdbTvDetails(strconv.Itoa(id))
+	} else {
+		res, err = md.GetMovieDetails(strconv.Itoa(id))
+	}
 	if err != nil {
 		return
 	}
-	res.Credits, err = md.GetMovieCredits(strconv.Itoa(id))
+
+	if category == 205 {
+		res.Credits, err = md.GetTmdbTvCredits(strconv.Itoa(id), season)
+	} else {
+		res.Credits, err = md.GetMovieCredits(strconv.Itoa(id))
+	}
 	if err != nil {
 		return
 	}
+
 	res.Config, err = md.GetConfig()
 	if err != nil {
 		return
 	}
 
-	summary = Summary{
+	movieSummary = summary{
 		id,
 		getCast(res.Credits.Cast),
 		res.Vote_average,
@@ -268,92 +434,90 @@ func TMDBSummary(id int) {
 	}
 }
 
-func Podnapisi(movie string, year string, torrentRelease string, lang string) {
-	baseUrl := "http://www.podnapisi.net"
-	searchUrl := baseUrl + "/en/ppodnapisi/search?sT=-1&sK=%s&sJ=%s&sY=%s&sAKA=0&sS=downloads&sO=desc"
+func podnapisi(movie string, year string, torrentRelease string, lang string, category int, season int, episode int) {
+	type Page struct {
+		Current int `xml:"current"`
+		Count   int `xml:"count"`
+		Results int `xml:"results"`
+	}
 
-	url := fmt.Sprintf(searchUrl, url.QueryEscape(movie), lang, year)
+	type Subtitle struct {
+		XMLName   xml.Name `xml:"subtitle"`
+		Id        int      `xml:"id"`
+		Pid       string   `xml:"pid"`
+		Title     string   `xml:"title"`
+		Year      string   `xml:"year"`
+		Url       string   `xml:"url"`
+		Release   string   `xml:"release"`
+		TvSeason  int      `xml:"tvSeason"`
+		TvEpisode int      `xml:"tvEpisode"`
+	}
 
-	doc, err := goquery.NewDocument(url)
+	type Data struct {
+		XMLName      xml.Name   `xml:"results"`
+		Pagination   Page       `xml:"pagination"`
+		SubtitleList []Subtitle `xml:"subtitle"`
+	}
+
+	baseUrl := "http://podnapisi.net/subtitles/"
+	searchUrl := baseUrl + "search/old?sK=%s&sY=%s&sJ=%s"
+
+	url := fmt.Sprintf(searchUrl, url.QueryEscape(movie), year, lang)
+
+	if category == 205 {
+		if season != 0 {
+			url = url + fmt.Sprintf("&sTS=%d&sTE=%d", season, episode)
+		}
+	}
+
+	res, err := httpGet(url)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	nodes := doc.Find(`table.list.first_column_title`)
-	trs := nodes.Find(`tr[class=" "]`)
+	defer res.Body.Close()
+	body, _ := ioutil.ReadAll(res.Body)
 
-	length := trs.Length()
-	if length == 0 {
-
+	var r Data
+	err = xml.Unmarshal(body, &r)
+	if err != nil {
+		log.Printf("Error unmarshalling response: %v\n", err)
 	}
 
-	getSubtitle := func(tr *goquery.Selection) {
-		defer wg.Done()
-		defer func() {
-			if r := recover(); r != nil {
-				log.Print("Recovered in getSubtitle: ", r)
-			}
-		}()
+	for _, s := range r.SubtitleList {
+		rel := strings.Fields(s.Release)
+		var subtitleRelease string
+		if len(rel) > 0 {
+			subtitleRelease = rel[0]
+		} else {
+			continue
+		}
 
-		subtitlePageLink := tr.Find(`a.subtitle_page_link`).First()
-		subtitleYear := subtitlePageLink.Find(`b`).First().Text()
+		score := compareRelease(torrentRelease, subtitleRelease)
+		if score < 0.4 {
+			continue
+		}
 
-		rl, _ := tr.Find(`span.release`).Attr(`html_title`)
-		subtitleReleases := strings.Split(rl, "<br/>")
-
-		releases = make([]Release, 0)
-		for _, rel := range subtitleReleases {
-			if rel == "" {
+		if category == 205 {
+			if season != s.TvSeason || episode != s.TvEpisode {
 				continue
 			}
-			score := compareRelease(torrentRelease, rel)
-			r := Release{rel, score}
-			releases = append(releases, r)
-		}
-		sort.Sort(ReleaseByScore(releases))
-
-		var release Release
-		if len(releases) > 0 {
-			release = releases[0]
-		} else {
-			release = Release{"", 0}
 		}
 
-		subtitleHref, _ := subtitlePageLink.Attr(`href`)
-		downloadUrl := baseUrl + subtitleHref
-		downloadDoc, err := goquery.NewDocument(downloadUrl)
-		if err != nil {
-			log.Fatal(err)
-		}
+		downloadLink := fmt.Sprintf(baseUrl+"%s/download", s.Pid)
 
-		downloadHref := downloadDoc.Find(`a.button.big.download`).First()
-		href, _ := downloadHref.Attr(`href`)
-		downloadLink := baseUrl + strings.Replace(href, "predownload", "download", -1)
-
-		split := strings.Split(href, "/")
-		id := split[len(split)-1]
-		title := strings.Replace(subtitlePageLink.Text(), subtitleYear, "", -1)
-		year := getYear(subtitleYear)
-
-		subtitle := Subtitle{id, title, year, release.Name, downloadLink, release.Score}
-		subtitles = append(subtitles, subtitle)
+		s := subtitle{strconv.Itoa(s.Id), s.Title, s.Year, subtitleRelease, downloadLink, score}
+		subtitles = append(subtitles, s)
 	}
-
-	wg.Add(len(trs.Nodes))
-	for i := range trs.Nodes {
-		tr := trs.Eq(i)
-		go getSubtitle(tr)
-	}
-	wg.Wait()
 }
 
-func Titlovi(movie string, torrentRelease string) {
+func titlovi(movie string, torrentRelease string, category int, season int, episode int) {
 	searchUrl := "http://en.titlovi.com/subtitles/subtitles.aspx?subtitle=%s"
 	downloadUrl := "http://titlovi.com/downloads/default.ashx?type=1&mediaid=%s"
 
 	url := fmt.Sprintf(searchUrl, url.QueryEscape(movie))
 
-	doc, err := goquery.NewDocument(url)
+	doc, err := getDocument(url)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -361,28 +525,29 @@ func Titlovi(movie string, torrentRelease string) {
 	nodes := doc.Find(`li.listing`)
 	divs := nodes.Find(`div.title.c1`)
 
-	length := divs.Length()
-	if length == 0 {
-
+	if divs.Length() == 0 {
+		return
 	}
 
 	reNum := regexp.MustCompile(`[^0-9]`)
 
-	for i := range divs.Nodes {
-		div := divs.Eq(i)
+	parseHTML := func(i int, div *goquery.Selection) {
+		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Print("Recovered in parseHTML: ", r)
+			}
+		}()
 
 		link := div.Find(`a`).First()
 		href, _ := link.Attr("href")
 
-		title := strings.TrimSpace(link.Text())
+		title := getTitle(strings.TrimSpace(link.Text()))
 
 		subtitleYear := div.Find(`span.year`).First().Text()
 		year := getYear(subtitleYear)
 
 		subtitleRelease := div.Find(`span.release`).First().Text()
-		release := strings.TrimSpace(subtitleRelease)
-
-		score := compareRelease(torrentRelease, release)
 
 		split := strings.Split(href, "-")
 		id := split[len(split)-1]
@@ -390,9 +555,28 @@ func Titlovi(movie string, torrentRelease string) {
 
 		downloadLink := fmt.Sprintf(downloadUrl, id)
 
-		subtitle := Subtitle{id, title, year, release, downloadLink, score}
-		subtitles = append(subtitles, subtitle)
+		score := compareRelease(torrentRelease, subtitleRelease)
+		if score < 0.4 {
+			return
+		}
+
+		if category == 205 {
+			rs, _ := strconv.Atoi(getSeason(subtitleRelease))
+			re, _ := strconv.Atoi(getEpisode(subtitleRelease))
+			if season != rs || episode != re {
+				return
+			}
+		}
+
+		s := subtitle{id, title, year, subtitleRelease, downloadLink, score}
+		subtitles = append(subtitles, s)
 	}
+
+	wg.Add(divs.Length())
+	divs.Each(func(i int, s *goquery.Selection) {
+		go parseHTML(i, s)
+	})
+	wg.Wait()
 }
 
 func compareRelease(torrentRelease string, subtitleRelease string) float64 {
@@ -403,90 +587,128 @@ func compareRelease(torrentRelease string, subtitleRelease string) float64 {
 	return smetrics.Jaro(torrentRelease, subtitleRelease)
 }
 
-func httpGet(url string) (*http.Response, error) {
-	timeout := time.Duration(10 * time.Second)
+func httpGet(uri string) (*http.Response, error) {
+	jar, _ := cookiejar.New(nil)
+	timeout := time.Duration(30 * time.Second)
 
 	dialTimeout := func(network, addr string) (net.Conn, error) {
 		return net.DialTimeout(network, addr, timeout)
 	}
 
+	//tlsConfig := getTLSConfig()
+
 	transport := http.Transport{
 		Dial: dialTimeout,
+		//TLSClientConfig: &tlsConfig,
 	}
 
 	httpClient := http.Client{
+		Jar:       jar,
 		Transport: &transport,
 	}
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:25.0) Gecko/20100101 Firefox/25.0")
-	return httpClient.Do(req)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:36.0) Gecko/20100101 Firefox/36.0")
+
+	res, err := httpClient.Do(req)
+	if err != nil || res == nil {
+		return nil, err
+	}
+
+	if res.StatusCode != 200 {
+		return nil, nil
+	}
+
+	return res, nil
 }
 
-func loopDOM(n *html.Node) {
-	if n.Type == html.ElementNode && n.Data == "tbody" {
-		extractTorrents(n)
+func getDocument(uri string) (*goquery.Document, error) {
+	res, err := httpGet(uri)
+	if err != nil {
+		log.Printf("Error httpGet %s: %v", uri, err.Error())
+		return nil, err
 	}
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		loopDOM(c)
+
+	if res == nil {
+		return nil, nil
 	}
+
+	doc, err := goquery.NewDocumentFromResponse(res)
+	if err != nil {
+		log.Printf("Error NewDocumentFromResponse %s: %v", uri, err.Error())
+		return nil, err
+	}
+
+	if doc == nil {
+		return nil, nil
+	}
+
+	return doc, nil
 }
 
-func extractTorrents(n *html.Node) {
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		if c.Type == html.ElementNode && c.Data == "tr" {
-			var torrent Torrent
-			err := getTorrent(c, &torrent)
-			if err == nil {
-				torrent.Year = getYear(torrent.Title)
-				torrent.FormattedTitle = getTitle(torrent.Title)
-				torrent.MagnetLink = boostMagnet(torrent.MagnetLink)
-				torrents = append(torrents, torrent)
-			}
+func getTorrents(doc *goquery.Document) {
+	divs := doc.Find(`div.detName`)
+
+	if divs.Length() == 0 {
+		return
+	}
+
+	var wgp sync.WaitGroup
+
+	parseHTML := func(i int, s *goquery.Selection) {
+		defer wgp.Done()
+
+		parent := s.Parent()
+		prev := parent.Prev().First()
+
+		title := s.Find(`a.detLink`).Text()
+		magnet, _ := parent.Find(`a[title="Download this torrent using magnet"]`).Attr(`href`)
+		desc := parent.Find(`font.detDesc`).Text()
+		seeders, _ := strconv.Atoi(parent.Next().Text())
+
+		c, _ := prev.Find(`a[title="More from this category"]`).Last().Attr(`href`)
+		category, _ := strconv.Atoi(strings.Replace(c, "/browse/", "", -1))
+
+		if seeders == 0 {
+			return
 		}
-	}
-}
 
-func getTorrent(n *html.Node, t *Torrent) error {
-	if n.Type == html.ElementNode {
-		for _, a := range n.Attr {
-			if n.Data == "a" && a.Key == "href" && a.Val[:6] == "magnet" {
-				t.MagnetLink = a.Val
-			} else if n.Data == "a" && a.Key == "href" && a.Val[:9] == "/torrent/" {
-				if t.Title == "" {
-					t.Title = getNodeText(n)
-				}
-			} else if n.Data == "font" && a.Key == "class" && a.Val == "detDesc" {
-				parts := strings.Split(getNodeText(n), ", ")
-				if len(parts) > 1 {
-					s, _ := humanize.ParseBytes(strings.Split(parts[1], " ")[1])
-					t.Size = s
-					t.SizeHuman = humanize.IBytes(s)
-				}
-			} else if n.Data == "td" && a.Key == "align" && a.Val == "right" {
-				if t.Seeders == 0 {
-					t.Seeders, _ = strconv.Atoi(getNodeText(n))
-				}
-			}
+		var size uint64
+		var sizeHuman string
+		parts := strings.Split(desc, ", ")
+		if len(parts) > 1 {
+			size, _ = humanize.ParseBytes(strings.Split(parts[1], " ")[1])
+			sizeHuman = humanize.IBytes(size)
 		}
-	}
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		getTorrent(c, t)
-	}
-	return nil
-}
 
-func getNodeText(n *html.Node) string {
-	for a := n.FirstChild; a != nil; a = a.NextSibling {
-		if a.Type == html.TextNode {
-			return strings.TrimSpace(a.Data)
+		season, _ := strconv.Atoi(getSeason(title))
+		episode, _ := strconv.Atoi(getEpisode(title))
+
+		t := torrent{
+			title,
+			getTitle(title),
+			boostMagnet(magnet),
+			getYear(title),
+			size,
+			sizeHuman,
+			seeders,
+			category,
+			season,
+			episode,
 		}
+
+		torrents = append(torrents, t)
 	}
-	return ""
+
+	wgp.Add(divs.Length())
+	divs.Each(func(i int, s *goquery.Selection) {
+		go parseHTML(i, s)
+	})
+	wgp.Wait()
 }
 
 func getTitle(torrentTitle string) string {
@@ -507,6 +729,8 @@ func getTitle(torrentTitle string) string {
 	title = strings.Replace(title, "(", "", -1)
 	title = strings.Replace(title, ")", "", -1)
 
+	title = reSeason.ReplaceAllString(title, "")
+
 	return strings.Trim(title, " ")
 }
 
@@ -517,6 +741,24 @@ func getYear(torrentTitle string) string {
 		title = re[0][2]
 	}
 	return title
+}
+
+func getSeason(torrentTitle string) string {
+	season := ""
+	re := reSeason.FindAllStringSubmatch(torrentTitle, -1)
+	if len(re) > 0 {
+		season = re[0][1]
+	}
+	return season
+}
+
+func getEpisode(torrentTitle string) string {
+	episode := ""
+	re := reSeason.FindAllStringSubmatch(torrentTitle, -1)
+	if len(re) > 0 {
+		episode = re[0][2]
+	}
+	return episode
 }
 
 func getHost() string {
@@ -573,22 +815,22 @@ func boostMagnet(magnet string) string {
 	return magnet
 }
 
-func saveCache(key string, data []byte) {
-	file := filepath.Join(*cacheDir, key+".json")
+func saveCache(key string, data []byte, tmpDir string) {
+	file := filepath.Join(tmpDir, key+".json")
 	err := ioutil.WriteFile(file, data, 0644)
 	if err != nil {
 		log.Print("Error writing cache file: %v", err.Error())
 	}
 }
 
-func getCache(key string) []byte {
-	file := filepath.Join(*cacheDir, key+".json")
+func getCache(key string, tmpDir string) []byte {
+	file := filepath.Join(tmpDir, key+".json")
 	info, err := os.Stat(file)
 	if err != nil {
 		return nil
 	}
 	mtime := info.ModTime().Unix()
-	if time.Now().Unix()-mtime > 86400 {
+	if time.Now().Unix()-mtime > 43200 {
 		return nil
 	}
 
@@ -600,83 +842,141 @@ func getCache(key string) []byte {
 	return data
 }
 
+func Category(category string, limit int, force int, tmpDir string) (string, error) {
+	if force != 1 {
+		cache := getCache(category, tmpDir)
+		if cache != nil {
+			return string(cache[:]), nil
+		}
+	}
+
+	torrents = make([]torrent, 0)
+
+	wg.Add(1)
+	go tpbTop(category)
+	wg.Wait()
+
+	if limit > 0 {
+		if limit > len(torrents) {
+			limit = len(torrents)
+		}
+		torrents = torrents[0:limit]
+	}
+
+	movies = make([]movie, 0)
+	wg.Add(len(torrents))
+	for _, torrent := range torrents {
+		go tmdbSearch(torrent)
+	}
+	wg.Wait()
+
+	sort.Sort(bySeeders(movies))
+	js, err := json.MarshalIndent(movies, "", "    ")
+	if err != nil {
+		return "empty", err
+	}
+
+	if len(movies) > 0 {
+		saveCache(category, js, tmpDir)
+	}
+
+	return string(js[:]), nil
+}
+
+func Search(query string, limit int) (string, error) {
+	torrents = make([]torrent, 0)
+
+	wg.Add(3)
+	go tpbSearch(query, 0)
+	go tpbSearch(query, 1)
+	go tpbSearch(query, 2)
+	wg.Wait()
+
+	if limit > 0 {
+		if limit > len(torrents) {
+			limit = len(torrents)
+		}
+		torrents = torrents[0:limit]
+	}
+
+	movies = make([]movie, 0)
+	wg.Add(len(torrents))
+	for _, torrent := range torrents {
+		go tmdbSearch(torrent)
+	}
+	wg.Wait()
+
+	sort.Sort(bySeeders(movies))
+	js, err := json.MarshalIndent(movies, "", "    ")
+	if err != nil {
+		return "empty", err
+	}
+
+	return string(js[:]), nil
+}
+
+func Summary(id int, category int, season int) (string, error) {
+	movieSummary = summary{}
+	wg.Add(1)
+	go tmdbSummary(id, category, season)
+	wg.Wait()
+
+	js, err := json.MarshalIndent(movieSummary, "", "    ")
+	if err != nil {
+		return "empty", err
+	}
+
+	return string(js[:]), nil
+}
+
+func Subtitle(movie string, year string, release string, language string, category int, season int, episode int) (string, error) {
+	subtitles = make([]subtitle, 0)
+	podnapisi(movie, year, release, language, category, season, episode)
+	if language == "36" || language == "10" || language == "38" {
+		titlovi(movie, release, category, season, episode)
+	}
+
+	if len(subtitles) == 0 && language != "2" {
+		podnapisi(movie, year, release, "2", category, season, episode)
+	}
+
+	sort.Sort(byScore(subtitles))
+
+	js, err := json.MarshalIndent(subtitles, "", "    ")
+	if err != nil {
+		return "empty", err
+	}
+
+	return string(js[:]), nil
+}
+
 func setServer(w http.ResponseWriter) {
 	w.Header().Set("Server", fmt.Sprintf("%s/%s", appName, appVersion))
 }
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {
 	setServer(w)
-	if r.URL.Path[1:] != "" {
-		http.Error(w, "404 Not Found", http.StatusNotFound)
-		return
-	}
-	w.WriteHeader(200)
+	http.Error(w, "403 Forbidden", http.StatusForbidden)
+	return
 }
 
 func handleCategory(w http.ResponseWriter, r *http.Request) {
 	setServer(w)
-	path := html.EscapeString(r.URL.Path[1:])
-	path = strings.TrimRight(path, "/")
-	paths := strings.Split(path, "/")
 
-	if len(paths) < 2 {
-		http.Error(w, "403 Forbidden", http.StatusForbidden)
-		return
-	}
+	category := r.FormValue("c")
+	limit, _ := strconv.Atoi(r.FormValue("l"))
+	force, _ := strconv.Atoi(r.FormValue("f"))
+	tmpdir := r.FormValue("t")
 
-	category := paths[1]
 	if isValidCategory(category) {
-		refresh := false
-		if len(paths) == 4 {
-			force, _ := strconv.Atoi(paths[3])
-			if force == 1 {
-				refresh = true
-			}
-		}
-
-		cache := getCache(category)
-		if cache != nil && !refresh {
-			w.Header().Set("Content-Type", "application/json; charset=utf-8")
-			w.Write(cache)
-			return
-		}
-
-		torrents = make([]Torrent, 0)
-
-		wg.Add(3)
-		go TPBTop(category, 0)
-		go TPBTop(category, 1)
-		go TPBTop(category, 2)
-		wg.Wait()
-
-		if len(paths) >= 3 {
-			limit, _ := strconv.Atoi(paths[2])
-			if limit > len(torrents) {
-				limit = len(torrents)
-			}
-			torrents = torrents[0:limit]
-		}
-
-		movies = make([]Movie, 0)
-		wg.Add(len(torrents))
-		for _, torrent := range torrents {
-			go TMDBMovie(torrent)
-		}
-		wg.Wait()
-
-		sort.Sort(BySeeders(movies))
-		js, err := json.MarshalIndent(movies, "", "    ")
+		js, err := Category(category, limit, force, tmpdir)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		if len(movies) > 0 {
-			saveCache(category, js)
-		}
-
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.Write(js)
+		w.Write([]byte(js))
 	} else {
 		http.Error(w, "404 Not Found", http.StatusNotFound)
 		return
@@ -685,103 +985,56 @@ func handleCategory(w http.ResponseWriter, r *http.Request) {
 
 func handleSearch(w http.ResponseWriter, r *http.Request) {
 	setServer(w)
-	path := html.EscapeString(r.URL.Path[1:])
-	path = strings.TrimRight(path, "/")
-	paths := strings.Split(path, "/")
 
-	if len(paths) < 2 {
-		http.Error(w, "403 Forbidden", http.StatusForbidden)
-		return
-	}
+	query := r.FormValue("q")
+	limit, _ := strconv.Atoi(r.FormValue("l"))
 
-	torrents = make([]Torrent, 0)
-
-	query := paths[1]
-	wg.Add(3)
-	go TPBSearch(query, 0)
-	go TPBSearch(query, 1)
-	go TPBSearch(query, 2)
-	wg.Wait()
-
-	if len(paths) == 3 {
-		limit, _ := strconv.Atoi(paths[2])
-		if limit > len(torrents) {
-			limit = len(torrents)
-		}
-		torrents = torrents[0:limit]
-	}
-
-	movies = make([]Movie, 0)
-	wg.Add(len(torrents))
-	for _, torrent := range torrents {
-		go TMDBMovie(torrent)
-	}
-	wg.Wait()
-
-	sort.Sort(BySeeders(movies))
-	js, err := json.MarshalIndent(movies, "", "    ")
+	js, err := Search(query, limit)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Write(js)
+	w.Write([]byte(js))
 }
 
 func handleSummary(w http.ResponseWriter, r *http.Request) {
 	setServer(w)
-	path := html.EscapeString(r.URL.Path[1:])
-	path = strings.TrimRight(path, "/")
-	paths := strings.Split(path, "/")
 
-	if len(paths) < 2 {
-		http.Error(w, "403 Forbidden", http.StatusForbidden)
-		return
-	}
+	id, _ := strconv.Atoi(r.FormValue("i"))
+	category, _ := strconv.Atoi(r.FormValue("c"))
+	season, _ := strconv.Atoi(r.FormValue("s"))
 
-	summary = Summary{}
-	id, _ := strconv.Atoi(paths[1])
-	wg.Add(1)
-	go TMDBSummary(id)
-	wg.Wait()
-
-	js, err := json.MarshalIndent(summary, "", "    ")
+	js, err := Summary(id, category, season)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Write(js)
+	w.Write([]byte(js))
 }
 
 func handleSubtitle(w http.ResponseWriter, r *http.Request) {
 	setServer(w)
-	path := html.EscapeString(r.URL.Path[1:])
-	path = strings.TrimRight(path, "/")
-	paths := strings.Split(path, "/")
 
-	if len(paths) < 5 {
-		http.Error(w, "403 Forbidden", http.StatusForbidden)
-		return
-	}
+	movie := r.FormValue("m")
+	year := r.FormValue("y")
+	release := r.FormValue("r")
+	language := r.FormValue("l")
+	category, _ := strconv.Atoi(r.FormValue("c"))
+	season, _ := strconv.Atoi(r.FormValue("s"))
+	episode, _ := strconv.Atoi(r.FormValue("e"))
 
-	subtitles = make([]Subtitle, 0)
-	Podnapisi(paths[1], paths[2], paths[3], paths[4])
-	if paths[4] == "36" {
-		Titlovi(paths[1], paths[3])
-	}
-	sort.Sort(ByScore(subtitles))
-
-	js, err := json.MarshalIndent(subtitles, "", "    ")
+	js, err := Subtitle(movie, year, release, language, category, season, episode)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Write(js)
+	w.Write([]byte(js))
 }
 
 func main() {
@@ -789,10 +1042,10 @@ func main() {
 	flag.Parse()
 
 	http.HandleFunc("/", handleIndex)
-	http.HandleFunc("/search/", handleSearch)
-	http.HandleFunc("/category/", handleCategory)
-	http.HandleFunc("/summary/", handleSummary)
-	http.HandleFunc("/subtitle/", handleSubtitle)
+	http.HandleFunc("/search", handleSearch)
+	http.HandleFunc("/category", handleCategory)
+	http.HandleFunc("/summary", handleSummary)
+	http.HandleFunc("/subtitle", handleSubtitle)
 
 	l, err := net.Listen("tcp4", *bind)
 	if err != nil {

@@ -14,7 +14,6 @@ public class BukanirHttpService extends Service {
     public static final String TAG = "BukanirHttpService";
 
     String command;
-    String cacheDir;
     Process process;
 
     public static final String host = "127.0.0.1";
@@ -29,7 +28,6 @@ public class BukanirHttpService extends Service {
     @Override
     public void onCreate() {
         command = getApplicationInfo().nativeLibraryDir + "/libbukanir-http.so";
-        cacheDir = getCacheDir().toString();
         Log.d(TAG, command);
     }
 
@@ -39,11 +37,14 @@ public class BukanirHttpService extends Service {
         Log.d(TAG, "onDestroy");
         (new Thread() { public void run() {
             try {
-                if(process != null) {
+                try {
+                    if(process != null) {
+                        process.exitValue();
+                    }
+                } catch(IllegalThreadStateException e) {
                     process.destroy();
                 }
             } catch(Exception e) {
-                e.printStackTrace();
             }
         }}).start();
     }
@@ -75,8 +76,6 @@ public class BukanirHttpService extends Service {
                 params.add(command);
                 params.add("-bind");
                 params.add(bind);
-                params.add("-cachedir");
-                params.add(cacheDir);
                 ProcessBuilder pb = new ProcessBuilder(params);
                 Log.d(TAG, pb.command().toString());
                 process = pb.start();

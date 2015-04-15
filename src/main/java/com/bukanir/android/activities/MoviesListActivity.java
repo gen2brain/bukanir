@@ -37,6 +37,7 @@ import com.bukanir.android.R;
 import com.bukanir.android.entities.Movie;
 import com.bukanir.android.fragments.MoviesListFragment;
 import com.bukanir.android.services.BukanirHttpService;
+import com.bukanir.android.utils.Connectivity;
 import com.bukanir.android.utils.Update;
 import com.bukanir.android.utils.Utils;
 import com.google.android.gms.analytics.HitBuilders;
@@ -45,6 +46,7 @@ import com.thinkfree.showlicense.android.ShowLicense;
 
 import java.util.ArrayList;
 
+import go.Go;
 import io.vov.vitamio.LibsChecker;
 
 public class MoviesListActivity extends ActionBarActivity implements ActionBar.OnNavigationListener {
@@ -57,6 +59,7 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
     private String category;
     private int listCount;
     private ProgressBar progressBar;
+    private String cacheDir;
 
     private BroadcastReceiver downloadReceiver;
 
@@ -71,9 +74,15 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
             return;
         }
 
-        if(!Utils.isHttpServiceRunning(this)) {
-            Intent intent = new Intent(this, BukanirHttpService.class);
-            startService(intent);
+        Go.init(getApplicationContext());
+
+        cacheDir = getCacheDir().toString();
+
+        if(Utils.isX86()) {
+            if (!Utils.isHttpServiceRunning(this)) {
+                Intent intent = new Intent(this, BukanirHttpService.class);
+                startService(intent);
+            }
         }
 
         setContentView(R.layout.activity_movie_list);
@@ -130,9 +139,11 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
         super.onDestroy();
         cancelMovieTask();
 
-        if(Utils.isHttpServiceRunning(this)) {
-            Intent intent = new Intent(this, BukanirHttpService.class);
-            stopService(intent);
+        if(Utils.isX86()) {
+            if(Utils.isHttpServiceRunning(this)) {
+                Intent intent = new Intent(this, BukanirHttpService.class);
+                stopService(intent);
+            }
         }
     }
 
@@ -238,6 +249,8 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
             category = "201";
         } else if(position == 1) {
             category = "207";
+        } else if(position == 2) {
+            category = "205";
         }
 
         startMovieTask(false);
@@ -293,6 +306,7 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
                         new String[]{
                                 getString(R.string.title_section1),
                                 getString(R.string.title_section2),
+                                getString(R.string.title_section3),
                         }
                 ),
                 this
@@ -300,7 +314,7 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
     }
 
     private void startMovieTask(boolean refresh) {
-        if(Utils.isNetworkAvailable(this)) {
+        if(Connectivity.isConnected(this)) {
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
             listCount = Integer.valueOf(prefs.getString("list_count", "30"));
 
@@ -384,7 +398,7 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
             }
 
             try {
-                results = BukanirClient.getTopMovies(category, listCount, refresh);
+                results = BukanirClient.getTopMovies(category, listCount, refresh, cacheDir);
             } catch(Exception e) {
                 e.printStackTrace();
                 return null;
@@ -404,6 +418,8 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
                 } catch(Exception e) {
                     e.printStackTrace();
                 }
+            } else {
+                Toast.makeText(getApplicationContext(), getString(R.string.error_text_connection), Toast.LENGTH_SHORT).show();
             }
         }
 

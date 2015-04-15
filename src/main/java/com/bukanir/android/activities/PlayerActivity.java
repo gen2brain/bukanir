@@ -20,6 +20,7 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -42,7 +43,9 @@ import io.vov.vitamio.MediaPlayer.OnErrorListener;
 import io.vov.vitamio.MediaPlayer.OnVideoSizeChangedListener;
 import io.vov.vitamio.widget.MediaController;
 
-public class PlayerActivity extends Activity implements SurfaceHolder.Callback, MediaController.MediaPlayerControl, OnPreparedListener, OnCompletionListener, OnTimedTextListener, OnErrorListener, OnVideoSizeChangedListener {
+public class PlayerActivity extends Activity implements SurfaceHolder.Callback,
+        MediaController.MediaPlayerControl, OnPreparedListener, OnCompletionListener,
+        OnTimedTextListener, OnErrorListener, OnVideoSizeChangedListener {
 
     private static final String TAG = "PlayerActivity";
 
@@ -52,6 +55,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
     private SurfaceView surfaceView;
     private ImageButton subtitleToggle;
     private WifiManager.WifiLock wifiLock;
+    private ProgressBar progressBar;
 
     String file;
     String sub;
@@ -72,7 +76,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
         sub = (String) bundle.get("sub");
         subtitle = (Subtitle) bundle.getSerializable("subtitle");
 
-        if(sub != "null" && file != "null" && subtitle != null) {
+        if(sub != null && file != null && subtitle != null) {
             Log.d(TAG, "sub:" + sub.toString());
             Log.d(TAG, "file:" + file.toString());
             Log.d(TAG, "subtitle:" + subtitle.toString());
@@ -82,8 +86,11 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
         surfaceView = (SurfaceView) findViewById(R.id.surface);
         subtitleView = (TextView) findViewById(R.id.sub1);
 
-        surfaceView.getHolder().setFormat(PixelFormat.RGBA_8888);
+        surfaceView.getHolder().setFormat(PixelFormat.RGB_565);
         surfaceView.getHolder().addCallback(this);
+
+        progressBar = (ProgressBar) findViewById(R.id.progress_bar);
+        progressBar.setVisibility(View.VISIBLE);
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         subtitleEncoding = prefs.getString("sub_enc", "UTF-8");
@@ -95,7 +102,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
         super.onDestroy();
         playerRelease();
 
-        if(Utils.isServiceRunning(this)) {
+        if(Utils.isTorrentServiceRunning(this)) {
             Intent intent = new Intent(this, Torrent2HttpService.class);
             stopService(intent);
         }
@@ -147,13 +154,16 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
             if(mediaController.isShowing()) {
                 mediaController.hide();
             }
-            mediaController.show();
         }
     }
 
     @Override
     public void onPrepared(MediaPlayer player) {
         Log.d(TAG, "onPrepared");
+
+        if(progressBar != null) {
+            progressBar.setVisibility(View.INVISIBLE);
+        }
 
         playerStart();
         subtitleTogglePrepare();
@@ -182,7 +192,6 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
             mediaController.hide();
         }
         setVideoSize();
-        mediaController.show();
     }
 
     @Override
@@ -324,13 +333,12 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
 
             mediaPlayer.setDisplay(surfaceView.getHolder());
             mediaPlayer.setBufferSize(2048 * 1024);
-            mediaPlayer.setPlaybackSpeed(1.0f);
+            //mediaPlayer.setPlaybackSpeed(1.0f);
+            mediaPlayer.setVideoChroma(MediaPlayer.VIDEOCHROMA_RGB565);
 
             Log.d("Encoding:", subtitleEncoding);
             if(!subtitleEncoding.equals("auto")) {
                 mediaPlayer.setTimedTextEncoding(subtitleEncoding);
-            } else {
-                mediaPlayer.setTimedTextEncoding(null);
             }
 
             mediaPlayer.prepareAsync();
@@ -340,7 +348,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
             mediaPlayer.setOnTimedTextListener(this);
             mediaPlayer.setOnErrorListener(this);
             mediaPlayer.setOnVideoSizeChangedListener(this);
-        } catch (IOException e) {
+        } catch(IOException e) {
             e.printStackTrace();
         }
     }
@@ -349,16 +357,13 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
         mediaController.setMediaPlayer(this);
         mediaController.setAnchorView(surfaceView);
 
-        if(!file.isEmpty()) {
+        if(file != null && !file.isEmpty()) {
             List<String> items = Arrays.asList(file.split("/"));
             String fileName = items.get(items.size() - 1);
-            if(sub != null && subtitle != null) {
-                String subExt = "";
-                int i = sub.lastIndexOf('.');
-                if(i >= 0) {
-                    subExt = "." + sub.substring(i + 1);
-                }
-                fileName += System.getProperty("line.separator") + subtitle.release + subExt;
+            if(sub != null) {
+                List<String> items2 = Arrays.asList(sub.split("/"));
+                String subName = items2.get(items2.size() - 1);
+                fileName += System.getProperty("line.separator") + subName;
             }
             mediaController.setFileName(fileName);
         }

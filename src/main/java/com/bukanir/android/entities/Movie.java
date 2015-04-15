@@ -16,6 +16,9 @@ public class Movie implements Comparable<Movie>, Serializable {
     public String seeders;
     public String magnetLink;
     public String release;
+	public String category;
+	public String season;
+	public String episode;
 
 	@Override
 	public String toString() {
@@ -35,6 +38,9 @@ public class Movie implements Comparable<Movie>, Serializable {
 	    result.append("  seeders: " + this.seeders + NL);
 	    result.append("  magnetLink: " + this.magnetLink + NL);
         result.append("  release: " + this.release + NL);
+		result.append("  category: " + this.category + NL);
+		result.append("  season: " + this.season + NL);
+		result.append("  episode: " + this.episode + NL);
 	    result.append("}" + NL);
 
 	    return result.toString();

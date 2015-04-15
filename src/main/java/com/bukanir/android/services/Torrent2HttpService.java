@@ -18,17 +18,15 @@ import com.bukanir.android.activities.MovieActivity;
 import com.bukanir.android.utils.Utils;
 
 import java.io.File;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Map;
 
 public class Torrent2HttpService extends Service {
 
     public static final String TAG = "Torrent2HttpService";
 
+    String libdir;
     String command;
-    String cacheDir;
     String encryption;
     String portLower;
     String portUpper;
@@ -38,14 +36,6 @@ public class Torrent2HttpService extends Service {
     Process process;
     int id = 313;
 
-    ArrayList<String> trackers = new ArrayList<>(Arrays.asList(
-            "udp://tracker.publicbt.com:80/announce",
-            "udp://tracker.openbittorrent.com:80/announce",
-            "udp://open.demonii.com:1337/announce",
-            "udp://tracker.istole.it:6969",
-            "udp://tracker.coppersurfer.tk:80"
-    ));
-
     @Override
     public IBinder onBind(Intent intent) {
         return null;
@@ -53,10 +43,10 @@ public class Torrent2HttpService extends Service {
 
     @Override
     public void onCreate() {
-        command = getApplicationInfo().nativeLibraryDir + "/libtorrent2http.so";
+        libdir = getApplicationInfo().nativeLibraryDir;
+        command = libdir + File.separator + "libtorrent2http.so";
 
-        cacheDir = getExternalCacheDir().toString();
-        movieDir = new File(cacheDir + File.separator + "movie");
+        movieDir = new File(Utils.getStorage(this));
         movieDir.mkdirs();
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
@@ -75,11 +65,14 @@ public class Torrent2HttpService extends Service {
             try {
                 Torrent2Http.shutdown();
                 Thread.sleep(2000);
-                if(process != null) {
+                try {
+                    if(process != null) {
+                        process.exitValue();
+                    }
+                } catch(IllegalThreadStateException e) {
                     process.destroy();
                 }
             } catch (Exception e) {
-                e.printStackTrace();
             }
 
             if(movieDir != null) {
@@ -101,8 +94,7 @@ public class Torrent2HttpService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "onStartCommand");
 
-        String magnet = intent.getExtras().getString("magnet");
-        String magnetLink = boostMagnet(magnet);
+        String magnetLink = intent.getExtras().getString("magnet");
 
         Torrent2HttpThread thread = new Torrent2HttpThread(this, magnetLink);
         thread.start();
@@ -110,19 +102,6 @@ public class Torrent2HttpService extends Service {
         Toast.makeText(this, getString(R.string.torrent_started), Toast.LENGTH_LONG).show();
 
         return START_NOT_STICKY;
-    }
-
-    private String boostMagnet(String magnet) {
-        for(String tracker : trackers){
-            String tr = "";
-            try {
-                tr = URLEncoder.encode(tracker, "UTF-8");
-            } catch (UnsupportedEncodingException e) {
-                e.printStackTrace();
-            }
-            magnet += "&tr=" + tr;
-        }
-        return magnet;
     }
 
     private class Torrent2HttpThread extends Thread {
@@ -159,6 +138,8 @@ public class Torrent2HttpService extends Service {
                 params.add(encryption);
 
                 ProcessBuilder pb = new ProcessBuilder(params);
+                Map<String, String> env = pb.environment();
+                env.put("LD_LIBRARY_PATH", libdir);
 
                 Log.d(TAG, "command:" + pb.command().toString());
 

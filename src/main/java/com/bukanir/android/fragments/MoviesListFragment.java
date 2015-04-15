@@ -6,7 +6,6 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
-import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -23,6 +22,7 @@ import android.widget.Toast;
 
 import com.bukanir.android.BukanirClient;
 import com.bukanir.android.entities.Summary;
+import com.bukanir.android.utils.Connectivity;
 import com.nostra13.universalimageloader.cache.disc.impl.UnlimitedDiscCache;
 import com.nostra13.universalimageloader.core.DisplayImageOptions;
 import com.nostra13.universalimageloader.core.ImageLoader;
@@ -169,7 +169,7 @@ public class MoviesListFragment extends Fragment {
                     movieTask.cancel(true);
                 }
             }
-            if(Utils.isNetworkAvailable(getActivity())) {
+            if(Connectivity.isConnected(getActivity())) {
                 movieTask = new MovieTask();
                 if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
                     movieTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, movies.get(position));
@@ -204,7 +204,8 @@ public class MoviesListFragment extends Fragment {
                 return null;
             }
 
-            Summary summary = BukanirClient.getSummary(Integer.valueOf(movie.id));
+            Summary summary = BukanirClient.getSummary(
+                    Integer.valueOf(movie.id), Integer.valueOf(movie.category), Integer.valueOf(movie.season));
             return summary;
         }
 
@@ -223,7 +224,7 @@ public class MoviesListFragment extends Fragment {
 
         private class ViewHolder {
             public TextView title;
-            public TextView year;
+            public TextView subtitle;
             public ImageView image;
         }
 
@@ -256,7 +257,7 @@ public class MoviesListFragment extends Fragment {
 
                 holder = new ViewHolder();
                 holder.title = (TextView) view.findViewById(R.id.title);
-                holder.year = (TextView) view.findViewById(R.id.year);
+                holder.subtitle = (TextView) view.findViewById(R.id.subtitle);
                 holder.image = (ImageView) view.findViewById(R.id.image);
                 view.setTag(holder);
             } else {
@@ -265,7 +266,16 @@ public class MoviesListFragment extends Fragment {
 
             String title = Utils.toTitleCase(movies.get(position).title);
             holder.title.setText(title);
-            holder.year.setText(movies.get(position).year);
+
+            if(movies.get(position).category.equals("205")) {
+                int season = Integer.valueOf(movies.get(position).season);
+                int episode = Integer.valueOf(movies.get(position).episode);
+                if(season != 0) {
+                    holder.subtitle.setText(String.format("S%02dE%02d", season, episode));
+                }
+            } else {
+                holder.subtitle.setText(movies.get(position).year);
+            }
 
             imageLoader.displayImage(movies.get(position).posterSmall, holder.image, options, animateFirstListener);
 

@@ -158,7 +158,7 @@ public class SearchFragment extends Fragment {
                 return null;
             }
 
-            Summary summary = BukanirClient.getSummary(Integer.valueOf(movie.id));
+            Summary summary = BukanirClient.getSummary(Integer.valueOf(movie.id), Integer.valueOf(movie.category), Integer.valueOf(movie.season));
             return summary;
         }
 
@@ -166,7 +166,9 @@ public class SearchFragment extends Fragment {
             if(progressBar != null) {
                 progressBar.setVisibility(View.GONE);
             }
-            beginTransaction(movie, summary);
+            if(summary != null && movie != null) {
+                beginTransaction(movie, summary);
+            }
         }
 
     }
@@ -177,7 +179,7 @@ public class SearchFragment extends Fragment {
 
         private class ViewHolder {
             public TextView title;
-            public TextView year;
+            public TextView subtitle;
             public ImageView image;
         }
 
@@ -210,7 +212,7 @@ public class SearchFragment extends Fragment {
 
                 holder = new ViewHolder();
                 holder.title = (TextView) view.findViewById(R.id.title);
-                holder.year = (TextView) view.findViewById(R.id.year);
+                holder.subtitle = (TextView) view.findViewById(R.id.subtitle);
                 holder.image = (ImageView) view.findViewById(R.id.image);
                 view.setTag(holder);
             } else {
@@ -219,7 +221,16 @@ public class SearchFragment extends Fragment {
 
             String title = Utils.toTitleCase(movies.get(position).title);
             holder.title.setText(title);
-            holder.year.setText(movies.get(position).year);
+
+            if(movies.get(position).category.equals("205")) {
+                int season = Integer.valueOf(movies.get(position).season);
+                int episode = Integer.valueOf(movies.get(position).episode);
+                if(season != 0) {
+                    holder.subtitle.setText(String.format("S%02dE%02d", season, episode));
+                }
+            } else {
+                holder.subtitle.setText(movies.get(position).year);
+            }
 
             imageLoader.displayImage(movies.get(position).posterSmall, holder.image, options, animateFirstListener);
 
