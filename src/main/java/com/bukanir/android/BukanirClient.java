@@ -166,8 +166,8 @@ public class BukanirClient {
         }
     }
 
-    public static ArrayList<Subtitle> getSubtitles(String movie, String year, String release,String language,
-                                                   String category, String season, String episode) {
+    public static ArrayList<Subtitle> getSubtitles(String movie, String year, String release, String language,
+                                                   String category, String season, String episode, String imdbId) {
         if(Utils.isX86()) {
             String encodedMovie = movie;
             String encodedRelease = release;
@@ -178,8 +178,8 @@ public class BukanirClient {
                 e.printStackTrace();
             }
 
-            String url = String.format(URL + "subtitle?m=%s&y=%s&r=%s&l=%s&c=%s&s=%s&e=%s",
-                    encodedMovie, year, encodedRelease, language, category, season, episode);
+            String url = String.format(URL + "subtitle?m=%s&y=%s&r=%s&l=%s&c=%s&s=%s&e=%s&i=%s",
+                    encodedMovie, year, encodedRelease, language, category, season, episode, imdbId);
 
             InputStream input = Utils.getURL(url);
             if (input == null) {
@@ -198,7 +198,7 @@ public class BukanirClient {
         } else {
             String result = null;
             try {
-                result = Main.Subtitle(movie, year, release, language, Integer.valueOf(category), Integer.valueOf(season), Integer.valueOf(episode));
+                result = Main.Subtitle(movie, year, release, language, Integer.valueOf(category), Integer.valueOf(season), Integer.valueOf(episode), imdbId);
             } catch(Exception e) {
                 e.printStackTrace();
             }

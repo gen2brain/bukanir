@@ -9,7 +9,7 @@
     android:showDividers="middle"
     tools:context="com.bukanir.android.activities.MoviesListActivity">
 
-    <include layout="@layout/toolbar"/>
+    <include layout="@layout/toolbar_main"/>
 
     <!--
     This layout is a two-pane layout for the Items

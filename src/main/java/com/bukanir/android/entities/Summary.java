@@ -10,6 +10,7 @@ public class Summary implements Serializable {
     public String tagline;
     public String overview;
     public String runtime;
+	public String imdbId;
 
 	@Override
 	public String toString() {
@@ -23,6 +24,7 @@ public class Summary implements Serializable {
 	    result.append("  tagline: " + this.tagline + NL);
 	    result.append("  overview: " + this.overview + NL);
 	    result.append("  runtime: " + this.runtime + NL);
+		result.append("  imdbId: " + this.imdbId + NL);
 	    result.append("}" + NL);
 
 	    return result.toString();

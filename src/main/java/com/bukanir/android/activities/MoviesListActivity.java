@@ -28,8 +28,9 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.ArrayAdapter;
+import android.widget.AdapterView;
 import android.widget.ProgressBar;
+import android.widget.Spinner;
 import android.widget.Toast;
 
 import com.bukanir.android.BukanirClient;
@@ -49,21 +50,21 @@ import java.util.ArrayList;
 import go.Go;
 import io.vov.vitamio.LibsChecker;
 
-public class MoviesListActivity extends ActionBarActivity implements ActionBar.OnNavigationListener {
+public class MoviesListActivity extends ActionBarActivity {
 
     public static final String TAG = "MoviesListActivity";
 
     private boolean twoPane;
     private ArrayList<Movie> movies;
     private MoviesTask moviesTask;
-    private String category;
     private int listCount;
+    private Spinner spinner;
     private ProgressBar progressBar;
     private String cacheDir;
 
     private BroadcastReceiver downloadReceiver;
 
-    private static final String STATE_SELECTED_NAVIGATION_ITEM = "selected_navigation_item";
+    private String category = "201";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -79,7 +80,7 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
         cacheDir = getCacheDir().toString();
 
         if(Utils.isX86()) {
-            if (!Utils.isHttpServiceRunning(this)) {
+            if(!Utils.isHttpServiceRunning(this)) {
                 Intent intent = new Intent(this, BukanirHttpService.class);
                 startService(intent);
             }
@@ -87,6 +88,7 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
 
         setContentView(R.layout.activity_movie_list);
 
+        spinner = (Spinner) findViewById(R.id.spinner);
         progressBar = (ProgressBar) findViewById(R.id.progressbar);
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
@@ -116,17 +118,26 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
             }
         }
 
-        if(savedInstanceState != null) {
-            movies = (ArrayList<Movie>) savedInstanceState.getSerializable("movies");
-        }
-
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         Boolean eulaAccepted = prefs.getBoolean("eula_accepted", false);
 
         if(!eulaAccepted) {
             new EulaFragment().show(getSupportFragmentManager(), "Eula");
         } else {
-            prepareActionBar();
+            if(savedInstanceState != null) {
+                movies = (ArrayList<Movie>) savedInstanceState.getSerializable("movies");
+                if(movies != null && !movies.isEmpty()) {
+                    try {
+                        beginTransaction(movies);
+                    } catch(Exception e) {
+                        e.printStackTrace();
+                    }
+                } else {
+                    prepareActionBar();
+                }
+            } else {
+                prepareActionBar();
+            }
         }
     }
 
@@ -162,10 +173,6 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
     @Override
     public void onRestoreInstanceState(Bundle savedInstanceState) {
         Log.d(TAG, "onRestoreInstanceState");
-        if(savedInstanceState.containsKey(STATE_SELECTED_NAVIGATION_ITEM)) {
-            getSupportActionBar().setSelectedNavigationItem(
-                    savedInstanceState.getInt(STATE_SELECTED_NAVIGATION_ITEM));
-        }
     }
 
     @Override
@@ -173,8 +180,6 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
         Log.d(TAG, "onSaveInstanceState");
         //super.onSaveInstanceState(outState);
         outState.putSerializable("movies", movies);
-        outState.putInt(STATE_SELECTED_NAVIGATION_ITEM,
-                getSupportActionBar().getSelectedNavigationIndex());
     }
 
     @Override
@@ -242,22 +247,6 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
         return super.onOptionsItemSelected(item);
     }
 
-    @Override
-    public boolean onNavigationItemSelected(int position, long id) {
-        Log.d(TAG, "onNavigationItemSelected");
-        if(position == 0) {
-            category = "201";
-        } else if(position == 1) {
-            category = "207";
-        } else if(position == 2) {
-            category = "205";
-        }
-
-        startMovieTask(false);
-
-        return true;
-    }
-
     @SuppressLint("ValidFragment")
     public class EulaFragment extends DialogFragment {
 
@@ -297,20 +286,27 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
         actionBar.setDisplayShowTitleEnabled(true);
         actionBar.setDisplayHomeAsUpEnabled(false);
 
-        actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_LIST);
-        actionBar.setListNavigationCallbacks(
-                new ArrayAdapter<>(
-                        actionBar.getThemedContext(),
-                        android.R.layout.simple_list_item_1,
-                        android.R.id.text1,
-                        new String[]{
-                                getString(R.string.title_section1),
-                                getString(R.string.title_section2),
-                                getString(R.string.title_section3),
-                        }
-                ),
-                this
-        );
+        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+
+            @Override
+            public void onItemSelected(AdapterView<?> adapter, View v, int position, long id) {
+                if(position == 0) {
+                    category = "201";
+                } else if(position == 1) {
+                    category = "207";
+                } else if(position == 2) {
+                    category = "205";
+                }
+
+                startMovieTask(false);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> arg0) {
+            }
+        });
+
+        startMovieTask(false);
     }
 
     private void startMovieTask(boolean refresh) {
@@ -409,7 +405,7 @@ public class MoviesListActivity extends ActionBarActivity implements ActionBar.O
 
         protected void onPostExecute(final ArrayList<Movie> results) {
             if(progressBar != null) {
-                progressBar.setVisibility(View.GONE);
+                progressBar.setVisibility(View.INVISIBLE);
             }
             if(results != null && !results.isEmpty()) {
                 movies = results;

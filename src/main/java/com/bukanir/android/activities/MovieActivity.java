@@ -147,7 +147,7 @@ public class MovieActivity extends ActionBarActivity {
 
         protected void onPostExecute(Summary summary) {
             if(progressBar != null) {
-                progressBar.setVisibility(View.GONE);
+                progressBar.setVisibility(View.INVISIBLE);
             }
             fragmentManager.beginTransaction()
                     .add(R.id.container, MovieFragment.newInstance(movie, summary))

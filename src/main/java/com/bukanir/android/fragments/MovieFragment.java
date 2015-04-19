@@ -34,10 +34,10 @@ import com.bukanir.android.entities.TorrentFile;
 import com.bukanir.android.entities.TorrentStatus;
 import com.bukanir.android.services.Torrent2HttpService;
 import com.bukanir.android.utils.Utils;
-import com.nostra13.universalimageloader.core.assist.ImageLoadingListener;
-import com.nostra13.universalimageloader.core.assist.SimpleImageLoadingListener;
 import com.nostra13.universalimageloader.core.display.FadeInBitmapDisplayer;
 import com.nostra13.universalimageloader.core.display.SimpleBitmapDisplayer;
+import com.nostra13.universalimageloader.core.listener.ImageLoadingListener;
+import com.nostra13.universalimageloader.core.listener.SimpleImageLoadingListener;
 
 import java.io.File;
 import java.io.IOException;
@@ -85,7 +85,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         }
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
-        subtitleLanguage = prefs.getString("sub_lang", "en");
+        subtitleLanguage = prefs.getString("sub_lang", "English");
 
         ImageLoadingListener animateFirstListener = new AnimateFirstDisplayListener();
 
@@ -357,7 +357,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
             downloadingText.setVisibility(View.INVISIBLE);
 
             if(progressBar != null) {
-                progressBar.setVisibility(View.GONE);
+                progressBar.setVisibility(View.INVISIBLE);
             }
 
             if(torrentFile != null) {
@@ -378,6 +378,8 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
 
         protected void onPreExecute() {
             cacheDir = Utils.getStorage(getActivity());
+            File subDir = new File(Utils.getStorage(getActivity()));
+            subDir.mkdirs();
         }
 
         protected String doInBackground(Movie... params) {
@@ -387,7 +389,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
                 return null;
             }
 
-            ArrayList<Subtitle> subtitles = BukanirClient.getSubtitles(m.title, m.year, m.release, subtitleLanguage, m.category, m.season, m.episode);
+            ArrayList<Subtitle> subtitles = BukanirClient.getSubtitles(m.title, m.year, m.release, subtitleLanguage, m.category, m.season, m.episode, summary.imdbId);
 
             if(subtitles == null || subtitles.isEmpty() || isCancelled()) {
                 return null;

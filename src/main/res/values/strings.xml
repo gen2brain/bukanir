@@ -52,6 +52,12 @@
     <string name="subtitles_enabled">Subtitles enabled</string>
     <string name="subtitles_disabled">Subtitles disabled</string>
 
+    <string-array name="categories">
+        <item>Movies</item>
+        <item>HD Movies</item>
+        <item>Episodes</item>
+    </string-array>
+
 
     <string name="pref_header_general">General</string>
 
@@ -121,11 +127,9 @@
     <string-array name="pref_lang_entries">
         <item>Albanian</item>
         <item>Arabic</item>
-        <item>Argentino</item>
         <item>Belarus</item>
         <item>Bengali</item>
         <item>Bosnian</item>
-        <item>Brazilian</item>
         <item>Bulgarian</item>
         <item>Catalan</item>
         <item>Chinese</item>
@@ -135,12 +139,10 @@
         <item>Dutch</item>
         <item>English</item>
         <item>Estonian</item>
-        <item>Farsi</item>
         <item>Finnish</item>
         <item>French</item>
         <item>German</item>
         <item>Greek</item>
-        <item>Greenlandic</item>
         <item>Hebrew</item>
         <item>Hindi</item>
         <item>Hungarian</item>
@@ -155,7 +157,6 @@
         <item>Lithuanian</item>
         <item>Macedonian</item>
         <item>Malay</item>
-        <item>Mandarin</item>
         <item>Norwegian</item>
         <item>Polish</item>
         <item>Portuguese</item>
@@ -171,60 +172,6 @@
         <item>Turkish</item>
         <item>Ukrainian</item>
         <item>Vietnamese</item>
-    </string-array>
-    <string-array name="pref_lang_values">
-        <item>29</item>
-        <item>12</item>
-        <item>14</item>
-        <item>50</item>
-        <item>59</item>
-        <item>10</item>
-        <item>48</item>
-        <item>33</item>
-        <item>53</item>
-        <item>17</item>
-        <item>38</item>
-        <item>7</item>
-        <item>24</item>
-        <item>23</item>
-        <item>2</item>
-        <item>20</item>
-        <item>52</item>
-        <item>31</item>
-        <item>8</item>
-        <item>5</item>
-        <item>16</item>
-        <item>57</item>
-        <item>22</item>
-        <item>42</item>
-        <item>15</item>
-        <item>6</item>
-        <item>54</item>
-        <item>49</item>
-        <item>9</item>
-        <item>11</item>
-        <item>58</item>
-        <item>4</item>
-        <item>21</item>
-        <item>19</item>
-        <item>35</item>
-        <item>55</item>
-        <item>40</item>
-        <item>3</item>
-        <item>26</item>
-        <item>32</item>
-        <item>13</item>
-        <item>27</item>
-        <item>36</item>
-        <item>56</item>
-        <item>37</item>
-        <item>1</item>
-        <item>28</item>
-        <item>25</item>
-        <item>44</item>
-        <item>30</item>
-        <item>46</item>
-        <item>51</item>
     </string-array>
 
     <string name="pref_subtitles_enc">Encoding</string>

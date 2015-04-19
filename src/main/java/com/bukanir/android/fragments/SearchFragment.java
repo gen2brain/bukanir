@@ -22,8 +22,6 @@ import com.bukanir.android.entities.Summary;
 import com.nostra13.universalimageloader.core.DisplayImageOptions;
 import com.nostra13.universalimageloader.core.ImageLoader;
 import com.nostra13.universalimageloader.core.ImageLoaderConfiguration;
-import com.nostra13.universalimageloader.core.assist.ImageLoadingListener;
-import com.nostra13.universalimageloader.core.assist.SimpleImageLoadingListener;
 import com.nostra13.universalimageloader.core.display.FadeInBitmapDisplayer;
 import com.nostra13.universalimageloader.core.display.SimpleBitmapDisplayer;
 
@@ -31,6 +29,8 @@ import com.bukanir.android.activities.MovieActivity;
 import com.bukanir.android.entities.Movie;
 import com.bukanir.android.R;
 import com.bukanir.android.utils.Utils;
+import com.nostra13.universalimageloader.core.listener.ImageLoadingListener;
+import com.nostra13.universalimageloader.core.listener.SimpleImageLoadingListener;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -164,7 +164,7 @@ public class SearchFragment extends Fragment {
 
         protected void onPostExecute(Summary summary) {
             if(progressBar != null) {
-                progressBar.setVisibility(View.GONE);
+                progressBar.setVisibility(View.INVISIBLE);
             }
             if(summary != null && movie != null) {
                 beginTransaction(movie, summary);

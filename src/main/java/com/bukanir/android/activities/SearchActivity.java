@@ -50,7 +50,7 @@ public class SearchActivity extends ActionBarActivity {
 
         Go.init(getApplicationContext());
 
-        setContentView(R.layout.activity_movie_list);
+        setContentView(R.layout.activity_search);
 
         progressBar = (ProgressBar) findViewById(R.id.progressbar);
 
@@ -231,7 +231,7 @@ public class SearchActivity extends ActionBarActivity {
 
         protected void onPostExecute(ArrayList<Movie> results) {
             if(progressBar != null) {
-                progressBar.setVisibility(View.GONE);
+                progressBar.setVisibility(View.INVISIBLE);
             }
             if(results != null && !results.isEmpty()) {
                 movies = results;

@@ -2,9 +2,7 @@ package main
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"encoding/xml"
 	"flag"
 	"fmt"
@@ -26,6 +24,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	tmdb "github.com/amahi/go-themoviedb"
 	humanize "github.com/dustin/go-humanize"
+	"github.com/sqp/opensubs"
 	"github.com/xrash/smetrics"
 )
 
@@ -72,6 +71,7 @@ type summary struct {
 	TagLine  string  `json:"tagline"`
 	Overview string  `json:"overview"`
 	Runtime  int     `json:"runtime"`
+	Imdb_id  string  `json:"imdbId"`
 }
 
 type subtitle struct {
@@ -81,6 +81,12 @@ type subtitle struct {
 	Release      string  `json:"release"`
 	DownloadLink string  `json:"downloadLink"`
 	Score        float64 `json:"score"`
+}
+
+type language struct {
+	Name      string
+	ISO_639_2 string
+	ID        string
 }
 
 type bySeeders []movie
@@ -126,131 +132,61 @@ var trackers = []string{
 	"udp://tracker.coppersurfer.tk:80",
 }
 
+var languages = []language{
+	{"Albanian", "alb", "29"},
+	{"Arabic", "ara", "12"},
+	{"Belarus", "bel", "50"},
+	{"Bengali", "ben", "59"},
+	{"Bosnian", "bos", "10"},
+	{"Bulgarian", "bul", "33"},
+	{"Catalan", "cat", "53"},
+	{"Chinese", "zho", "17"},
+	{"Croatian", "hrv", "38"},
+	{"Czech", "ces", "7"},
+	{"Danish", "dan", "24"},
+	{"Dutch", "dut", "23"},
+	{"English", "eng", "2"},
+	{"Estonian", "est", "20"},
+	{"Finnish", "fin", "31"},
+	{"French", "fra", "8"},
+	{"German", "ger", "5"},
+	{"Greek", "gre", "16"},
+	{"Hebrew", "heb", "22"},
+	{"Hindi", "hin", "42"},
+	{"Hungarian", "hun", "15"},
+	{"Icelandic", "isl", "6"},
+	{"Indonesian", "ind", "54"},
+	{"Irish", "gle", "49"},
+	{"Italian", "ita", "9"},
+	{"Japanese", "jpn", "11"},
+	{"Kazakh", "kaz", "58"},
+	{"Korean", "kor", "4"},
+	{"Latvian", "lav", "21"},
+	{"Lithuanian", "lit", "19"},
+	{"Macedonian", "mkd", "35"},
+	{"Malay", "msa", "55"},
+	{"Norwegian", "nor", "3"},
+	{"Polish", "pol", "26"},
+	{"Portuguese", "por", "32"},
+	{"Romanian", "ron", "13"},
+	{"Russian", "rus", "27"},
+	{"Serbian", "srp", "36"},
+	{"Sinhala", "sin", "56"},
+	{"Slovak", "slk", "37"},
+	{"Slovenian", "slv", "1"},
+	{"Spanish", "spa", "28"},
+	{"Swedish", "swe", "25"},
+	{"Thai", "tha", "44"},
+	{"Turkish", "tur", "30"},
+	{"Ukrainian", "ukr", "46"},
+	{"Vietnamese", "vie", "51"},
+}
+
 var movies []movie
 var torrents []torrent
 var subtitles []subtitle
 var movieSummary summary
 var wg sync.WaitGroup
-
-var chain = `-----BEGIN CERTIFICATE-----
-MIIFRzCCBC+gAwIBAgISESGXNII/8fVUAIsyFQbH5pmTMA0GCSqGSIb3DQEBBQUA
-MF0xCzAJBgNVBAYTAkJFMRkwFwYDVQQKExBHbG9iYWxTaWduIG52LXNhMTMwMQYD
-VQQDEypHbG9iYWxTaWduIE9yZ2FuaXphdGlvbiBWYWxpZGF0aW9uIENBIC0gRzIw
-HhcNMTQxMDExMTAwODE1WhcNMTUxMDEyMTAwODE1WjBuMQswCQYDVQQGEwJVUzEL
-MAkGA1UECBMCQ0ExFjAUBgNVBAcTDVNhbiBGcmFuY2lzY28xGTAXBgNVBAoTEENs
-b3VkRmxhcmUsIEluYy4xHzAdBgNVBAMTFnNzbDIwMDAuY2xvdWRmbGFyZS5jb20w
-ggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCsrcZa6V46wy4fFmaLfHT1
-FPZXa+2qDvaWpAbrT5N9ibIuLnJ0yvpkB5WvI3R21pXOeqqAZsSKTeukUIQV2fTD
-yxynffWFPdSsj5kRu5tR0JvDS4fQz5NZaxYemhjPSe7mV+fvNk0aWW8xBbU1jJfr
-i/84f62sgcjQJy0SV+6/sXZzcQt6DM4MPn1aNWWritxNDwx8l0T38Zj0x6Zcy4tV
-2B4kfDMA9+8kuC+HaSkzNIQKt2uN5xrUivs7nA6H6oZlV7YDOm6nhC2OtOmjXQKH
-Gga4Nq9+UefCQ9rLL9cylYWvO0BqHh0nLbxaCEOlo+362E6TDptm/qoN+mg083RH
-AgMBAAGjggHuMIIB6jAOBgNVHQ8BAf8EBAMCBaAwSQYDVR0gBEIwQDA+BgZngQwB
-AgIwNDAyBggrBgEFBQcCARYmaHR0cHM6Ly93d3cuZ2xvYmFsc2lnbi5jb20vcmVw
-b3NpdG9yeS8wQwYDVR0RBDwwOoIWc3NsMjAwMC5jbG91ZGZsYXJlLmNvbYIOY2xv
-dWRmbGFyZS5jb22CECouY2xvdWRmbGFyZS5jb20wCQYDVR0TBAIwADAdBgNVHSUE
-FjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwRQYDVR0fBD4wPDA6oDigNoY0aHR0cDov
-L2NybC5nbG9iYWxzaWduLmNvbS9ncy9nc29yZ2FuaXphdGlvbnZhbGcyLmNybDCB
-lgYIKwYBBQUHAQEEgYkwgYYwRwYIKwYBBQUHMAKGO2h0dHA6Ly9zZWN1cmUuZ2xv
-YmFsc2lnbi5jb20vY2FjZXJ0L2dzb3JnYW5pemF0aW9udmFsZzIuY3J0MDsGCCsG
-AQUFBzABhi9odHRwOi8vb2NzcDIuZ2xvYmFsc2lnbi5jb20vZ3Nvcmdhbml6YXRp
-b252YWxnMjAdBgNVHQ4EFgQUH6U3xLIIaPv8vcp1Zzi6jFtNa94wHwYDVR0jBBgw
-FoAUXUayjcRLdBy77fVztjq3OI91nn4wDQYJKoZIhvcNAQEFBQADggEBAEviNeXx
-Qv6zHbRs/AhmbtdJDaiNZVe6RF20CnPev+X4H8XVwha80GgNqdUCBIuQZIJ+L7lB
-NMxAAp+XuCW/4F959ZQtAsZkiFaMUf7NI7Bpl61W15aQPVplt18EkMpCf3CBXFCq
-J8R/oJilzJRdh0bQ2yIL6IDIG/bCZ9GXh9TKBKJC6MUzsf1GMziihytg/510dng0
-Nwp1/q+0XioOsxpOp3qX2LnC/datjsEIHtjIr8LnZZojh3RG2cuMTS3n5fiwxXp2
-9Gg/FqkTXHfWBgdzZ7wD8NAPxak03AlDjQthXEn4YwB/c8CjKqn+r77o4pvLm+JE
-bJLtKDaYbNmULxY=
------END CERTIFICATE-----
------BEGIN CERTIFICATE-----
-MIIEYDCCA0igAwIBAgILBAAAAAABL07hRQwwDQYJKoZIhvcNAQEFBQAwVzELMAkG
-A1UEBhMCQkUxGTAXBgNVBAoTEEdsb2JhbFNpZ24gbnYtc2ExEDAOBgNVBAsTB1Jv
-b3QgQ0ExGzAZBgNVBAMTEkdsb2JhbFNpZ24gUm9vdCBDQTAeFw0xMTA0MTMxMDAw
-MDBaFw0yMjA0MTMxMDAwMDBaMF0xCzAJBgNVBAYTAkJFMRkwFwYDVQQKExBHbG9i
-YWxTaWduIG52LXNhMTMwMQYDVQQDEypHbG9iYWxTaWduIE9yZ2FuaXphdGlvbiBW
-YWxpZGF0aW9uIENBIC0gRzIwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB
-AQDdNR3yIFQmGtDvpW+Bdllw3Of01AMkHyQOnSKf1Ccyeit87ovjYWI4F6+0S3qf
-ZyEcLZVUunm6tsTyDSF0F2d04rFkCJlgePtnwkv3J41vNnbPMYzl8QbX3FcOW6zu
-zi2rqqlwLwKGyLHQCAeV6irs0Z7kNlw7pja1Q4ur944+ABv/hVlrYgGNguhKujiz
-4MP0bRmn6gXdhGfCZsckAnNate6kGdn8AM62pI3ffr1fsjqdhDFPyGMM5NgNUqN+
-ARvUZ6UYKOsBp4I82Y4d5UcNuotZFKMfH0vq4idGhs6dOcRmQafiFSNrVkfB7cVT
-5NSAH2v6gEaYsgmmD5W+ZoiTAgMBAAGjggElMIIBITAOBgNVHQ8BAf8EBAMCAQYw
-EgYDVR0TAQH/BAgwBgEB/wIBADAdBgNVHQ4EFgQUXUayjcRLdBy77fVztjq3OI91
-nn4wRwYDVR0gBEAwPjA8BgRVHSAAMDQwMgYIKwYBBQUHAgEWJmh0dHBzOi8vd3d3
-Lmdsb2JhbHNpZ24uY29tL3JlcG9zaXRvcnkvMDMGA1UdHwQsMCowKKAmoCSGImh0
-dHA6Ly9jcmwuZ2xvYmFsc2lnbi5uZXQvcm9vdC5jcmwwPQYIKwYBBQUHAQEEMTAv
-MC0GCCsGAQUFBzABhiFodHRwOi8vb2NzcC5nbG9iYWxzaWduLmNvbS9yb290cjEw
-HwYDVR0jBBgwFoAUYHtmGkUNl8qJUC99BM00qP/8/UswDQYJKoZIhvcNAQEFBQAD
-ggEBABvgiADHBREc/6stSEJSzSBo53xBjcEnxSxZZ6CaNduzUKcbYumlO/q2IQen
-fPMOK25+Lk2TnLryhj5jiBDYW2FQEtuHrhm70t8ylgCoXtwtI7yw07VKoI5lkS/Z
-9oL2dLLffCbvGSuXL+Ch7rkXIkg/pfcNYNUNUUflWP63n41edTzGQfDPgVRJEcYX
-pOBWYdw9P91nbHZF2krqrhqkYE/Ho9aqp9nNgSvBZnWygI/1h01fwlr1kMbawb30
-hag8IyrhFHvBN91i0ZJsumB9iOQct+R2UTjEqUdOqCsukNK1OFHrwZyKarXMsh3o
-wFZUTKiL8IkyhtyTMr5NGvo1dbU=
------END CERTIFICATE-----
------BEGIN CERTIFICATE-----
-MIIFZDCCBQmgAwIBAgIRAIxVL2C5eOVJT5AmeRKBrGIwCgYIKoZIzj0EAwIwgZIx
-CzAJBgNVBAYTAkdCMRswGQYDVQQIExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNV
-BAcTB1NhbGZvcmQxGjAYBgNVBAoTEUNPTU9ETyBDQSBMaW1pdGVkMTgwNgYDVQQD
-Ey9DT01PRE8gRUNDIERvbWFpbiBWYWxpZGF0aW9uIFNlY3VyZSBTZXJ2ZXIgQ0Eg
-MjAeFw0xNTA0MDEwMDAwMDBaFw0xNTA5MzAyMzU5NTlaMGsxITAfBgNVBAsTGERv
-bWFpbiBDb250cm9sIFZhbGlkYXRlZDEhMB8GA1UECxMYUG9zaXRpdmVTU0wgTXVs
-dGktRG9tYWluMSMwIQYDVQQDExpzbmkzMzc4MC5jbG91ZGZsYXJlc3NsLmNvbTBZ
-MBMGByqGSM49AgEGCCqGSM49AwEHA0IABCOCgOk1v/kBW5YJQlP3ZdXKEv84hJDs
-DIEHlt3yKkEKjG0u0XCL6emo8VPC6hq7Sk0YTiiFhZuiveYjvAnPSLCjggNkMIID
-YDAfBgNVHSMEGDAWgBRACWFn8LyDcU/eEggsb9TUK3Y9ljAdBgNVHQ4EFgQUAsKS
-prtyTgwn073RV3zrgvLwmYwwDgYDVR0PAQH/BAQDAgeAMAwGA1UdEwEB/wQCMAAw
-HQYDVR0lBBYwFAYIKwYBBQUHAwEGCCsGAQUFBwMCME8GA1UdIARIMEYwOgYLKwYB
-BAGyMQECAgcwKzApBggrBgEFBQcCARYdaHR0cHM6Ly9zZWN1cmUuY29tb2RvLmNv
-bS9DUFMwCAYGZ4EMAQIBMFYGA1UdHwRPME0wS6BJoEeGRWh0dHA6Ly9jcmwuY29t
-b2RvY2E0LmNvbS9DT01PRE9FQ0NEb21haW5WYWxpZGF0aW9uU2VjdXJlU2VydmVy
-Q0EyLmNybDCBiAYIKwYBBQUHAQEEfDB6MFEGCCsGAQUFBzAChkVodHRwOi8vY3J0
-LmNvbW9kb2NhNC5jb20vQ09NT0RPRUNDRG9tYWluVmFsaWRhdGlvblNlY3VyZVNl
-cnZlckNBMi5jcnQwJQYIKwYBBQUHMAGGGWh0dHA6Ly9vY3NwLmNvbW9kb2NhNC5j
-b20wggGrBgNVHREEggGiMIIBnoIac25pMzM3ODAuY2xvdWRmbGFyZXNzbC5jb22C
-ECouYWNyZXN0cnVzdC5jb22CDCouYWR1d2F0YS5sa4INKi5iZWVlZWVyLm9yZ4IV
-Ki5rbmlnaHRhc2NlbnNpb24uY29tgg4qLnB1bmRyb2lkLmNvbYIOKi50ZXJyYWlj
-dC5jb22CESoudGhlcGlyYXRlYmF5LnNlghUqLnRyYXZlbHdvbmRlcjM2NS5jb22C
-CCoudWNlLnB3gg8qLnVwbG9hZGJheS5vcmeCHyoueG4tLTEyY2FhNmhnMWEzYTJi
-NWQwZDljdmgud3OCDmFjcmVzdHJ1c3QuY29tggphZHV3YXRhLmxrggtiZWVlZWVy
-Lm9yZ4ITa25pZ2h0YXNjZW5zaW9uLmNvbYIMcHVuZHJvaWQuY29tggx0ZXJyYWlj
-dC5jb22CD3RoZXBpcmF0ZWJheS5zZYITdHJhdmVsd29uZGVyMzY1LmNvbYIGdWNl
-LnB3gg11cGxvYWRiYXkub3Jngh14bi0tMTJjYWE2aGcxYTNhMmI1ZDBkOWN2aC53
-czAKBggqhkjOPQQDAgNJADBGAiEAxfsGDGwsOfSYaLdeVunpv5Exjy010KZp9l1+
-9Yd9eDICIQDjZ4weh631w+0AnIZF4crePccCxsZpSFphWmUA7kpRmg==
------END CERTIFICATE-----`
-
-func decodePem(certInput string) tls.Certificate {
-	var cert tls.Certificate
-	certPEMBlock := []byte(certInput)
-	var certDERBlock *pem.Block
-	for {
-		certDERBlock, certPEMBlock = pem.Decode(certPEMBlock)
-		if certDERBlock == nil {
-			break
-		}
-		if certDERBlock.Type == "CERTIFICATE" {
-			cert.Certificate = append(cert.Certificate, certDERBlock.Bytes)
-		}
-	}
-	return cert
-}
-
-func getTLSConfig() tls.Config {
-	certChain := decodePem(chain)
-	conf := tls.Config{}
-	conf.RootCAs = x509.NewCertPool()
-	for _, cert := range certChain.Certificate {
-		x509Cert, err := x509.ParseCertificate(cert)
-		if err != nil {
-			panic(err)
-		}
-		conf.RootCAs.AddCert(x509Cert)
-	}
-	conf.BuildNameToCertificate()
-	return conf
-}
 
 func tpbTop(category string) {
 	defer wg.Done()
@@ -424,6 +360,14 @@ func tmdbSummary(id int, category int, season int) {
 		return
 	}
 
+	var imdbId string
+	if category == 205 {
+		ext, _ := md.GetTmdbTvExternals(strconv.Itoa(id))
+		imdbId = strings.Replace(ext.Imdb_id, "tt", "", -1)
+	} else {
+		imdbId = strings.Replace(res.Imdb_id, "tt", "", -1)
+	}
+
 	movieSummary = summary{
 		id,
 		getCast(res.Credits.Cast),
@@ -431,6 +375,7 @@ func tmdbSummary(id int, category int, season int) {
 		res.Tagline,
 		res.Overview,
 		res.Runtime,
+		imdbId,
 	}
 }
 
@@ -442,15 +387,17 @@ func podnapisi(movie string, year string, torrentRelease string, lang string, ca
 	}
 
 	type Subtitle struct {
-		XMLName   xml.Name `xml:"subtitle"`
-		Id        int      `xml:"id"`
-		Pid       string   `xml:"pid"`
-		Title     string   `xml:"title"`
-		Year      string   `xml:"year"`
-		Url       string   `xml:"url"`
-		Release   string   `xml:"release"`
-		TvSeason  int      `xml:"tvSeason"`
-		TvEpisode int      `xml:"tvEpisode"`
+		XMLName    xml.Name `xml:"subtitle"`
+		Id         int      `xml:"id"`
+		Pid        string   `xml:"pid"`
+		Title      string   `xml:"title"`
+		Year       string   `xml:"year"`
+		Url        string   `xml:"url"`
+		Release    string   `xml:"release"`
+		TvSeason   int      `xml:"tvSeason"`
+		TvEpisode  int      `xml:"tvEpisode"`
+		Language   string   `xml:"language"`
+		LanguageID int      `xml:"languageId"`
 	}
 
 	type Data struct {
@@ -459,10 +406,12 @@ func podnapisi(movie string, year string, torrentRelease string, lang string, ca
 		SubtitleList []Subtitle `xml:"subtitle"`
 	}
 
+	l := getLanguage(lang)
+
 	baseUrl := "http://podnapisi.net/subtitles/"
 	searchUrl := baseUrl + "search/old?sK=%s&sY=%s&sJ=%s"
 
-	url := fmt.Sprintf(searchUrl, url.QueryEscape(movie), year, lang)
+	url := fmt.Sprintf(searchUrl, url.QueryEscape(movie), year, l.ID)
 
 	if category == 205 {
 		if season != 0 {
@@ -476,7 +425,10 @@ func podnapisi(movie string, year string, torrentRelease string, lang string, ca
 	}
 
 	defer res.Body.Close()
-	body, _ := ioutil.ReadAll(res.Body)
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Printf("Error unmarshalling response: %v\n", err)
+	}
 
 	var r Data
 	err = xml.Unmarshal(body, &r)
@@ -493,8 +445,13 @@ func podnapisi(movie string, year string, torrentRelease string, lang string, ca
 			continue
 		}
 
+		lid, _ := strconv.Atoi(l.ID)
+		if s.LanguageID != lid {
+			continue
+		}
+
 		score := compareRelease(torrentRelease, subtitleRelease)
-		if score < 0.4 {
+		if score < 0.7 {
 			continue
 		}
 
@@ -556,7 +513,7 @@ func titlovi(movie string, torrentRelease string, category int, season int, epis
 		downloadLink := fmt.Sprintf(downloadUrl, id)
 
 		score := compareRelease(torrentRelease, subtitleRelease)
-		if score < 0.4 {
+		if score < 0.7 {
 			return
 		}
 
@@ -579,6 +536,53 @@ func titlovi(movie string, torrentRelease string, category int, season int, epis
 	wg.Wait()
 }
 
+func opensubtitles(movie string, imdbId string, year string, torrentRelease string, lang string, category int, season int, episode int) {
+	const OPENSUBTITLE_USER_AGENT = "OSTestUserAgent"
+
+	l := getLanguage(lang)
+
+	query := opensubs.NewQuery(OPENSUBTITLE_USER_AGENT)
+	query.AddImdb(imdbId, l.ISO_639_2)
+
+	if category == 205 {
+		if season != 0 {
+			query.AddSeason(strconv.Itoa(season))
+			query.AddEpisode(strconv.Itoa(episode))
+		}
+	}
+
+	query.Search()
+	defer query.Logout()
+
+	_, byimdb := query.Get(-1)
+	for _, bylang := range byimdb {
+		for _, list := range bylang {
+			for _, sub := range list {
+
+				if sub.SubLanguageID != l.ISO_639_2 {
+					continue
+				}
+
+				score := compareRelease(torrentRelease, sub.MovieReleaseName)
+				if score < 0.7 {
+					continue
+				}
+
+				if category == 205 {
+					subSeason, _ := strconv.Atoi(sub.SeriesSeason)
+					subEpisode, _ := strconv.Atoi(sub.SeriesEpisode)
+					if season != subSeason || episode != subEpisode {
+						continue
+					}
+				}
+
+				s := subtitle{sub.IDSubtitleFile, sub.MovieName, sub.MovieYear, sub.MovieReleaseName, sub.ZipDownloadLink, score}
+				subtitles = append(subtitles, s)
+			}
+		}
+	}
+}
+
 func compareRelease(torrentRelease string, subtitleRelease string) float64 {
 	torrentRelease = strings.Replace(torrentRelease, ".", " ", -1)
 	torrentRelease = strings.Replace(torrentRelease, "-", " ", -1)
@@ -595,11 +599,9 @@ func httpGet(uri string) (*http.Response, error) {
 		return net.DialTimeout(network, addr, timeout)
 	}
 
-	//tlsConfig := getTLSConfig()
-
 	transport := http.Transport{
-		Dial: dialTimeout,
-		//TLSClientConfig: &tlsConfig,
+		Dial:            dialTimeout,
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 
 	httpClient := http.Client{
@@ -612,6 +614,7 @@ func httpGet(uri string) (*http.Response, error) {
 		return nil, err
 	}
 
+	req.Close = true
 	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:36.0) Gecko/20100101 Firefox/36.0")
 
 	res, err := httpClient.Do(req)
@@ -799,6 +802,17 @@ func getCast(res []tmdb.TmdbCast) string {
 	return cast
 }
 
+func getLanguage(name string) *language {
+	lang := new(language)
+	for _, l := range languages {
+		if strings.ToLower(name) == strings.ToLower(l.Name) {
+			lang = &l
+			break
+		}
+	}
+	return lang
+}
+
 func isValidCategory(category string) bool {
 	for _, cat := range categories {
 		if cat == category {
@@ -929,15 +943,20 @@ func Summary(id int, category int, season int) (string, error) {
 	return string(js[:]), nil
 }
 
-func Subtitle(movie string, year string, release string, language string, category int, season int, episode int) (string, error) {
+func Subtitle(movie string, year string, release string, language string, category int, season int, episode int, imdbID string) (string, error) {
 	subtitles = make([]subtitle, 0)
+	language = strings.ToLower(language)
+
 	podnapisi(movie, year, release, language, category, season, episode)
-	if language == "36" || language == "10" || language == "38" {
+	opensubtitles(movie, imdbID, year, release, language, category, season, episode)
+
+	if language == "serbian" || language == "croation" || language == "bosnian" {
 		titlovi(movie, release, category, season, episode)
 	}
 
-	if len(subtitles) == 0 && language != "2" {
-		podnapisi(movie, year, release, "2", category, season, episode)
+	if len(subtitles) == 0 && language != "english" {
+		podnapisi(movie, year, release, "english", category, season, episode)
+		opensubtitles(movie, imdbID, year, release, "english", category, season, episode)
 	}
 
 	sort.Sort(byScore(subtitles))
@@ -1026,8 +1045,9 @@ func handleSubtitle(w http.ResponseWriter, r *http.Request) {
 	category, _ := strconv.Atoi(r.FormValue("c"))
 	season, _ := strconv.Atoi(r.FormValue("s"))
 	episode, _ := strconv.Atoi(r.FormValue("e"))
+	imdbId := r.FormValue("i")
 
-	js, err := Subtitle(movie, year, release, language, category, season, episode)
+	js, err := Subtitle(movie, year, release, language, category, season, episode, imdbId)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

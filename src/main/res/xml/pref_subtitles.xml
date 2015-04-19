@@ -9,9 +9,9 @@
         android:key="sub_lang"
         android:dependency="subtitles_enabled"
         android:title="@string/pref_subtitles_lang"
-        android:defaultValue="2"
+        android:defaultValue="English"
         android:entries="@array/pref_lang_entries"
-        android:entryValues="@array/pref_lang_values" />
+        android:entryValues="@array/pref_lang_entries" />
 
     <ListPreference
         android:key="sub_enc"
