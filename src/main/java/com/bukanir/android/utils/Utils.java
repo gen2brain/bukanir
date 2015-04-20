@@ -259,14 +259,14 @@ public class Utils {
                     public void onClick(DialogInterface dialog, int whichButton) {
                         Update.downloadUpdate(context);
                     }
-                }
+        }
         );
         builder.setNegativeButton("Cancel",
                 new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int whichButton) {
                         dialog.dismiss();
                     }
-                }
+        }
         );
         builder.create();
         builder.show();
@@ -289,8 +289,8 @@ public class Utils {
     }
 
     public static LicensedProject[] projectList = new LicensedProject[] {
-            new LicensedProject("app-bits icons", null, "http://app-bits.com/free-icons.html", License.CC_BY_ND_3),
-            new LicensedProject("gson", null, "https://code.google.com/p/google-gson/", License.APACHE2),
+        new LicensedProject("app-bits icons", null, "http://app-bits.com/free-icons.html", License.CC_BY_ND_3),
+            new LicensedProject("gson", null, "https://github.com/google/gson", License.APACHE2),
             new LicensedProject("numberpicker", null, "https://github.com/baynezy/numberpicker", License.APACHE2),
             new LicensedProject("showlicense", null, "https://github.com/behumble/showlicense", License.APACHE2),
             new LicensedProject("torrent2http", null, "https://github.com/steeve/torrent2http", License.GPL3),

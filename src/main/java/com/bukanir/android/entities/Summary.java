@@ -10,24 +10,24 @@ public class Summary implements Serializable {
     public String tagline;
     public String overview;
     public String runtime;
-	public String imdbId;
+    public String imdbId;
 
-	@Override
-	public String toString() {
-	    StringBuilder result = new StringBuilder();
-	    String NL = System.getProperty("line.separator");
+    @Override
+    public String toString() {
+        StringBuilder result = new StringBuilder();
+        String NL = System.getProperty("line.separator");
 
-	    result.append(((Object)this).getClass().getName() + " {" + NL);
-	    result.append("  id: " + this.id + NL);
+        result.append(((Object)this).getClass().getName() + " {" + NL);
+        result.append("  id: " + this.id + NL);
         result.append("  cast: " + this.cast + NL);
-	    result.append("  rating: " + this.rating + NL);
-	    result.append("  tagline: " + this.tagline + NL);
-	    result.append("  overview: " + this.overview + NL);
-	    result.append("  runtime: " + this.runtime + NL);
-		result.append("  imdbId: " + this.imdbId + NL);
-	    result.append("}" + NL);
+        result.append("  rating: " + this.rating + NL);
+        result.append("  tagline: " + this.tagline + NL);
+        result.append("  overview: " + this.overview + NL);
+        result.append("  runtime: " + this.runtime + NL);
+        result.append("  imdbId: " + this.imdbId + NL);
+        result.append("}" + NL);
 
-	    return result.toString();
-	}
+        return result.toString();
+    }
 
 }

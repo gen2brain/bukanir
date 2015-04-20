@@ -5,6 +5,7 @@ import android.app.SearchManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.support.v4.app.NavUtils;
@@ -48,7 +49,9 @@ public class SearchActivity extends ActionBarActivity {
         Log.d(TAG, "onCreate");
         super.onCreate(savedInstanceState);
 
-        Go.init(getApplicationContext());
+        if(!Utils.isX86()) {
+            Go.init(getApplicationContext());
+        }
 
         setContentView(R.layout.activity_search);
 
@@ -165,12 +168,12 @@ public class SearchActivity extends ActionBarActivity {
     private void beginTransaction(ArrayList<Movie> results) {
         if(twoPane) {
             getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.list_container, SearchFragment.newInstance(results, twoPane))
-                    .commit();
+                .replace(R.id.list_container, SearchFragment.newInstance(results, twoPane))
+                .commit();
         } else {
             getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.container, SearchFragment.newInstance(results, twoPane))
-                    .commit();
+                .replace(R.id.container, SearchFragment.newInstance(results, twoPane))
+                .commit();
         }
     }
 
@@ -186,6 +189,25 @@ public class SearchActivity extends ActionBarActivity {
         Log.d(TAG, "handleSearchIntent");
         if(Intent.ACTION_SEARCH.equals(intent.getAction())) {
             String query = intent.getStringExtra(SearchManager.QUERY);
+            getSupportActionBar().setSubtitle(query);
+
+            if(Connectivity.isConnected(this)) {
+                Tracker tracker = Utils.getTracker(this);
+                tracker.setScreenName(query);
+                tracker.send(new HitBuilders.AppViewBuilder().build());
+
+                searchTask = new SearchTask();
+                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                    searchTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, query);
+                } else {
+                    searchTask.execute(query);
+                }
+            } else {
+                Toast.makeText(this, getString(R.string.network_not_available), Toast.LENGTH_LONG).show();
+            }
+        } else if(Intent.ACTION_VIEW.equals(intent.getAction())) {
+            Bundle bundle = intent.getExtras();
+            String query = bundle.getString("intent_extra_data_key");
             getSupportActionBar().setSubtitle(query);
 
             if(Connectivity.isConnected(this)) {
@@ -220,7 +242,7 @@ public class SearchActivity extends ActionBarActivity {
 
             ArrayList<Movie> results;
             try {
-                results = BukanirClient.getSearchMovies(query, -1);
+                results = BukanirClient.getSearchResults(query, -1);
             } catch(Exception e) {
                 e.printStackTrace();
                 return null;

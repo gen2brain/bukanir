@@ -97,6 +97,9 @@
             android:label="@string/app_name" >
         </activity>
 
+        <provider android:name="com.bukanir.android.SuggestionProvider"
+            android:authorities="com.bukanir.android.SuggestionProvider" />
+
     </application>
 
 </manifest>

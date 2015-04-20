@@ -30,7 +30,7 @@ import (
 
 var (
 	appName    = "bukanir-http"
-	appVersion = "1.3"
+	appVersion = "1.5"
 )
 
 type torrent struct {
@@ -81,6 +81,11 @@ type subtitle struct {
 	Release      string  `json:"release"`
 	DownloadLink string  `json:"downloadLink"`
 	Score        float64 `json:"score"`
+}
+
+type autocomplete struct {
+	Title string `json:"title"`
+	Year  string `json:"year"`
 }
 
 type language struct {
@@ -185,6 +190,7 @@ var languages = []language{
 var movies []movie
 var torrents []torrent
 var subtitles []subtitle
+var autocompletes []autocomplete
 var movieSummary summary
 var wg sync.WaitGroup
 
@@ -376,6 +382,71 @@ func tmdbSummary(id int, category int, season int) {
 		res.Overview,
 		res.Runtime,
 		imdbId,
+	}
+}
+
+func tmdbAutoComplete(query string) {
+	defer wg.Done()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Print("Recovered in tmdbAutocomplete: ", r)
+		}
+	}()
+
+	md := tmdb.Init(tmdbApiKey)
+	tvs, _ := md.AutoCompleteTv(query)
+	movies, _ := md.AutoCompleteMovie(query)
+
+	if tvs.Total_results+movies.Total_results == 0 {
+		return
+	}
+
+	for _, movie := range movies.Results[:2] {
+		year := getYear(movie.Release_date)
+		if year == "" {
+			continue
+		}
+		a := autocomplete{
+			movie.Title,
+			year,
+		}
+		autocompletes = append(autocompletes, a)
+	}
+
+	for _, tv := range tvs.Results[:2] {
+		year := getYear(tv.First_air_date)
+		if year == "" {
+			continue
+		}
+		a := autocomplete{
+			tv.Original_name,
+			year,
+		}
+		autocompletes = append(autocompletes, a)
+	}
+
+	for _, movie := range movies.Results[2:7] {
+		year := getYear(movie.Release_date)
+		if year == "" {
+			continue
+		}
+		a := autocomplete{
+			movie.Title,
+			year,
+		}
+		autocompletes = append(autocompletes, a)
+	}
+
+	for _, tv := range tvs.Results[2:7] {
+		year := getYear(tv.First_air_date)
+		if year == "" {
+			continue
+		}
+		a := autocomplete{
+			tv.Original_name,
+			year,
+		}
+		autocompletes = append(autocompletes, a)
 	}
 }
 
@@ -969,6 +1040,27 @@ func Subtitle(movie string, year string, release string, language string, catego
 	return string(js[:]), nil
 }
 
+func AutoComplete(query string, limit int) (string, error) {
+	autocompletes = make([]autocomplete, 0)
+	wg.Add(1)
+	go tmdbAutoComplete(query)
+	wg.Wait()
+
+	if limit > 0 {
+		if limit > len(autocompletes) {
+			limit = len(autocompletes)
+		}
+		autocompletes = autocompletes[0:limit]
+	}
+
+	js, err := json.MarshalIndent(autocompletes, "", "    ")
+	if err != nil {
+		return "empty", err
+	}
+
+	return string(js[:]), nil
+}
+
 func setServer(w http.ResponseWriter) {
 	w.Header().Set("Server", fmt.Sprintf("%s/%s", appName, appVersion))
 }
@@ -1057,6 +1149,22 @@ func handleSubtitle(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(js))
 }
 
+func handleAutoComplete(w http.ResponseWriter, r *http.Request) {
+	setServer(w)
+
+	query := r.FormValue("q")
+	limit, _ := strconv.Atoi(r.FormValue("l"))
+
+	js, err := AutoComplete(query, limit)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Write([]byte(js))
+}
+
 func main() {
 	bind := flag.String("bind", ":7314", "Bind address")
 	flag.Parse()
@@ -1066,6 +1174,7 @@ func main() {
 	http.HandleFunc("/category", handleCategory)
 	http.HandleFunc("/summary", handleSummary)
 	http.HandleFunc("/subtitle", handleSubtitle)
+	http.HandleFunc("/autocomplete", handleAutoComplete)
 
 	l, err := net.Listen("tcp4", *bind)
 	if err != nil {

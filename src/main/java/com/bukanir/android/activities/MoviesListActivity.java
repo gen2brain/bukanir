@@ -75,16 +75,16 @@ public class MoviesListActivity extends ActionBarActivity {
             return;
         }
 
-        Go.init(getApplicationContext());
-
-        cacheDir = getCacheDir().toString();
-
         if(Utils.isX86()) {
             if(!Utils.isHttpServiceRunning(this)) {
                 Intent intent = new Intent(this, BukanirHttpService.class);
                 startService(intent);
             }
+        } else {
+            Go.init(getApplicationContext());
         }
+
+        cacheDir = getCacheDir().toString();
 
         setContentView(R.layout.activity_movie_list);
 
@@ -394,7 +394,7 @@ public class MoviesListActivity extends ActionBarActivity {
             }
 
             try {
-                results = BukanirClient.getTopMovies(category, listCount, refresh, cacheDir);
+                results = BukanirClient.getTopResults(category, listCount, refresh, cacheDir);
             } catch(Exception e) {
                 e.printStackTrace();
                 return null;

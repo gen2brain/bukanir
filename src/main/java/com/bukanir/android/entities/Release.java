@@ -5,11 +5,6 @@ public class Release implements Comparable<Release> {
 	public String name;
 	public String score;
 	
-	public Release(String name, String score) {
-		this.name = name;
-		this.score = score;
-	}
-	
 	@Override
 	public String toString() {
 	    StringBuilder result = new StringBuilder();

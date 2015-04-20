@@ -40,7 +40,9 @@ public class MovieActivity extends ActionBarActivity {
         Log.d(TAG, "onCreate");
         super.onCreate(savedInstanceState);
 
-        Go.init(getApplicationContext());
+        if(!Utils.isX86()) {
+            Go.init(getApplicationContext());
+        }
 
         setContentView(R.layout.activity_movie);
 
@@ -150,8 +152,8 @@ public class MovieActivity extends ActionBarActivity {
                 progressBar.setVisibility(View.INVISIBLE);
             }
             fragmentManager.beginTransaction()
-                    .add(R.id.container, MovieFragment.newInstance(movie, summary))
-                    .commit();
+                .add(R.id.container, MovieFragment.newInstance(movie, summary))
+                .commit();
         }
 
     }

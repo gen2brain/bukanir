@@ -16,39 +16,39 @@ public class Movie implements Comparable<Movie>, Serializable {
     public String seeders;
     public String magnetLink;
     public String release;
-	public String category;
-	public String season;
-	public String episode;
+    public String category;
+    public String season;
+    public String episode;
 
-	@Override
-	public String toString() {
-	    StringBuilder result = new StringBuilder();
-	    String NL = System.getProperty("line.separator");
+    @Override
+    public String toString() {
+        StringBuilder result = new StringBuilder();
+        String NL = System.getProperty("line.separator");
 
-	    result.append(((Object)this).getClass().getName() + " {" + NL);
-	    result.append("  title: " + this.title + NL);
-	    result.append("  id: " + this.id + NL);
-	    result.append("  year: " + this.year + NL);
-	    result.append("  posterSmall: " + this.posterSmall + NL);
+        result.append(((Object)this).getClass().getName() + " {" + NL);
+        result.append("  title: " + this.title + NL);
+        result.append("  id: " + this.id + NL);
+        result.append("  year: " + this.year + NL);
+        result.append("  posterSmall: " + this.posterSmall + NL);
         result.append("  posterMedium: " + this.posterMedium + NL);
         result.append("  posterLarge: " + this.posterLarge + NL);
-	    result.append("  posterXLarge: " + this.posterXLarge + NL);
-	    result.append("  size: " + this.size + NL);
+        result.append("  posterXLarge: " + this.posterXLarge + NL);
+        result.append("  size: " + this.size + NL);
         result.append("  sizeHuman: " + this.sizeHuman + NL);
-	    result.append("  seeders: " + this.seeders + NL);
-	    result.append("  magnetLink: " + this.magnetLink + NL);
+        result.append("  seeders: " + this.seeders + NL);
+        result.append("  magnetLink: " + this.magnetLink + NL);
         result.append("  release: " + this.release + NL);
-		result.append("  category: " + this.category + NL);
-		result.append("  season: " + this.season + NL);
-		result.append("  episode: " + this.episode + NL);
-	    result.append("}" + NL);
+        result.append("  category: " + this.category + NL);
+        result.append("  season: " + this.season + NL);
+        result.append("  episode: " + this.episode + NL);
+        result.append("}" + NL);
 
-	    return result.toString();
-	}
+        return result.toString();
+    }
 
-	@Override
-	public int compareTo(Movie m) {
-		return Integer.valueOf(m.seeders) - Integer.valueOf(this.seeders);
-	}
+    @Override
+    public int compareTo(Movie m) {
+        return Integer.valueOf(m.seeders) - Integer.valueOf(this.seeders);
+    }
 
 }

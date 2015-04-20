@@ -148,13 +148,13 @@ public class SettingsActivity extends PreferenceActivity {
 
     private static boolean isXLargeTablet(Context context) {
         return (context.getResources().getConfiguration().screenLayout
-        & Configuration.SCREENLAYOUT_SIZE_MASK) >= Configuration.SCREENLAYOUT_SIZE_LARGE;
+                & Configuration.SCREENLAYOUT_SIZE_MASK) >= Configuration.SCREENLAYOUT_SIZE_LARGE;
     }
 
     private static boolean isSimplePreferences(Context context) {
         return ALWAYS_SIMPLE_PREFS
-                || Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB
-                || !isXLargeTablet(context);
+            || Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB
+            || !isXLargeTablet(context);
     }
 
     @Override

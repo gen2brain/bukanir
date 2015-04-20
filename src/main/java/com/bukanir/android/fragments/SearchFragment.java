@@ -73,14 +73,14 @@ public class SearchFragment extends Fragment {
         View rootView = inflater.inflate(R.layout.fragment_movie_list, container, false);
 
         options = new DisplayImageOptions.Builder()
-                .showImageOnLoading(R.drawable.ic_stub)
-                .showImageForEmptyUri(R.drawable.ic_empty)
-                .showImageOnFail(R.drawable.ic_error)
-                .cacheInMemory(true)
-                .cacheOnDisc(true)
-                .considerExifParams(true)
-                .displayer(new SimpleBitmapDisplayer())
-                .build();
+            .showImageOnLoading(R.drawable.ic_stub)
+            .showImageForEmptyUri(R.drawable.ic_empty)
+            .showImageOnFail(R.drawable.ic_error)
+            .cacheInMemory(true)
+            .cacheOnDisc(true)
+            .considerExifParams(true)
+            .displayer(new SimpleBitmapDisplayer())
+            .build();
 
         if(!imageLoader.isInited()) {
             imageLoader.init(ImageLoaderConfiguration.createDefault(getActivity()));
@@ -126,8 +126,8 @@ public class SearchFragment extends Fragment {
 
     private void beginTransaction(Movie movie, Summary summary) {
         getActivity().getSupportFragmentManager().beginTransaction()
-                .replace(R.id.movie_container, MovieFragment.newInstance(movie, summary))
-                .commit();
+            .replace(R.id.movie_container, MovieFragment.newInstance(movie, summary))
+            .commit();
     }
 
     private void startMovieActivity(int position) {

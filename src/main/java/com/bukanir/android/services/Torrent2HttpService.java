@@ -159,9 +159,9 @@ public class Torrent2HttpService extends Service {
 
             NotificationCompat.Builder builder = new NotificationCompat.Builder(context);
             builder.setTicker(getString(R.string.torrent_started)).setContentTitle(getString(R.string.app_name))
-                    .setWhen(System.currentTimeMillis()).setAutoCancel(false)
-                    .setOngoing(true).setPriority(Notification.PRIORITY_HIGH)
-                    .setContentIntent(pendIntent);
+                .setWhen(System.currentTimeMillis()).setAutoCancel(false)
+                .setOngoing(true).setPriority(Notification.PRIORITY_HIGH)
+                .setContentIntent(pendIntent);
             Notification notification = builder.build();
 
             notification.flags |= Notification.FLAG_NO_CLEAR;

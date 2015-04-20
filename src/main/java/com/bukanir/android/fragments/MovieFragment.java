@@ -84,19 +84,22 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
             summary = (Summary) getArguments().getSerializable("summary");
         }
 
+        Log.d(TAG, movie.toString());
+        Log.d(TAG, summary.toString());
+
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
         subtitleLanguage = prefs.getString("sub_lang", "English");
 
         ImageLoadingListener animateFirstListener = new AnimateFirstDisplayListener();
 
         options = new DisplayImageOptions.Builder()
-                .showImageOnLoading(R.drawable.ic_stub)
-                .showImageForEmptyUri(R.drawable.ic_empty)
-                .showImageOnFail(R.drawable.ic_error)
-                .cacheOnDisc(true)
-                .considerExifParams(true)
-                .displayer(new SimpleBitmapDisplayer())
-                .build();
+            .showImageOnLoading(R.drawable.ic_stub)
+            .showImageForEmptyUri(R.drawable.ic_empty)
+            .showImageOnFail(R.drawable.ic_error)
+            .cacheOnDisc(true)
+            .considerExifParams(true)
+            .displayer(new SimpleBitmapDisplayer())
+            .build();
 
         View rootView = inflater.inflate(R.layout.fragment_movie, container, false);
 
@@ -118,10 +121,10 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
             File imagesDir = new File(getActivity().getExternalCacheDir().toString() + File.separator + "images");
             imagesDir.mkdirs();
             ImageLoaderConfiguration config = new
-                    ImageLoaderConfiguration.Builder(getActivity().getApplicationContext())
-                    .discCache(new UnlimitedDiscCache(imagesDir))
-                    .defaultDisplayImageOptions(DisplayImageOptions.createSimple())
-                    .build();
+                ImageLoaderConfiguration.Builder(getActivity().getApplicationContext())
+                .discCache(new UnlimitedDiscCache(imagesDir))
+                .defaultDisplayImageOptions(DisplayImageOptions.createSimple())
+                .build();
             imageLoader.init(config);
         }
         imageLoader.displayImage(movie.posterLarge, image, options, animateFirstListener);
@@ -305,7 +308,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
                             (int) Float.parseFloat(status.upload_rate),
                             Integer.parseInt(status.num_seeds),
                             Integer.parseInt(status.num_peers)
-                    );
+                            );
                     if(progress >= 100) {
                         ready = true;
                         break;
@@ -314,7 +317,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
                     publishProgress(
                             0,
                             Integer.parseInt(status.state)
-                    );
+                            );
                 }
 
                 if(isCancelled()) {
@@ -361,7 +364,6 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
             }
 
             if(torrentFile != null) {
-                Log.d(TAG, torrentFile.toString());
                 Intent intent = new Intent(getActivity(), PlayerActivity.class);
                 intent.putExtra("sub", subtitlePath);
                 intent.putExtra("file", torrentFile.name);

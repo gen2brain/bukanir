@@ -8,13 +8,14 @@ Features
 
 * Supports devices with large screen sizes
 * Many languages to choose for subtitles
-* Seeking in video is not possible
 * You need free space available for whole file, it is deleted once you stop player
+* Seeking in video is not possible :(
+* Ads free
 
 Dependencies
 ------------
 
-* https://code.google.com/p/google-gson/
+* https://github.com/google/gson
 * https://github.com/baynezy/numberpicker
 * https://github.com/behumble/showlicense
 * https://github.com/steeve/torrent2http

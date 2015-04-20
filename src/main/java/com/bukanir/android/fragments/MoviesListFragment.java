@@ -80,23 +80,23 @@ public class MoviesListFragment extends Fragment {
         View rootView = inflater.inflate(R.layout.fragment_movie_list, container, false);
 
         options = new DisplayImageOptions.Builder()
-                .showImageOnLoading(R.drawable.ic_stub)
-                .showImageForEmptyUri(R.drawable.ic_empty)
-                .showImageOnFail(R.drawable.ic_error)
-                .cacheInMemory(true)
-                .cacheOnDisc(true)
-                .considerExifParams(true)
-                .displayer(new SimpleBitmapDisplayer())
-                .build();
+            .showImageOnLoading(R.drawable.ic_stub)
+            .showImageForEmptyUri(R.drawable.ic_empty)
+            .showImageOnFail(R.drawable.ic_error)
+            .cacheInMemory(true)
+            .cacheOnDisc(true)
+            .considerExifParams(true)
+            .displayer(new SimpleBitmapDisplayer())
+            .build();
 
         if(!imageLoader.isInited()) {
             File imagesDir = new File(getActivity().getExternalCacheDir().toString() + File.separator + "images");
             imagesDir.mkdirs();
             ImageLoaderConfiguration config = new
-                    ImageLoaderConfiguration.Builder(getActivity().getApplicationContext())
-                    .discCache(new UnlimitedDiscCache(imagesDir))
-                    .defaultDisplayImageOptions(DisplayImageOptions.createSimple())
-                    .build();
+                ImageLoaderConfiguration.Builder(getActivity().getApplicationContext())
+                .discCache(new UnlimitedDiscCache(imagesDir))
+                .defaultDisplayImageOptions(DisplayImageOptions.createSimple())
+                .build();
             imageLoader.init(config);
         }
 
