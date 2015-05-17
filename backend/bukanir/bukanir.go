@@ -480,7 +480,7 @@ func podnapisi(movie string, year string, torrentRelease string, lang string, ca
 	l := getLanguage(lang)
 
 	baseUrl := "http://podnapisi.net/subtitles/"
-	searchUrl := baseUrl + "search/old?sK=%s&sY=%s&sJ=%s"
+	searchUrl := baseUrl + "search/old?sXML=1&sK=%s&sY=%s&sJ=%s"
 
 	url := fmt.Sprintf(searchUrl, url.QueryEscape(movie), year, l.ID)
 

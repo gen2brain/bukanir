@@ -348,14 +348,14 @@ public class MoviesListActivity extends ActionBarActivity {
                 ft.remove(prev);
             }
             ft.replace(R.id.list_container, MoviesListFragment.newInstance(results, twoPane));
-            ft.commit();
+            ft.commitAllowingStateLoss();
         } else {
             Fragment prev = getSupportFragmentManager().findFragmentById(R.id.container);
             if (prev != null) {
                 ft.remove(prev);
             }
             ft.replace(R.id.container, MoviesListFragment.newInstance(results, twoPane));
-            ft.commit();
+            ft.commitAllowingStateLoss();
         }
     }
 

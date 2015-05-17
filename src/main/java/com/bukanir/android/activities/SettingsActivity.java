@@ -233,8 +233,8 @@ public class SettingsActivity extends PreferenceActivity {
 
             bindPreferenceSummaryToValue(findPreference("download_rate"));
             bindPreferenceSummaryToValue(findPreference("upload_rate"));
-            bindPreferenceSummaryToValue(findPreference("port_lower"));
-            bindPreferenceSummaryToValue(findPreference("port_upper"));
+            bindPreferenceSummaryToIntValue(findPreference("port_lower"));
+            bindPreferenceSummaryToIntValue(findPreference("port_upper"));
         }
     }
 

@@ -299,7 +299,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
             boolean ready = false;
             while(!ready) {
                 TorrentStatus status = t2h.getStatus();
-                if(Integer.parseInt(status.state) >= 3 && !ready) {
+                if(status != null && Integer.parseInt(status.state) >= 3 && !ready) {
                     float progress = Float.parseFloat(status.progress) * 10000;
                     publishProgress(
                             (int) progress,
@@ -313,7 +313,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
                         ready = true;
                         break;
                     }
-                } else {
+                } else if(status != null) {
                     publishProgress(
                             0,
                             Integer.parseInt(status.state)
@@ -391,7 +391,8 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
                 return null;
             }
 
-            ArrayList<Subtitle> subtitles = BukanirClient.getSubtitles(m.title, m.year, m.release, subtitleLanguage, m.category, m.season, m.episode, summary.imdbId);
+            ArrayList<Subtitle> subtitles = BukanirClient.getSubtitles(
+                    m.title, m.year, m.release, subtitleLanguage, m.category, m.season, m.episode, summary.imdbId);
 
             if(subtitles == null || subtitles.isEmpty() || isCancelled()) {
                 return null;
