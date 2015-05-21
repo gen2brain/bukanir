@@ -22,15 +22,13 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	tmdb "github.com/amahi/go-themoviedb"
 	humanize "github.com/dustin/go-humanize"
-	"github.com/sqp/opensubs"
 	"github.com/xrash/smetrics"
 )
 
 var (
 	appName    = "bukanir-http"
-	appVersion = "1.5"
+	appVersion = "1.6"
 )
 
 type torrent struct {
@@ -123,7 +121,12 @@ var categories = []string{
 }
 
 var hosts = []string{
-	"thepiratebay.se",
+	"thepiratebay.am",
+	"thepiratebay.gs",
+	"thepiratebay.la",
+	"thepiratebay.vg",
+	"thepiratebay.mn",
+	"thepiratebay.gd",
 	"thepiratebay.mk",
 	"thepiratebay.cd",
 	"thepiratebay.lv",
@@ -242,25 +245,30 @@ func tmdbSearch(t torrent) {
 		}
 	}()
 
-	md := tmdb.Init(tmdbApiKey)
+	md := tmdbInit(tmdbApiKey)
 	config, _ := md.GetConfig()
 
-	var results tmdb.TmdbResponse
+	var err error
+	var results tmdbResponse
 	if t.Category == 205 {
-		results, _ = md.SearchTmdbtv(t.FormattedTitle)
+		results, err = md.SearchTmdbtv(t.FormattedTitle)
 	} else {
-		results, _ = md.SearchMovie(t.FormattedTitle)
+		results, err = md.SearchMovie(t.FormattedTitle)
+	}
+
+	if err != nil {
+		log.Println(err)
 	}
 
 	if results.Total_results == 0 {
 		return
 	}
 
-	var res *tmdb.TmdbResult
+	var res *tmdbResult
 	if t.Category == 205 {
 		res = &results.Results[0]
 	} else {
-		res = new(tmdb.TmdbResult)
+		res = new(tmdbResult)
 		for _, result := range results.Results {
 			if result.Release_date != "" && t.Year != "" {
 				tmdbYear, _ := strconv.Atoi(getYear(result.Release_date))
@@ -277,7 +285,7 @@ func tmdbSearch(t torrent) {
 		return
 	}
 
-	var p tmdb.TmdbPoster
+	var p tmdbPoster
 	if t.Category == 205 {
 		p, _ = md.GetTmdbTvImages(strconv.Itoa(res.Id), t.Season)
 	}
@@ -338,10 +346,10 @@ func tmdbSummary(id int, category int, season int) {
 		}
 	}()
 
-	md := tmdb.Init(tmdbApiKey)
+	md := tmdbInit(tmdbApiKey)
 
 	var err error
-	var res tmdb.MovieMetadata
+	var res movieMetadata
 
 	if category == 205 {
 		res, err = md.GetTmdbTvDetails(strconv.Itoa(id))
@@ -393,7 +401,7 @@ func tmdbAutoComplete(query string) {
 		}
 	}()
 
-	md := tmdb.Init(tmdbApiKey)
+	md := tmdbInit(tmdbApiKey)
 	tvs, _ := md.AutoCompleteTv(query)
 	movies, _ := md.AutoCompleteMovie(query)
 
@@ -490,7 +498,7 @@ func podnapisi(movie string, year string, torrentRelease string, lang string, ca
 		}
 	}
 
-	res, err := httpGet(url)
+	res, err := httpGetResponse(url)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -612,7 +620,7 @@ func opensubtitles(movie string, imdbId string, year string, torrentRelease stri
 
 	l := getLanguage(lang)
 
-	query := opensubs.NewQuery(OPENSUBTITLE_USER_AGENT)
+	query := OpenSubsNewQuery(OPENSUBTITLE_USER_AGENT)
 	query.AddImdb(imdbId, l.ISO_639_2)
 
 	if category == 205 {
@@ -662,7 +670,7 @@ func compareRelease(torrentRelease string, subtitleRelease string) float64 {
 	return smetrics.Jaro(torrentRelease, subtitleRelease)
 }
 
-func httpGet(uri string) (*http.Response, error) {
+func httpGetResponse(uri string) (*http.Response, error) {
 	jar, _ := cookiejar.New(nil)
 	timeout := time.Duration(30 * time.Second)
 
@@ -701,9 +709,9 @@ func httpGet(uri string) (*http.Response, error) {
 }
 
 func getDocument(uri string) (*goquery.Document, error) {
-	res, err := httpGet(uri)
+	res, err := httpGetResponse(uri)
 	if err != nil {
-		log.Printf("Error httpGet %s: %v", uri, err.Error())
+		log.Printf("Error httpGetResponse %s: %v", uri, err.Error())
 		return nil, err
 	}
 
@@ -845,7 +853,7 @@ func getHost() string {
 	return hosts[0]
 }
 
-func getCast(res []tmdb.TmdbCast) string {
+func getCast(res []tmdbCast) string {
 	cast := ""
 	castLen := len(res)
 	if castLen >= 4 {
@@ -915,7 +923,7 @@ func getCache(key string, tmpDir string) []byte {
 		return nil
 	}
 	mtime := info.ModTime().Unix()
-	if time.Now().Unix()-mtime > 43200 {
+	if time.Now().Unix()-mtime > 86400 {
 		return nil
 	}
 
@@ -949,9 +957,10 @@ func Category(category string, limit int, force int, tmpDir string) (string, err
 	}
 
 	movies = make([]movie, 0)
+
 	wg.Add(len(torrents))
 	for _, torrent := range torrents {
-		go tmdbSearch(torrent)
+		tmdbSearch(torrent)
 	}
 	wg.Wait()
 
@@ -985,9 +994,10 @@ func Search(query string, limit int) (string, error) {
 	}
 
 	movies = make([]movie, 0)
+
 	wg.Add(len(torrents))
 	for _, torrent := range torrents {
-		go tmdbSearch(torrent)
+		tmdbSearch(torrent)
 	}
 	wg.Wait()
 
