@@ -2,29 +2,32 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <item android:id="@+id/action_settings"
-        android:title="@string/action_settings"
+    <item android:id="@+id/action_search"
+        android:title="@string/action_search"
+        android:icon="@drawable/ic_search"
         android:orderInCategory="100"
-        app:showAsAction="never" />
+        app:showAsAction="collapseActionView|always"
+        app:actionViewClass="android.support.v7.widget.SearchView" />
 
     <item android:id="@+id/action_sync"
         android:title="@string/action_sync"
         android:icon="@drawable/ic_refresh"
+        android:orderInCategory="200"
         app:showAsAction="collapseActionView|ifRoom" />
 
-    <item android:id="@+id/action_search"
-        android:title="@string/action_search"
-        android:icon="@drawable/ic_search"
-        app:showAsAction="collapseActionView|always"
-        app:actionViewClass="android.support.v7.widget.SearchView" />
+    <item android:id="@+id/action_favorites"
+        android:title="@string/action_favorites"
+        android:icon="@drawable/ic_favorites"
+        android:orderInCategory="300"
+        app:showAsAction="collapseActionView|ifRoom" />
 
-    <item android:id="@+id/action_licenses"
-        android:title="@string/action_licenses"
-        android:orderInCategory="200"
+    <item android:id="@+id/action_settings"
+        android:title="@string/action_settings"
+        android:orderInCategory="400"
         app:showAsAction="never" />
 
     <item android:id="@+id/action_about"
         android:title="@string/action_about"
-        android:orderInCategory="300"
+        android:orderInCategory="500"
         app:showAsAction="never" />
 </menu>

@@ -2,7 +2,14 @@
 <resources>
 
     <color name="transparent">#00000000</color>
-    <color name="mediacontroller_bg_pressed">#ff53c1bd</color>
-    <color name="mediacontroller_bg">#99000000</color>
+    <color name="transparent_dark">#CC000000</color>
+
+    <color name="primary">#757575</color>
+    <color name="primary_dark">#212121</color>
+    <color name="text_color_primary">#fafafa</color>
+
+    <color name="item">#484848</color>
+    <color name="accent">#ff9800</color>
+    <color name="window_background">#424242</color>
 
 </resources>

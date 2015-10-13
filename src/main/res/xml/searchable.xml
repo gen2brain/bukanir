@@ -5,4 +5,4 @@
     android:hint="@string/action_search_hint"
     android:searchSuggestThreshold="3"
     android:searchSuggestIntentAction="android.intent.action.VIEW"
-    android:searchSuggestAuthority="com.bukanir.android.SuggestionProvider" />
+    android:searchSuggestAuthority="com.bukanir.android.providers.SuggestionProvider" />

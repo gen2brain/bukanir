@@ -1,10 +1,17 @@
 <resources>
-    <dimen name="activity_horizontal_margin">64dp</dimen>
-    <dimen name="activity_vertical_margin">64dp</dimen>
-    <dimen name="poster_width">192dp</dimen>
-    <dimen name="movie_title">22sp</dimen>
-    <dimen name="movie_tagline">18sp</dimen>
+    <dimen name="activity_horizontal_margin">32dp</dimen>
+    <dimen name="activity_vertical_margin">32dp</dimen>
+
+    <dimen name="poster_width">190dp</dimen>
+    <dimen name="poster_height">274dp</dimen>
+
+    <dimen name="watch_button_width">190dp</dimen>
+    <dimen name="trailer_button_width">140dp</dimen>
+
+    <dimen name="movie_title">18sp</dimen>
+    <dimen name="movie_tagline">16sp</dimen>
     <dimen name="movie_info">14sp</dimen>
     <dimen name="movie_progress">12sp</dimen>
+
     <dimen name="tmdb_text">12sp</dimen>
 </resources>

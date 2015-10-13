@@ -3,12 +3,21 @@
     <!-- Default screen margins, per the Android Design guidelines. -->
     <dimen name="activity_horizontal_margin">16dp</dimen>
     <dimen name="activity_vertical_margin">16dp</dimen>
-    <dimen name="poster_width">132dp</dimen>
-    <dimen name="movie_title">18sp</dimen>
+
+    <dimen name="thumbnail_width">64dp</dimen>
+    <dimen name="thumbnail_height">96dp</dimen>
+
+    <dimen name="poster_width">130dp</dimen>
+    <dimen name="poster_height">190dp</dimen>
+
+    <dimen name="watch_button_width">130dp</dimen>
+    <dimen name="trailer_button_width">80dp</dimen>
+
+    <dimen name="movie_title">16sp</dimen>
     <dimen name="movie_tagline">14sp</dimen>
     <dimen name="movie_info">12sp</dimen>
     <dimen name="movie_progress">10sp</dimen>
-    <dimen name="playpause_button">48dp</dimen>
+
     <dimen name="tmdb_text">10sp</dimen>
 
 </resources>

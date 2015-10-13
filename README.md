@@ -1,26 +1,15 @@
-About
------
+Bukanir
+=======
 
-Bukanir is an android application that streams movies from bittorrent magnet links
+Bukanir is Android application that streams movies and TV shows from bittorrent magnet links
 
 Features
 --------
 
-* Supports devices with large screen sizes
+* Watch movies and TV shows on your Android devices
 * Many languages to choose for subtitles
-* You need free space available for whole file, it is deleted once you stop player
-* Seeking in video is not possible :(
-* Ads free
-
-Dependencies
-------------
-
-* https://github.com/google/gson
-* https://github.com/baynezy/numberpicker
-* https://github.com/behumble/showlicense
-* https://github.com/steeve/torrent2http
-* https://github.com/nostra13/Android-Universal-Image-Loader
-* https://github.com/yixia/VitamioBundle
+* Supports devices with large screen sizes
+* Ads free and free as in Freedom
 
 License
 -------

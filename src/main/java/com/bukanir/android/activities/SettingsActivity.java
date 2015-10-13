@@ -11,11 +11,6 @@ import android.preference.PreferenceActivity;
 import android.preference.PreferenceCategory;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
-import android.support.v7.internal.widget.TintCheckBox;
-import android.support.v7.internal.widget.TintCheckedTextView;
-import android.support.v7.internal.widget.TintEditText;
-import android.support.v7.internal.widget.TintRadioButton;
-import android.support.v7.internal.widget.TintSpinner;
 import android.support.v7.widget.Toolbar;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -25,6 +20,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.support.v7.widget.AppCompatCheckBox;
+import android.support.v7.widget.AppCompatCheckedTextView;
+import android.support.v7.widget.AppCompatEditText;
+import android.support.v7.widget.AppCompatRadioButton;
+import android.support.v7.widget.AppCompatSpinner;
+import android.widget.TextView;
 
 import com.bukanir.android.R;
 import com.quietlycoding.android.picker.NumberPickerPreference;
@@ -36,6 +37,30 @@ public class SettingsActivity extends PreferenceActivity {
     private static final String TAG = "SettingsActivity";
     private static final boolean ALWAYS_SIMPLE_PREFS = false;
 
+    @Override
+    public View onCreateView(String name, Context context, AttributeSet attrs) {
+        final View result = super.onCreateView(name, context, attrs);
+        if(result != null) {
+            return result;
+        }
+
+        if(Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            switch (name) {
+                case "EditText":
+                    return new AppCompatEditText(this, attrs);
+                case "Spinner":
+                    return new AppCompatSpinner(this, attrs);
+                case "CheckBox":
+                    return new AppCompatCheckBox(this, attrs);
+                case "RadioButton":
+                    return new AppCompatRadioButton(this, attrs);
+                case "CheckedTextView":
+                    return new AppCompatCheckedTextView(this, attrs);
+            }
+        }
+
+        return null;
+    }
 
     @Override
     protected void onPostCreate(Bundle savedInstanceState) {
@@ -46,6 +71,7 @@ public class SettingsActivity extends PreferenceActivity {
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
             LinearLayout root = (LinearLayout) findViewById(android.R.id.list).getParent().getParent().getParent();
             toolbar = (Toolbar) LayoutInflater.from(this).inflate(R.layout.toolbar_settings, root, false);
+            toolbar.setLogo(R.drawable.ic_launcher);
             root.addView(toolbar, 0);
         } else {
             ViewGroup root = (ViewGroup) findViewById(android.R.id.content);
@@ -54,6 +80,7 @@ public class SettingsActivity extends PreferenceActivity {
             root.removeAllViews();
 
             toolbar = (Toolbar) LayoutInflater.from(this).inflate(R.layout.toolbar_settings, root, false);
+            toolbar.setLogo(R.drawable.ic_launcher);
 
             int height;
             TypedValue tv = new TypedValue();
@@ -77,34 +104,6 @@ public class SettingsActivity extends PreferenceActivity {
         });
 
         setupSimplePreferencesScreen();
-    }
-
-    @Override
-    public View onCreateView(String name, Context context, AttributeSet attrs) {
-        // Allow super to try and create a view first
-        final View result = super.onCreateView(name, context, attrs);
-        if(result != null) {
-            return result;
-        }
-
-        if(Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-            // If we're running pre-L, we need to 'inject' our tint aware Views in place of the
-            // standard framework versions
-            switch (name) {
-                case "EditText":
-                    return new TintEditText(this, attrs);
-                case "Spinner":
-                    return new TintSpinner(this, attrs);
-                case "CheckBox":
-                    return new TintCheckBox(this, attrs);
-                case "RadioButton":
-                    return new TintRadioButton(this, attrs);
-                case "CheckedTextView":
-                    return new TintCheckedTextView(this, attrs);
-            }
-        }
-
-        return null;
     }
 
     private void setupSimplePreferencesScreen() {
@@ -133,12 +132,13 @@ public class SettingsActivity extends PreferenceActivity {
         addPreferencesFromResource(R.xml.pref_torrents);
 
         bindPreferenceSummaryToValue(findPreference("list_count"));
+        bindPreferenceSummaryToValue(findPreference("cache_days"));
+        bindPreferenceSummaryToValue(findPreference("pixel_format"));
+        bindPreferenceSummaryToValue(findPreference("sub_lang"));
+        bindPreferenceSummaryToValue(findPreference("sub_size"));
         bindPreferenceSummaryToValue(findPreference("download_rate"));
         bindPreferenceSummaryToValue(findPreference("upload_rate"));
-        bindPreferenceSummaryToIntValue(findPreference("port_lower"));
-        bindPreferenceSummaryToIntValue(findPreference("port_upper"));
-        bindPreferenceSummaryToValue(findPreference("sub_lang"));
-        bindPreferenceSummaryToValue(findPreference("sub_enc"));
+        bindPreferenceSummaryToIntValue(findPreference("listen_port"));
     }
 
     @Override
@@ -212,6 +212,7 @@ public class SettingsActivity extends PreferenceActivity {
             addPreferencesFromResource(R.xml.pref_general);
 
             bindPreferenceSummaryToValue(findPreference("list_count"));
+            bindPreferenceSummaryToValue(findPreference("cache_days"));
         }
     }
 
@@ -221,6 +222,7 @@ public class SettingsActivity extends PreferenceActivity {
         public void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
             addPreferencesFromResource(R.xml.pref_player);
+            bindPreferenceSummaryToValue(findPreference("pixel_format"));
         }
     }
 
@@ -233,8 +235,7 @@ public class SettingsActivity extends PreferenceActivity {
 
             bindPreferenceSummaryToValue(findPreference("download_rate"));
             bindPreferenceSummaryToValue(findPreference("upload_rate"));
-            bindPreferenceSummaryToIntValue(findPreference("port_lower"));
-            bindPreferenceSummaryToIntValue(findPreference("port_upper"));
+            bindPreferenceSummaryToIntValue(findPreference("listen_port"));
         }
     }
 
@@ -246,7 +247,7 @@ public class SettingsActivity extends PreferenceActivity {
             addPreferencesFromResource(R.xml.pref_subtitles);
 
             bindPreferenceSummaryToValue(findPreference("sub_lang"));
-            bindPreferenceSummaryToValue(findPreference("sub_enc"));
+            bindPreferenceSummaryToValue(findPreference("sub_size"));
         }
     }
 

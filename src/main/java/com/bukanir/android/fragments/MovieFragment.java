@@ -1,14 +1,12 @@
 package com.bukanir.android.fragments;
 
 import android.content.Intent;
-import android.content.SharedPreferences;
-import android.content.res.Configuration;
-import android.graphics.Bitmap;
 import android.os.AsyncTask;
 import android.os.Build;
-import android.preference.PreferenceManager;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
+import android.text.Html;
+import android.text.Spanned;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -19,32 +17,28 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.bukanir.android.BukanirClient;
-import com.bukanir.android.R;
 import com.bukanir.android.activities.PlayerActivity;
+import com.bukanir.android.application.Settings;
+import com.bukanir.android.clients.BukanirClient;
+import com.bukanir.android.R;
 import com.bukanir.android.entities.Summary;
-import com.nostra13.universalimageloader.cache.disc.impl.UnlimitedDiscCache;
+import com.bukanir.android.helpers.Storage;
+import com.nostra13.universalimageloader.cache.disc.impl.UnlimitedDiskCache;
 import com.nostra13.universalimageloader.core.DisplayImageOptions;
 import com.nostra13.universalimageloader.core.ImageLoader;
 import com.nostra13.universalimageloader.core.ImageLoaderConfiguration;
-import com.bukanir.android.Torrent2Http;
+import com.bukanir.android.clients.Torrent2HttpClient;
 import com.bukanir.android.entities.Movie;
 import com.bukanir.android.entities.Subtitle;
 import com.bukanir.android.entities.TorrentFile;
 import com.bukanir.android.entities.TorrentStatus;
 import com.bukanir.android.services.Torrent2HttpService;
-import com.bukanir.android.utils.Utils;
-import com.nostra13.universalimageloader.core.display.FadeInBitmapDisplayer;
-import com.nostra13.universalimageloader.core.display.SimpleBitmapDisplayer;
+import com.bukanir.android.helpers.Utils;
 import com.nostra13.universalimageloader.core.listener.ImageLoadingListener;
 import com.nostra13.universalimageloader.core.listener.SimpleImageLoadingListener;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
 
 public class MovieFragment extends Fragment implements View.OnClickListener {
 
@@ -52,23 +46,30 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
 
     Movie movie;
     Summary summary;
+
+    private Settings settings;
+
+    ArrayList<Subtitle> subtitles;
+
     Button buttonWatch;
-    Subtitle subtitle;
-    String subtitlePath;
-    String subtitleLanguage;
-    DisplayImageOptions options;
+    Button buttonTrailer;
+
     ProgressBar torrentProgressBar;
     TextView downloadingText;
-    ImageLoader imageLoader = ImageLoader.getInstance();
+    ProgressBar progressBar;
+
+    TrailerTask trailerTask;
     Torrent2HttpTask torrent2HttpTask;
-    SubtitleTask subtitleTask;
-    private ProgressBar progressBar;
+
+    DisplayImageOptions options;
+    ImageLoader imageLoader = ImageLoader.getInstance();
+    ImageLoadingListener animateFirstListener = new SimpleImageLoadingListener();
 
     public static MovieFragment newInstance(Movie movie, Summary summary) {
         MovieFragment fragment = new MovieFragment();
         Bundle args = new Bundle();
-        args.putSerializable("movie", movie);
-        args.putSerializable("summary", summary);
+        args.putParcelable("movie", movie);
+        args.putParcelable("summary", summary);
         fragment.setArguments(args);
         return fragment;
     }
@@ -77,29 +78,14 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         Log.d(TAG, "onCreateView");
         if(savedInstanceState != null) {
-            movie = (Movie) savedInstanceState.getSerializable("movie");
-            summary = (Summary) savedInstanceState.getSerializable("summary");
+            movie = savedInstanceState.getParcelable("movie");
+            summary = savedInstanceState.getParcelable("summary");
         } else {
-            movie = (Movie) getArguments().getSerializable("movie");
-            summary = (Summary) getArguments().getSerializable("summary");
+            movie = getArguments().getParcelable("movie");
+            summary = getArguments().getParcelable("summary");
         }
 
-        Log.d(TAG, movie.toString());
-        Log.d(TAG, summary.toString());
-
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
-        subtitleLanguage = prefs.getString("sub_lang", "English");
-
-        ImageLoadingListener animateFirstListener = new AnimateFirstDisplayListener();
-
-        options = new DisplayImageOptions.Builder()
-            .showImageOnLoading(R.drawable.ic_stub)
-            .showImageForEmptyUri(R.drawable.ic_empty)
-            .showImageOnFail(R.drawable.ic_error)
-            .cacheOnDisc(true)
-            .considerExifParams(true)
-            .displayer(new SimpleBitmapDisplayer())
-            .build();
+        settings = new Settings(getActivity());
 
         View rootView = inflater.inflate(R.layout.fragment_movie, container, false);
 
@@ -110,24 +96,35 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         downloadingText.setVisibility(View.INVISIBLE);
 
         buttonWatch = (Button) rootView.findViewById(R.id.watch);
+        buttonTrailer = (Button) rootView.findViewById(R.id.trailer);
+
         buttonWatch.setEnabled(true);
         buttonWatch.setOnClickListener(this);
 
-        ImageView image = (ImageView) rootView.findViewById(R.id.image);
+        if(summary.video != null && !summary.video.isEmpty()) {
+            buttonTrailer.setEnabled(true);
+            buttonTrailer.setOnClickListener(this);
+        } else {
+            buttonTrailer.setVisibility(View.INVISIBLE);
+        }
 
-        setMovieText(rootView);
+        options = new DisplayImageOptions.Builder()
+                .showImageOnLoading(R.drawable.ic_stub)
+                .showImageForEmptyUri(R.drawable.ic_empty)
+                .showImageOnFail(R.drawable.ic_error)
+                .cacheOnDisk(true)
+                .build();
 
         if(!imageLoader.isInited()) {
-            File imagesDir = new File(getActivity().getExternalCacheDir().toString() + File.separator + "images");
+            File imagesDir = new File(getActivity().getCacheDir().toString() + File.separator + "images");
             imagesDir.mkdirs();
             ImageLoaderConfiguration config = new
                 ImageLoaderConfiguration.Builder(getActivity().getApplicationContext())
-                .discCache(new UnlimitedDiscCache(imagesDir))
+                .diskCache(new UnlimitedDiskCache(imagesDir))
                 .defaultDisplayImageOptions(DisplayImageOptions.createSimple())
                 .build();
             imageLoader.init(config);
         }
-        imageLoader.displayImage(movie.posterLarge, image, options, animateFirstListener);
 
         return rootView;
     }
@@ -135,31 +132,19 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        View v = getView().getRootView();
-        if(v != null) {
-            progressBar = (ProgressBar) v.findViewById(R.id.progressbar);
-        }
+        progressBar = (ProgressBar) view.getRootView().findViewById(R.id.progressbar);
+        setMovieText(view);
+
+        ImageView image = (ImageView) view.findViewById(R.id.image);
+        imageLoader.displayImage(movie.posterLarge, image, options, animateFirstListener);
     }
 
     @Override
     public void onDestroy() {
-        Log.d(TAG, "onDestroy");
         super.onDestroy();
-        if(subtitleTask != null) {
-            if(subtitleTask.getStatus().equals(AsyncTask.Status.RUNNING)) {
-                subtitleTask.cancel(true);
-            }
-        }
-        if(torrent2HttpTask != null) {
-            if(torrent2HttpTask.getStatus().equals(AsyncTask.Status.RUNNING)) {
-                torrent2HttpTask.cancel(true);
-                torrentProgressBar.setVisibility(View.INVISIBLE);
-                downloadingText.setVisibility(View.INVISIBLE);
-            }
-        }
+
         if(Utils.isTorrentServiceRunning(getActivity())) {
-            Intent intent = new Intent(getActivity(), Torrent2HttpService.class);
-            getActivity().stopService(intent);
+            getActivity().stopService(new Intent(getActivity(), Torrent2HttpService.class));
         }
     }
 
@@ -167,36 +152,89 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
     public void onSaveInstanceState(Bundle outState) {
         Log.d(TAG, "onSaveInstanceState");
         super.onSaveInstanceState(outState);
-        outState.putSerializable("movie", movie);
-        outState.putSerializable("summary", summary);
+        if(movie != null && summary != null) {
+            outState.putParcelable("movie", movie);
+            outState.putParcelable("summary", summary);
+        }
     }
 
     @Override
-    public void onConfigurationChanged(Configuration newConfig) {
-        Log.d(TAG, "onConfigurationChanged");
-        super.onConfigurationChanged(newConfig);
+    public void onPause() {
+        Log.d(TAG, "onPause");
+        super.onPause();
+
+        cancelTorrent2HttpTask();
+        cancelTrailerTask();
     }
 
     @Override
     public void onResume() {
         Log.d(TAG, "onResume");
         super.onResume();
+        if(progressBar != null) {
+           progressBar.setVisibility(View.GONE);
+        }
+
         buttonWatch.setEnabled(true);
+        buttonTrailer.setEnabled(true);
+
+        if(Utils.isTorrentServiceRunning(getActivity())) {
+            getActivity().stopService(new Intent(getActivity(), Torrent2HttpService.class));
+        }
     }
 
     @Override
     public void onClick(View view) {
-        Log.d(TAG, "onClick");
         if(view.getId() == R.id.watch) {
-            if(Utils.isStorageAvailable()) {
-                if(Utils.isFreeSpaceAvailable(getActivity(), movie)) {
-                    view.setEnabled(false);
-                    startMovie();
-                } else {
-                    Toast.makeText(getActivity(), getString(R.string.freespace_not_available), Toast.LENGTH_LONG).show();
-                }
+            String storage = Storage.getStorage(getActivity());
+            if(Storage.isFreeSpaceAvailable(storage, Long.valueOf(movie.size))) {
+                view.setEnabled(false);
+                startTorrent2HttpTask();
             } else {
-                Toast.makeText(getActivity(), getString(R.string.storage_not_available), Toast.LENGTH_LONG).show();
+                Toast.makeText(getActivity(), getString(R.string.freespace_not_available), Toast.LENGTH_LONG).show();
+            }
+        } else if(view.getId() == R.id.trailer) {
+            view.setEnabled(false);
+            startTrailerTask();
+        }
+    }
+
+    public void startTorrent2HttpTask() {
+        Intent intent = new Intent(getActivity(), Torrent2HttpService.class);
+        intent.putExtra("magnet", movie.magnetLink);
+        getActivity().startService(intent);
+
+        torrent2HttpTask = new Torrent2HttpTask();
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+            torrent2HttpTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        } else {
+            torrent2HttpTask.execute();
+        }
+    }
+
+    public void startTrailerTask() {
+        trailerTask = new TrailerTask();
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+            trailerTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        } else {
+            trailerTask.execute();
+        }
+    }
+
+    public void cancelTorrent2HttpTask() {
+        if(torrent2HttpTask != null) {
+            if(torrent2HttpTask.getStatus().equals(AsyncTask.Status.RUNNING)) {
+                torrent2HttpTask.cancel(true);
+                torrentProgressBar.setVisibility(View.INVISIBLE);
+                downloadingText.setVisibility(View.INVISIBLE);
+            }
+        }
+    }
+
+    public void cancelTrailerTask() {
+        if(trailerTask != null) {
+            if(trailerTask.getStatus().equals(AsyncTask.Status.RUNNING)) {
+                trailerTask.cancel(true);
             }
         }
     }
@@ -204,8 +242,10 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
     public void setMovieText(View rootView) {
         TextView title = (TextView) rootView.findViewById(R.id.title);
         TextView info = (TextView) rootView.findViewById(R.id.info);
+        TextView genre = (TextView) rootView.findViewById(R.id.genre);
         TextView info2 = (TextView) rootView.findViewById(R.id.info2);
         TextView cast = (TextView) rootView.findViewById(R.id.cast);
+        TextView director = (TextView) rootView.findViewById(R.id.director);
         TextView tagline = (TextView) rootView.findViewById(R.id.tagline);
         TextView overview = (TextView) rootView.findViewById(R.id.overview);
 
@@ -214,10 +254,44 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         }
 
         title.setText(Utils.toTitleCase(movie.title));
-        cast.setText(summary.cast);
         overview.setText(summary.overview);
 
-        if(movie.category.equals("205")) {
+        if(summary.cast != null) {
+            String castText;
+            if(summary.cast.size() >= 4) {
+                castText = android.text.TextUtils.join(", ", summary.cast.subList(0, 4));
+                if(summary.cast.size() > 4) {
+                    castText += "...";
+                }
+            } else {
+                castText = android.text.TextUtils.join(", ", summary.cast);
+            }
+            Spanned text = Html.fromHtml("<i>"+getString(R.string.cast_description)+"</i>" + castText);
+            cast.setText(text);
+        } else {
+            cast.setVisibility(View.GONE);
+        }
+
+        if(summary.genre != null && !summary.genre.isEmpty()) {
+            String genreText;
+            if(summary.genre.size() > 3) {
+                genreText = android.text.TextUtils.join(", ", summary.genre.subList(0, 3));
+            } else {
+                genreText = android.text.TextUtils.join(", ", summary.genre);
+            }
+            genre.setText(genreText);
+        } else {
+            genre.setVisibility(View.GONE);
+        }
+
+        if(!summary.director.isEmpty()) {
+            Spanned text = Html.fromHtml("<i>"+getString(R.string.director_description)+"</i>" + summary.director);
+            director.setText(text);
+        } else {
+            director.setVisibility(View.GONE);
+        }
+
+        if(movie.category.equals("205") || movie.category.equals("208")) {
             int season = Integer.valueOf(movie.season);
             int episode = Integer.valueOf(movie.episode);
             if(season != 0 && episode != 0) {
@@ -238,11 +312,11 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
             year = String.format("(%s)  ", movie.year);
         }
         String rating = "";
-        if(!summary.rating.equals("0.0")) {
+        if(!summary.rating.equals("0.0") && !summary.rating.equals("0") && !summary.rating.isEmpty()) {
             rating = String.format("%s / 10  ", summary.rating);
         }
         String runtime = "";
-        if(!summary.runtime.equals("0")) {
+        if(!summary.runtime.equals("0") && !summary.runtime.isEmpty()) {
             runtime = String.format("%s min  ", summary.runtime);
         }
         String size = "";
@@ -253,32 +327,15 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
             runtime += "/ ";
         }
 
-        info.setText(year + rating);
+        info.setText(rating + year);
         info2.setText(runtime + size);
-    }
-
-    public void startMovie() {
-        Log.d(TAG, "startMovie");
-        Intent intent = new Intent(getActivity(), Torrent2HttpService.class);
-        intent.putExtra("magnet", movie.magnetLink);
-        getActivity().startService(intent);
-
-        subtitleTask = new SubtitleTask();
-        torrent2HttpTask = new Torrent2HttpTask();
-
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-            subtitleTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, movie);
-            torrent2HttpTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-        } else {
-            subtitleTask.execute(movie);
-            torrent2HttpTask.execute();
-        }
     }
 
     private class Torrent2HttpTask extends AsyncTask<Void, Integer, TorrentFile> {
 
         protected void onPreExecute() {
             super.onPreExecute();
+
             torrentProgressBar.setProgress(0);
             torrentProgressBar.setVisibility(View.VISIBLE);
             torrentProgressBar.setMax(100);
@@ -290,26 +347,33 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         }
 
         protected TorrentFile doInBackground(Void... params) {
-            Torrent2Http t2h = new Torrent2Http();
+
+            Torrent2HttpClient t2h = new Torrent2HttpClient();
             boolean startup = t2h.waitStartup();
             if(!startup) {
                 return null;
             }
 
+            if(isCancelled()) {
+                return null;
+            }
+
+            int required = 16;
             boolean ready = false;
             while(!ready) {
                 TorrentStatus status = t2h.getStatus();
                 if(status != null && Integer.parseInt(status.state) >= 3 && !ready) {
-                    float progress = Float.parseFloat(status.progress) * 10000;
+                    int downloaded = Integer.parseInt(status.total_download) / (1024*1024);
+                    Float percent = (float) downloaded / (float) required * 100;
                     publishProgress(
-                            (int) progress,
+                            percent.intValue(),
                             Integer.parseInt(status.state),
                             (int) Float.parseFloat(status.download_rate),
                             (int) Float.parseFloat(status.upload_rate),
                             Integer.parseInt(status.num_seeds),
                             Integer.parseInt(status.num_peers)
                             );
-                    if(progress >= 100) {
+                    if(downloaded >= required) {
                         ready = true;
                         break;
                     }
@@ -328,6 +392,23 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
                     Thread.sleep(t2h.T2H_POLL);
                 } catch(InterruptedException e) {
                 }
+            }
+
+            if(isCancelled()) {
+                return null;
+            }
+
+            if(settings.subtitles()) {
+                publishProgress(100, -1);
+                subtitles = BukanirClient.getSubtitles(
+                        movie.title,
+                        movie.year,
+                        movie.release,
+                        settings.subtitleLanguage(),
+                        movie.category,
+                        movie.season,
+                        movie.episode,
+                        summary.imdbId);
             }
 
             return t2h.getLargestFile();
@@ -350,6 +431,8 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
                         "D:%dk U:%dk S:%d P:%d",
                         progress[2], progress[3], progress[4], progress[5]);
                 downloadingText.setText(status);
+            } else if(state == -1) {
+                downloadingText.setText(getString(R.string.fetching_subtitles));
             }
         }
 
@@ -360,77 +443,61 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
             downloadingText.setVisibility(View.INVISIBLE);
 
             if(progressBar != null) {
-                progressBar.setVisibility(View.INVISIBLE);
+                progressBar.setVisibility(View.GONE);
             }
 
+            Intent intent = new Intent(getActivity(), PlayerActivity.class);
             if(torrentFile != null) {
-                Intent intent = new Intent(getActivity(), PlayerActivity.class);
-                intent.putExtra("sub", subtitlePath);
-                intent.putExtra("file", torrentFile.name);
-                intent.putExtra("subtitle", subtitle);
-                startActivity(intent);
+                intent.putExtra("torrent-file", torrentFile);
             }
+            if(subtitles != null) {
+                intent.putExtra("subtitles", subtitles);
+            }
+            if(movie != null) {
+                intent.putExtra("movie", movie);
+            }
+
+            startActivity(intent);
         }
 
     }
 
-    private class SubtitleTask extends AsyncTask<Movie, Void, String> {
-
-        String cacheDir;
+    private class TrailerTask extends AsyncTask<Void, Void, String> {
 
         protected void onPreExecute() {
-            cacheDir = Utils.getStorage(getActivity());
-            File subDir = new File(Utils.getStorage(getActivity()));
-            subDir.mkdirs();
+            super.onPreExecute();
+            if(progressBar != null) {
+                progressBar.setVisibility(View.VISIBLE);
+            }
         }
 
-        protected String doInBackground(Movie... params) {
-            Movie m = params[0];
+        protected String doInBackground(Void... params) {
+            String result = BukanirClient.getTrailer(summary.video);
 
             if(isCancelled()) {
                 return null;
             }
 
-            ArrayList<Subtitle> subtitles = BukanirClient.getSubtitles(
-                    m.title, m.year, m.release, subtitleLanguage, m.category, m.season, m.episode, summary.imdbId);
-
-            if(subtitles == null || subtitles.isEmpty() || isCancelled()) {
-                return null;
-            }
-
-            subtitle = subtitles.get(0);
-            String zipFile = cacheDir + "/" + subtitle.id + ".zip";
-            try {
-                Utils.saveURL(subtitle.downloadLink, zipFile);
-            } catch(IOException e) {
-                e.printStackTrace();
-                return null;
-            }
-            String subtitlePath = Utils.unzipSubtitle(zipFile, cacheDir);
-            return subtitlePath;
+            return result;
         }
 
-        protected void onPostExecute(String subPath) {
-            subtitlePath = subPath;
-        }
+        protected void onPostExecute(String url) {
+            buttonTrailer.setEnabled(true);
+            if(progressBar != null) {
+                progressBar.setVisibility(View.GONE);
+            }
 
-    }
-
-    private static class AnimateFirstDisplayListener extends SimpleImageLoadingListener {
-
-        static final List<String> displayedImages = Collections.synchronizedList(new LinkedList<String>());
-
-        @Override
-        public void onLoadingComplete(String imageUri, View view, Bitmap loadedImage) {
-            if(loadedImage != null) {
-                ImageView imageView = (ImageView) view;
-                boolean firstDisplay = !displayedImages.contains(imageUri);
-                if(firstDisplay) {
-                    FadeInBitmapDisplayer.animate(imageView, 500);
-                    displayedImages.add(imageUri);
+            Intent intent = new Intent(getActivity(), PlayerActivity.class);
+            if(url != null && !url.isEmpty() && !url.equals("empty")) {
+                intent.putExtra("trailer-id", summary.video);
+                intent.putExtra("trailer-url", url);
+                if(movie != null) {
+                    intent.putExtra("movie", movie);
+                    startActivity(intent);
                 }
             }
         }
+
     }
 
 }

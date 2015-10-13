@@ -2,14 +2,15 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     tools:context="com.bukanir.android.activities.MovieActivity" >
-    
+
+    <item android:id="@+id/action_sync"
+        android:title="@string/action_sync"
+        android:icon="@drawable/ic_refresh"
+        android:orderInCategory="100"
+        app:showAsAction="collapseActionView|ifRoom" />
+
     <item android:id="@+id/action_settings"
         android:title="@string/action_settings"
-        android:orderInCategory="100"
-        app:showAsAction="never" />
-
-    <item android:id="@+id/action_licenses"
-        android:title="@string/action_licenses"
         android:orderInCategory="200"
         app:showAsAction="never" />
 

@@ -1,9 +1,9 @@
 package com.bukanir.android.entities;
 
-import java.io.Serializable;
-import java.util.List;
+import android.os.Parcel;
+import android.os.Parcelable;
 
-public class Subtitle implements Comparable<Subtitle>, Serializable {
+public class Subtitle implements Comparable<Subtitle>, Parcelable {
 
     public String id;
     public String title;
@@ -11,6 +11,54 @@ public class Subtitle implements Comparable<Subtitle>, Serializable {
     public String release;
     public String downloadLink;
     public String score;
+
+    protected Subtitle(Parcel in) {
+        id = in.readString();
+        title = in.readString();
+        year = in.readString();
+        release = in.readString();
+        downloadLink = in.readString();
+        score = in.readString();
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeString(id);
+        dest.writeString(title);
+        dest.writeString(year);
+        dest.writeString(release);
+        dest.writeString(downloadLink);
+        dest.writeString(score);
+    }
+
+    @SuppressWarnings("unused")
+    public static final Parcelable.Creator<Subtitle> CREATOR = new Parcelable.Creator<Subtitle>() {
+        @Override
+        public Subtitle createFromParcel(Parcel in) {
+            return new Subtitle(in);
+        }
+
+        @Override
+        public Subtitle[] newArray(int size) {
+            return new Subtitle[size];
+        }
+    };
+
+    @Override
+    public int compareTo(Subtitle s) {
+        if(s.score.isEmpty() || this.score.isEmpty()) {
+            return 0;
+        }
+        return Double.compare(
+                Double.parseDouble(s.score.replace(",", ".")),
+                Double.parseDouble(this.score.replace(",", "."))
+        );
+    }
 
     @Override
     public String toString() {
@@ -28,16 +76,5 @@ public class Subtitle implements Comparable<Subtitle>, Serializable {
 
         return result.toString();
     }
-
-    @Override
-    public int compareTo(Subtitle s) {
-        if(s.score.isEmpty() || this.score.isEmpty()) {
-            return 0;
-        }
-        return Double.compare(
-                Double.parseDouble(s.score.replace(",", ".")),
-                Double.parseDouble(this.score.replace(",", "."))
-                );
-    }	
 
 }

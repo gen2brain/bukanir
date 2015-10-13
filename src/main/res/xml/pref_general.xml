@@ -7,4 +7,11 @@
         android:entries="@array/pref_list_count_values"
         android:entryValues="@array/pref_list_count_values" />
 
+    <ListPreference
+        android:key="cache_days"
+        android:title="@string/pref_cache_days_title"
+        android:defaultValue="7"
+        android:entries="@array/pref_cache_days_values"
+        android:entryValues="@array/pref_cache_days_values" />
+
 </PreferenceScreen>

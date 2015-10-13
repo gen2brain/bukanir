@@ -1,52 +1,45 @@
 package com.bukanir.android.activities;
 
-import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Build;
-import android.support.v4.app.FragmentManager;
-import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
+import android.support.v4.app.FragmentTransaction;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ProgressBar;
+import android.widget.Toast;
 
-import com.bukanir.android.BukanirClient;
+import com.bukanir.android.clients.BukanirClient;
 import com.bukanir.android.R;
 import com.bukanir.android.entities.Movie;
 import com.bukanir.android.entities.Summary;
 import com.bukanir.android.fragments.MovieFragment;
-import com.bukanir.android.utils.Utils;
+import com.bukanir.android.helpers.Connectivity;
+import com.bukanir.android.helpers.Utils;
 import com.google.android.gms.analytics.HitBuilders;
 import com.google.android.gms.analytics.Tracker;
-import com.thinkfree.showlicense.android.ShowLicense;
 
-import go.Go;
-
-public class MovieActivity extends ActionBarActivity {
+public class MovieActivity extends AppCompatActivity {
 
     public static final String TAG = "MovieActivity";
 
     private Movie movie;
     private MovieTask movieTask;
     private ProgressBar progressBar;
-    private static FragmentManager fragmentManager;
+
+    Summary summary;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Log.d(TAG, "onCreate");
         super.onCreate(savedInstanceState);
 
-        if(!Utils.isX86()) {
-            Go.init(getApplicationContext());
-        }
-
         setContentView(R.layout.activity_movie);
-
-        fragmentManager = getSupportFragmentManager();
 
         progressBar = (ProgressBar) findViewById(R.id.progressbar);
 
@@ -54,45 +47,33 @@ public class MovieActivity extends ActionBarActivity {
         toolbar.setLogo(R.drawable.ic_launcher);
         setSupportActionBar(toolbar);
 
-        getSupportActionBar().setDisplayShowTitleEnabled(true);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
         if(savedInstanceState != null) {
-            movie = (Movie) savedInstanceState.getSerializable("movie");
+            movie = savedInstanceState.getParcelable("movie");
+            getSupportActionBar().setTitle(movie.title);
         } else {
             Bundle bundle = getIntent().getExtras();
-            movie = (Movie) bundle.get("movie");
+            movie = bundle.getParcelable("movie");
+            getSupportActionBar().setTitle(movie.title);
 
-            getSupportActionBar().setSubtitle(movie.title);
-
-            Tracker tracker = Utils.getTracker(this);
-            tracker.setScreenName(movie.title);
-            tracker.send(new HitBuilders.AppViewBuilder().build());
-
-            movieTask = new MovieTask();
-            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-                movieTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-            } else {
-                movieTask.execute();
-            }
+            startMovieTask();
         }
     }
 
     @Override
-    public void onDestroy() {
-        Log.d(TAG, "onDestroy");
-        super.onDestroy();
-        if(movieTask != null) {
-            if(movieTask.getStatus().equals(AsyncTask.Status.RUNNING)) {
-                movieTask.cancel(true);
-            }
-        }
+    protected void onPause() {
+        Log.d(TAG, "onPause");
+        super.onPause();
+        cancelMovieTask();
     }
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
+        if(movie != null) {
+            outState.putParcelable("movie", movie);
+        }
         super.onSaveInstanceState(outState);
-        outState.putSerializable("movie", movie);
     }
 
 
@@ -107,26 +88,56 @@ public class MovieActivity extends ActionBarActivity {
         int id = item.getItemId();
         switch(id) {
             case R.id.action_settings:
-                Intent intent = new Intent(this, SettingsActivity.class);
-                startActivity(intent);
+                startActivity(new Intent(this, SettingsActivity.class));
                 return true;
             case R.id.action_search:
                 onSearchRequested();
                 return true;
+            case R.id.action_sync:
+                if(movie != null) {
+                    startMovieTask();
+                }
+                return true;
             case android.R.id.home:
                 onBackPressed();
-                return true;
-            case R.id.action_licenses:
-                AlertDialog licenses = ShowLicense.createDialog(this, null, Utils.projectList);
-                licenses.setIcon(R.drawable.ic_launcher);
-                licenses.setTitle(getString(R.string.action_licenses));
-                licenses.show();
                 return true;
             case R.id.action_about:
                 Utils.showAbout(this);
                 return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void startMovieTask() {
+        if(Connectivity.isConnected(this)) {
+            Tracker tracker = Utils.getTracker(this);
+            tracker.setScreenName(movie.title);
+            tracker.send(new HitBuilders.AppViewBuilder().build());
+
+            movieTask = new MovieTask();
+            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                movieTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+            } else {
+                movieTask.execute();
+            }
+        } else {
+            Toast.makeText(this, getString(R.string.network_not_available), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    public void cancelMovieTask() {
+        if(movieTask != null) {
+            if(movieTask.getStatus().equals(AsyncTask.Status.RUNNING)) {
+                movieTask.cancel(true);
+            }
+        }
+    }
+
+    private void beginTransaction() {
+        FragmentTransaction ft;
+        ft = getSupportFragmentManager().beginTransaction();
+        ft.replace(R.id.container, MovieFragment.newInstance(movie, summary));
+        ft.commitAllowingStateLoss();
     }
 
     private class MovieTask extends AsyncTask<Void, Void, Summary> {
@@ -139,21 +150,30 @@ public class MovieActivity extends ActionBarActivity {
         }
 
         protected Summary doInBackground(Void... params) {
+            Summary s = BukanirClient.getSummary(
+                    Integer.valueOf(movie.id),
+                    Integer.valueOf(movie.category),
+                    Integer.valueOf(movie.season),
+                    Integer.valueOf(movie.episode));
+
             if(isCancelled()) {
                 return null;
             }
-
-            Summary summary = BukanirClient.getSummary(Integer.valueOf(movie.id), Integer.valueOf(movie.category), Integer.valueOf(movie.season));
-            return summary;
+            return s;
         }
 
-        protected void onPostExecute(Summary summary) {
+        protected void onPostExecute(Summary s) {
             if(progressBar != null) {
-                progressBar.setVisibility(View.INVISIBLE);
+                progressBar.setVisibility(View.GONE);
             }
-            fragmentManager.beginTransaction()
-                .add(R.id.container, MovieFragment.newInstance(movie, summary))
-                .commit();
+            if(s != null && movie != null) {
+                summary = s;
+                try {
+                    beginTransaction();
+                } catch(Exception e) {
+                    e.printStackTrace();
+                }
+            }
         }
 
     }

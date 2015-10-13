@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_toggle_ratio"
+        android:title="@string/toggle_ratio"
+        android:icon="@drawable/ic_scale"
+        android:orderInCategory="100"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_toggle_subtitles"
+        android:title="@string/toggle_subtitles"
+        android:icon="@drawable/ic_subtitles"
+        android:orderInCategory="200"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_sub_delay_plus"
+        android:title="@string/sub_delay_plus"
+        android:icon="@drawable/ic_plus"
+        android:orderInCategory="300"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_sub_delay_minus"
+        android:title="@string/sub_delay_minus"
+        android:icon="@drawable/ic_minus"
+        android:orderInCategory="400"
+        app:showAsAction="ifRoom" />
+</menu>

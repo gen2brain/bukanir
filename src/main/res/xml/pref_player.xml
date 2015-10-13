@@ -1,15 +1,34 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
     <CheckBoxPreference
-        android:key="wifi_high"
-        android:title="@string/pref_wifi_high_title"
-        android:summary="@string/pref_wifi_high_description"
-        android:defaultValue="true" />
+        android:key="seek"
+        android:title="@string/pref_seek_title"
+        android:summary="@string/pref_seek_description"
+        android:defaultValue="false" />
 
     <CheckBoxPreference
         android:key="hw_decode"
         android:title="@string/pref_hw_decode_title"
         android:summary="@string/pref_hw_decode_description"
         android:defaultValue="false" />
+
+    <CheckBoxPreference
+        android:key="open_sles"
+        android:title="@string/pref_open_sles_title"
+        android:summary="@string/pref_open_sles_description"
+        android:defaultValue="false" />
+
+    <CheckBoxPreference
+        android:key="wifi_high"
+        android:title="@string/pref_wifi_high_title"
+        android:summary="@string/pref_wifi_high_description"
+        android:defaultValue="false" />
+
+    <ListPreference
+        android:key="pixel_format"
+        android:title="@string/pref_title_pixel_format"
+        android:defaultValue=""
+        android:entries="@array/pref_pixel_format_entries"
+        android:entryValues="@array/pref_pixel_format_values" />
 
 </PreferenceScreen>

@@ -3,22 +3,27 @@
 
     <string name="app_name">Bukanir</string>
     <string name="app_credits">http://bukanir.com\n</string>
-    <string name="title_section1">Movies</string>
-    <string name="title_section2">HD Movies</string>
-    <string name="title_section3">Episodes</string>
     <string name="action_about">About</string>
     <string name="action_settings">Settings</string>
-    <string name="action_licenses">Licenses</string>
     <string name="action_search">Search</string>
     <string name="action_search_hint">Search</string>
     <string name="action_sync">Refresh</string>
+    <string name="action_favorites">Favorites</string>
     <string name="action_watch">Watch</string>
+    <string name="action_trailer">Trailer</string>
     <string name="poster_description">Poster</string>
+    <string name="director_description">"Director: "</string>
+    <string name="cast_description">"Cast: "</string>
 
     <string name="queued">Queued</string>
     <string name="checking">Checking…</string>
     <string name="downloading_metadata">Downloading metadata…</string>
     <string name="downloading">Downloading…</string>
+    <string name="fetching_subtitles">Fetching subtitles…</string>
+
+    <string name="favorite_added">" added to favorites"</string>
+    <string name="favorite_removed">" removed from favorites"</string>
+    <string name="favorites_empty">No favorites, touch and hold movie to add</string>
 
     <string name="update_available">New version available</string>
     <string name="update_download">Download new version?</string>
@@ -26,45 +31,51 @@
     <string name="network_not_available">Check your network connection</string>
     <string name="storage_not_available">External storage is not available</string>
     <string name="freespace_not_available">Not enough free space</string>
-    <string name="fat_not_available">FAT can\'t handle files larger then 2GB</string>
-    <string name="fat32_not_available">FAT32 can\'t handle files larger then 4GB</string>
+
+    <string name="tmdb_alt">themoviedb</string>
     <string name="tmdb_desc">This product uses the TMDb API but is not endorsed or certified by TMDb</string>
 
-    <string name="eula_text">\nThis app downloads and seeds movies using torrents, which may not be legal in your country.\n\nBukanir is not responsible for any problems that may arise, make sure you understand how torrent works before using the app.\n</string>
+    <string name="eula_text">\nThis app downloads and seeds movies using torrents, which may not be legal in your country.\n\nBukanir is not responsible for any problems that may arise, make sure you understand how torrent protocol works before using the app.\n</string>
     <string name="eula_positive_button">Agree</string>
     <string name="eula_negative_button">Disagree</string>
 
-    <string name="vitamio_library_app_name">VitamioLibrary</string>
-    <string name="vitamio_init_decoders">Initializing decoders…</string>
-
-    <string name="error_title">Can\'t play video</string>
     <string name="error_text_connection">Connection failed</string>
-    <string name="error_text_unsupported">Media format not supported</string>
-    <string name="error_text_unknown">This video can\'t be played</string>
-    <string name="error_button">OK</string>
-
-    <string name="mediacontroller_play_pause">Play/Pause</string>
-    <string name="mediacontroller_toggle_subtitles">Toggle subtitles</string>
-
-    <string name="torrent_stopped">Torrent stopped</string>
-    <string name="torrent_started">Torrent started</string>
-
-    <string name="subtitles_enabled">Subtitles enabled</string>
-    <string name="subtitles_disabled">Subtitles disabled</string>
 
     <string-array name="categories">
         <item>Movies</item>
         <item>HD Movies</item>
         <item>Episodes</item>
+        <item>HD Episodes</item>
     </string-array>
+
+    <string name="dialog_set_number">Set</string>
+    <string name="dialog_cancel">Cancel</string>
+    <string name="dialog_picker_title">Choose a number</string>
+
+    <string name="N_A">N/A</string>
+    <string name="toggle_ratio">Scale</string>
+    <string name="toggle_subtitles">Toggle subtitles</string>
+    <string name="sub_delay_plus">Sub delay +</string>
+    <string name="sub_delay_minus">Sub delay -</string>
+    <string name="sub_disabled">Subtitles disabled</string>
+
+    <string name="VideoView_error_text_invalid_progressive_playback">Invalid progressive playback</string>
+    <string name="VideoView_error_text_unknown">This video can\'t be played</string>
+
+    <string name="VideoView_ar_aspect_fit_parent">Aspect / Fit parent</string>
+    <string name="VideoView_ar_aspect_fill_parent">Aspect / Fill parent</string>
+    <string name="VideoView_ar_aspect_wrap_content">Aspect / Wrap content</string>
+    <string name="VideoView_ar_match_parent">Free / Fill parent</string>
+    <string name="VideoView_ar_16_9_fit_parent">16:9 / Fit parent</string>
+    <string name="VideoView_ar_4_3_fit_parent">4:3 / Fit parent</string>
+
+    <string name="torrent_stopped">Torrent stopped</string>
+    <string name="torrent_started">Torrent started</string>
 
 
     <string name="pref_header_general">General</string>
 
-    <string name="pref_proxy_title">Proxy</string>
-    <string name="pref_proxy_description">Use proxy sites if main site is unreachable</string>
-
-    <string name="pref_list_count_title">Movies per category</string>
+    <string name="pref_list_count_title">Movies limit</string>
     <string-array name="pref_list_count_values">
         <item>10</item>
         <item>30</item>
@@ -73,52 +84,41 @@
         <item>100</item>
     </string-array>
 
+    <string name="pref_cache_days_title">Days to keep cache</string>
+    <string-array name="pref_cache_days_values">
+        <item>3</item>
+        <item>7</item>
+        <item>30</item>
+        <item>365</item>
+    </string-array>
+
     <string name="pref_header_player">Player</string>
+
+    <string name="pref_hw_decode_title">HW decoding</string>
+    <string name="pref_hw_decode_description">Use MediaCodec</string>
+
+    <string name="pref_open_sles_title">OpenSL ES</string>
+    <string name="pref_open_sles_description">Use native audio API</string>
+
+    <string name="pref_seek_title">Enable seeking</string>
+    <string name="pref_seek_description">Player startup time will be longer</string>
+
+    <string name="pref_title_pixel_format">Pixel Format</string>
+    <string-array name="pref_pixel_format_entries">
+        <item>Auto Select</item>
+        <item>RGB 565</item>
+        <item>RGB 888X</item>
+        <item>YV12</item>
+    </string-array>
+    <string-array name="pref_pixel_format_values">
+        <item></item>
+        <item>fcc-rv16</item>
+        <item>fcc-rv32</item>
+        <item>fcc-yv12</item>
+    </string-array>
 
     <string name="pref_wifi_high_title">High performance WIFI</string>
     <string name="pref_wifi_high_description">Use high performance WIFI mode</string>
-
-    <string name="pref_hw_decode_title">HW decoding</string>
-    <string name="pref_hw_decode_description">Use hardware decoding</string>
-
-
-    <string name="pref_header_torrent">Torrents</string>
-
-    <string name="pref_encryption_title">Encryption</string>
-    <string name="pref_encryption_description">Enable protocol encryption (avoid ISP block)</string>
-
-    <string name="pref_upload_rate">Maximum upload rate</string>
-    <string name="pref_download_rate">Maximum download rate</string>
-    <string-array name="pref_rate_entries">
-        <item>Unlimited</item>
-        <item>1 KB/s</item>
-        <item>10 KB/s</item>
-        <item>50 KB/s</item>
-        <item>100 KB/s</item>
-        <item>500 KB/s</item>
-        <item>1000 KB/s</item>
-        <item>5000 KB/s</item>
-        <item>10000 KB/s</item>
-    </string-array>
-    <string-array name="pref_rate_values">
-        <item>0</item>
-        <item>1</item>
-        <item>10</item>
-        <item>50</item>
-        <item>100</item>
-        <item>500</item>
-        <item>1000</item>
-        <item>5000</item>
-        <item>10000</item>
-    </string-array>
-
-    <string name="pref_port_title">Select the port number</string>
-    <string name="pref_port_lower">Lower bound for listen port</string>
-    <string name="pref_port_upper">Upper bound for listen port</string>
-
-    <string name="dialog_set_number">Set</string>
-    <string name="dialog_cancel">Cancel</string>
-    <string name="dialog_picker_title">Choose a number</string>
 
     <string name="pref_header_subtitles">Subtitles</string>
 
@@ -174,56 +174,54 @@
         <item>Vietnamese</item>
     </string-array>
 
-    <string name="pref_subtitles_enc">Encoding</string>
-    <string-array name="pref_enc_entries">
-        <item>Auto detect encoding</item>
-        <item>Big5 (Traditional Chinese charset)</item>
-        <item>ISO-8859-1 (Western European Languages)</item>
-        <item>ISO-8859-13 (Baltic)</item>
-        <item>ISO-8859-14 (Celtic)</item>
-        <item>ISO-8859-15 (Western European Languages with Euro)</item>
-        <item>ISO-8859-2 (Slavic/Central European Languages)</item>
-        <item>ISO-8859-3 (Esperanto, Galician, Maltese, Turkish)</item>
-        <item>ISO-8859-4 (Old Baltic charset)</item>
-        <item>ISO-8859-5 (Cyrillic)</item>
-        <item>ISO-8859-6 (Arabic)</item>
-        <item>ISO-8859-7 (Modern Greek)</item>
-        <item>ISO-8859-8 (Hebrew charsets)</item>
-        <item>ISO-8859-9 (Turkish)</item>
-        <item>KOI8-R (Russian)</item>
-        <item>KOI8-U (Ukrainian, Belarusian)</item>
-        <item>Shift_JIS (Japanese charsets)</item>
-        <item>UTF-16 (Unicode)</item>
-        <item>UTF-8 (UTF-8)</item>
-        <item>CP1250 (Slavic/Central European Windows)</item>
-        <item>CP1251 (Cyrillic Windows)</item>
-        <item>CP1253 (Modern Greek Windows)</item>
-        <item>CP1256 (Arabic Windows)</item>
+    <string name="pref_subtitle_size_title">Font size</string>
+    <string-array name="pref_subtitle_size_entries">
+        <item>Small</item>
+        <item>Normal</item>
+        <item>Large</item>
+        <item>XLarge</item>
     </string-array>
-    <string-array name="pref_enc_values">
-        <item>auto</item>
-        <item>Big5</item>
-        <item>ISO-8859-1</item>
-        <item>ISO-8859-13</item>
-        <item>ISO-8859-14</item>
-        <item>ISO-8859-15</item>
-        <item>ISO-8859-2</item>
-        <item>ISO-8859-3</item>
-        <item>ISO-8859-4</item>
-        <item>ISO-8859-5</item>
-        <item>ISO-8859-6</item>
-        <item>ISO-8859-7</item>
-        <item>ISO-8859-8</item>
-        <item>ISO-8859-9</item>
-        <item>KOI8-R</item>
-        <item>KOI8-U</item>
-        <item>Shift_JIS</item>
-        <item>UTF-16</item>
-        <item>UTF-8</item>
-        <item>windows-1250</item>
-        <item>windows-1251</item>
-        <item>windows-1253</item>
-        <item>windows-1256</item>
+    <string-array name="pref_subtitle_size_values">
+        <item>14</item>
+        <item>16</item>
+        <item>20</item>
+        <item>28</item>
     </string-array>
+
+    <string name="pref_header_torrent">Torrents</string>
+
+    <string name="pref_keep_files_title">Keep files</string>
+    <string name="pref_keep_files_description">Keep files after exiting</string>
+
+    <string name="pref_encryption_title">Encryption</string>
+    <string name="pref_encryption_description">Enable protocol encryption (avoid ISP block)</string>
+
+    <string name="pref_upload_rate">Maximum upload rate</string>
+    <string name="pref_download_rate">Maximum download rate</string>
+    <string-array name="pref_rate_entries">
+        <item>Unlimited</item>
+        <item>1 KB/s</item>
+        <item>10 KB/s</item>
+        <item>50 KB/s</item>
+        <item>100 KB/s</item>
+        <item>500 KB/s</item>
+        <item>1000 KB/s</item>
+        <item>5000 KB/s</item>
+        <item>10000 KB/s</item>
+    </string-array>
+    <string-array name="pref_rate_values">
+        <item>-1</item>
+        <item>1</item>
+        <item>10</item>
+        <item>50</item>
+        <item>100</item>
+        <item>500</item>
+        <item>1000</item>
+        <item>5000</item>
+        <item>10000</item>
+    </string-array>
+
+    <string name="pref_port_title">Select the port number</string>
+    <string name="pref_port_listen">Port for incoming connections</string>
 
 </resources>

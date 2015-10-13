@@ -1,16 +1,14 @@
 package com.bukanir.android.activities;
 
-import android.app.AlertDialog;
 import android.app.SearchManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
-import android.support.v4.app.NavUtils;
+import android.support.v4.app.FragmentTransaction;
 import android.support.v4.view.MenuItemCompat;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.SearchView;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
@@ -21,37 +19,41 @@ import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
-import com.bukanir.android.BukanirClient;
+import com.bukanir.android.application.Settings;
+import com.bukanir.android.clients.BukanirClient;
 import com.bukanir.android.R;
 import com.bukanir.android.entities.Movie;
-import com.bukanir.android.fragments.SearchFragment;
-import com.bukanir.android.utils.Connectivity;
-import com.bukanir.android.utils.Utils;
+import com.bukanir.android.fragments.MoviesListFragment;
+import com.bukanir.android.helpers.Connectivity;
+import com.bukanir.android.helpers.Utils;
 import com.google.android.gms.analytics.HitBuilders;
 import com.google.android.gms.analytics.Tracker;
-import com.thinkfree.showlicense.android.ShowLicense;
 
 import java.util.ArrayList;
 
-import go.Go;
-
-public class SearchActivity extends ActionBarActivity {
+public class SearchActivity extends AppCompatActivity {
 
     public static final String TAG = "SearchActivity";
 
     private boolean twoPane;
-    private ArrayList<Movie> movies;
+    private Settings settings;
+
     private SearchTask searchTask;
     private ProgressBar progressBar;
+
+    private String query;
+    private String cacheDir;
+
+    private ArrayList<Movie> movies;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Log.d(TAG, "onCreate");
         super.onCreate(savedInstanceState);
 
-        if(!Utils.isX86()) {
-            Go.init(getApplicationContext());
-        }
+        settings = new Settings(this);
+
+        cacheDir = getCacheDir().toString();
 
         setContentView(R.layout.activity_search);
 
@@ -62,24 +64,27 @@ public class SearchActivity extends ActionBarActivity {
         setSupportActionBar(toolbar);
 
         getSupportActionBar().setDisplayShowTitleEnabled(true);
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
         if(findViewById(R.id.movie_container) != null) {
             twoPane = true;
+        } else {
+            twoPane = false;
         }
 
         if(savedInstanceState != null) {
-            movies = (ArrayList<Movie>) savedInstanceState.getSerializable("search");
+            query = savedInstanceState.getString("query");
+            if(query != null) {
+                getSupportActionBar().setTitle(query);
+            }
+
+            movies = savedInstanceState.getParcelableArrayList("search");
             if(movies != null) {
                 beginTransaction(movies);
             }
         } else {
             handleSearchIntent(getIntent());
         }
-    }
-
-    @Override
-    public void onBackPressed() {
-        NavUtils.navigateUpFromSameTask(this);
     }
 
     @Override
@@ -99,12 +104,18 @@ public class SearchActivity extends ActionBarActivity {
     @Override
     public void onSaveInstanceState(Bundle outState) {
         Log.d(TAG, "onSaveInstanceState");
-        outState.putSerializable("search", movies);
+        if(movies != null && !movies.isEmpty()) {
+            outState.putParcelableArrayList("search", movies);
+        }
+        if(query != null && !query.isEmpty()) {
+           outState.putString("query", query);
+        }
+        super.onSaveInstanceState(outState);
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.search, menu);
+        getMenuInflater().inflate(R.menu.main, menu);
         final MenuItem searchItem = menu.findItem(R.id.action_search);
 
         SearchManager searchManager = (SearchManager) getSystemService(Context.SEARCH_SERVICE);
@@ -121,7 +132,7 @@ public class SearchActivity extends ActionBarActivity {
 
             @Override
             public boolean onQueryTextSubmit(String query) {
-                if (searchItem != null) {
+                if(searchItem != null) {
                     MenuItemCompat.collapseActionView(searchItem);
                 }
                 return false;
@@ -143,20 +154,18 @@ public class SearchActivity extends ActionBarActivity {
         int id = item.getItemId();
         switch(id) {
             case R.id.action_settings:
-                Intent intent = new Intent(this, SettingsActivity.class);
-                startActivity(intent);
+                startActivity(new Intent(this, SettingsActivity.class));
                 return true;
             case R.id.action_search:
                 onSearchRequested();
                 return true;
-            case android.R.id.home:
-                NavUtils.navigateUpFromSameTask(this);
+            case R.id.action_sync:
+                if(query != null) {
+                    startSearchTask(true);
+                }
                 return true;
-            case R.id.action_licenses:
-                AlertDialog licenses = ShowLicense.createDialog(this, null, Utils.projectList);
-                licenses.setIcon(R.drawable.ic_launcher);
-                licenses.setTitle(getString(R.string.action_licenses));
-                licenses.show();
+            case android.R.id.home:
+                onBackPressed();
                 return true;
             case R.id.action_about:
                 Utils.showAbout(this);
@@ -166,14 +175,35 @@ public class SearchActivity extends ActionBarActivity {
     }
 
     private void beginTransaction(ArrayList<Movie> results) {
+        FragmentTransaction ft;
         if(twoPane) {
-            getSupportFragmentManager().beginTransaction()
-                .replace(R.id.list_container, SearchFragment.newInstance(results, twoPane))
-                .commit();
+            ft = getSupportFragmentManager().beginTransaction();
+            ft.replace(R.id.list_container, MoviesListFragment.newInstance(results, twoPane));
+            ft.commitAllowingStateLoss();
         } else {
-            getSupportFragmentManager().beginTransaction()
-                .replace(R.id.container, SearchFragment.newInstance(results, twoPane))
-                .commit();
+            ft = getSupportFragmentManager().beginTransaction();
+            ft.replace(R.id.container, MoviesListFragment.newInstance(results, twoPane));
+            ft.commitAllowingStateLoss();
+        }
+    }
+
+    private void startSearchTask(boolean refresh) {
+        Tracker tracker = Utils.getTracker(this);
+        tracker.setScreenName(query);
+        tracker.send(new HitBuilders.AppViewBuilder().build());
+
+        String force;
+        if(refresh) {
+            force = "1";
+        } else {
+            force = "0";
+        }
+
+        searchTask = new SearchTask();
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+            searchTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, query, force);
+        } else {
+            searchTask.execute(query, force);
         }
     }
 
@@ -188,43 +218,14 @@ public class SearchActivity extends ActionBarActivity {
     private void handleSearchIntent(Intent intent) {
         Log.d(TAG, "handleSearchIntent");
         if(Intent.ACTION_SEARCH.equals(intent.getAction())) {
-            String query = intent.getStringExtra(SearchManager.QUERY);
-            getSupportActionBar().setSubtitle(query);
-
-            if(Connectivity.isConnected(this)) {
-                Tracker tracker = Utils.getTracker(this);
-                tracker.setScreenName(query);
-                tracker.send(new HitBuilders.AppViewBuilder().build());
-
-                searchTask = new SearchTask();
-                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-                    searchTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, query);
-                } else {
-                    searchTask.execute(query);
-                }
-            } else {
-                Toast.makeText(this, getString(R.string.network_not_available), Toast.LENGTH_LONG).show();
-            }
+            query = intent.getStringExtra(SearchManager.QUERY);
         } else if(Intent.ACTION_VIEW.equals(intent.getAction())) {
             Bundle bundle = intent.getExtras();
-            String query = bundle.getString("intent_extra_data_key");
-            getSupportActionBar().setSubtitle(query);
-
-            if(Connectivity.isConnected(this)) {
-                Tracker tracker = Utils.getTracker(this);
-                tracker.setScreenName(query);
-                tracker.send(new HitBuilders.AppViewBuilder().build());
-
-                searchTask = new SearchTask();
-                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-                    searchTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, query);
-                } else {
-                    searchTask.execute(query);
-                }
-            } else {
-                Toast.makeText(this, getString(R.string.network_not_available), Toast.LENGTH_LONG).show();
-            }
+            query = bundle.getString("intent_extra_data_key");
         }
+
+        getSupportActionBar().setTitle(query);
+        startSearchTask(false);
     }
 
     private class SearchTask extends AsyncTask<String, Integer, ArrayList<Movie>> {
@@ -240,11 +241,24 @@ public class SearchActivity extends ActionBarActivity {
         protected ArrayList<Movie> doInBackground(String... params) {
             String query = params[0];
 
+            String force;
+            if(params.length == 2) {
+                force = params[1];
+            } else {
+                force = "0";
+            }
+            int refresh = Integer.parseInt(force);
+
             ArrayList<Movie> results;
+
             try {
-                results = BukanirClient.getSearchResults(query, -1);
+                results = BukanirClient.getSearchResults(query, -1, refresh, cacheDir, settings.cacheDays());
             } catch(Exception e) {
                 e.printStackTrace();
+                return null;
+            }
+
+            if(isCancelled()) {
                 return null;
             }
 
@@ -253,11 +267,17 @@ public class SearchActivity extends ActionBarActivity {
 
         protected void onPostExecute(ArrayList<Movie> results) {
             if(progressBar != null) {
-                progressBar.setVisibility(View.INVISIBLE);
+                progressBar.setVisibility(View.GONE);
             }
             if(results != null && !results.isEmpty()) {
                 movies = results;
                 beginTransaction(results);
+            } else {
+                if(Connectivity.isConnected(getApplicationContext())) {
+                    Toast.makeText(getApplicationContext(), getString(R.string.error_text_connection), Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(getApplicationContext(), getString(R.string.network_not_available), Toast.LENGTH_LONG).show();
+                }
             }
         }
 

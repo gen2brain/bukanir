@@ -1,59 +1,43 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
-    android:padding ="20dip"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:padding="15dip">
 
     <ScrollView
         android:id="@+id/scroll"
+        android:scrollbars="none"
+        android:overScrollMode="never"
         android:fillViewport="true"
         android:layout_width="fill_parent"
         android:layout_height="fill_parent">
 
-        <RelativeLayout
+        <LinearLayout
             xmlns:android="http://schemas.android.com/apk/res/android"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:orientation="vertical" >
+
+            <LinearLayout
+                xmlns:android="http://schemas.android.com/apk/res/android"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal" >
 
             <LinearLayout
                 xmlns:android="http://schemas.android.com/apk/res/android"
                 android:id="@+id/left_layout"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="left|top"
-                android:orientation="vertical" >
+                android:orientation="vertical">
 
                 <ImageView
                     android:id="@+id/image"
                     android:layout_width="@dimen/poster_width"
-                    android:layout_height="wrap_content"
+                    android:layout_height="@dimen/poster_height"
                     android:layout_gravity="left|top"
                     android:contentDescription="@string/poster_description"
                     android:adjustViewBounds="true" />
-
-                <Button
-                    android:id="@+id/watch"
-                    android:layout_width="@dimen/poster_width"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="5dip"
-                    android:text="@string/action_watch" />
-
-                <TextView
-                    android:id="@+id/downloading"
-                    android:layout_width="@dimen/poster_width"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dip"
-                    android:visibility="invisible"
-                    android:singleLine="true"
-                    android:ellipsize="none"
-                    android:textSize="@dimen/movie_progress" />
-
-                <ProgressBar
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="@dimen/poster_width"
-                    android:layout_height="wrap_content"
-                    android:visibility="invisible"
-                    android:id="@+id/progressBar" />
 
             </LinearLayout>
 
@@ -62,10 +46,8 @@
                 android:id="@+id/right_layout"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginLeft="15dip"
-                android:layout_gravity="left|top"
-                android:layout_toRightOf="@+id/left_layout"
-                android:orientation="vertical" >
+                android:layout_marginLeft="10dip"
+                android:orientation="vertical">
 
                 <TextView
                     android:id="@+id/title"
@@ -77,30 +59,94 @@
                     android:id="@+id/info"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="5dip"
+                    android:layout_marginTop="3dip"
+                    android:textSize="@dimen/movie_info" />
+
+                <TextView
+                    android:id="@+id/genre"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dip"
                     android:textSize="@dimen/movie_info" />
 
                 <TextView
                     android:id="@+id/info2"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="5dip"
+                    android:layout_marginTop="3dip"
+                    android:layout_marginBottom="3dip"
                     android:textSize="@dimen/movie_info" />
 
                 <TextView
                     android:id="@+id/tagline"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dip"
-                    android:layout_marginBottom="10dip"
+                    android:layout_marginTop="3dip"
+                    android:layout_marginBottom="3dip"
                     android:textSize="@dimen/movie_tagline" />
+
+                <TextView
+                    android:id="@+id/director"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dip"
+                    android:textSize="@dimen/movie_info" />
 
                 <TextView
                     android:id="@+id/cast"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="5dip"
+                    android:layout_marginTop="3dip"
                     android:textSize="@dimen/movie_info" />
+            </LinearLayout>
+
+            </LinearLayout>
+
+            <RelativeLayout
+                android:layout_marginTop="10dip"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content">
+
+                <Button
+                    android:id="@+id/watch"
+                    android:layout_width="@dimen/watch_button_width"
+                    android:layout_height="wrap_content"
+                    android:background="@color/primary_dark"
+                    android:text="@string/action_watch"
+                    android:layout_alignParentLeft="true" />
+
+                <Button
+                    android:id="@+id/trailer"
+                    android:layout_width="@dimen/trailer_button_width"
+                    android:layout_height="wrap_content"
+                    android:background="@color/primary"
+                    android:text="@string/action_trailer"
+                    android:layout_alignParentRight="true" />
+
+            </RelativeLayout>
+
+            <LinearLayout
+                android:orientation="vertical"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <TextView
+                    android:id="@+id/downloading"
+                    android:layout_width="@dimen/watch_button_width"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dip"
+                    android:visibility="invisible"
+                    android:singleLine="true"
+                    android:ellipsize="none"
+                    android:textSize="@dimen/movie_progress" />
+
+                <ProgressBar
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="@dimen/watch_button_width"
+                    android:layout_height="wrap_content"
+                    android:visibility="invisible"
+                    android:id="@+id/progressBar" />
+
             </LinearLayout>
 
             <LinearLayout
@@ -109,7 +155,6 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="left|bottom"
-                android:layout_below="@+id/left_layout"
                 android:orientation="vertical" >
 
                 <TextView
@@ -124,7 +169,8 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:src="@drawable/tmdb"
-                    android:layout_marginTop="15dp" />
+                    android:layout_marginTop="15dp"
+                    android:contentDescription="@string/tmdb_alt" />
 
                 <TextView
                     android:id="@+id/tmdb_desc"
@@ -136,7 +182,7 @@
 
             </LinearLayout>
 
-        </RelativeLayout>
+        </LinearLayout>
 
     </ScrollView>
 
