@@ -8,7 +8,7 @@ This is a desktop version of https://github.com/gen2brain/bukanir
 Features
 --------
 
-* Watch movies and TV shows on your Android devices
+* Watch movies and TV shows
 * Many languages to choose for subtitles
 * Supports devices with large screen sizes
 * Ads free and free as in Freedom
