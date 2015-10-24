@@ -1,0 +1,9 @@
+<RCC>
+  <qresource prefix="/">
+    <file>assets/js/jquery.js</file>
+    <file>assets/js/jquery.lazyload.js</file>
+    <file>assets/css/style.css</file>
+    <file>assets/view.html</file>
+    <file>assets/summary.html</file>
+  </qresource>
+</RCC>

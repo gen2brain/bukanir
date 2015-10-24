@@ -1,0 +1,55 @@
+[Setup]
+AppName=Bukanir
+AppVerName=Bukanir {VERSION}
+VersionInfoVersion={VERSION}
+AppPublisher=
+AppPublisherURL=http://bukanir.com/
+AppSupportURL=
+AppUpdatesURL=
+DefaultDirName={pf}\Bukanir
+DefaultGroupName=Bukanir
+AllowNoIcons=yes
+OutputDir=.
+Uninstallable=yes
+WindowVisible=no
+AppCopyright=Author: Milan Nikolic <gen2brain@gmail.com>
+OutputBaseFilename=bukanir-{VERSION}-setup
+UninstallDisplayIcon={app}\bukanir.exe
+LicenseFile=bukanir\COPYING
+DisableStartupPrompt=yes
+ChangesAssociations=yes
+
+[Tasks]
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}";
+
+[Files]
+Source: "bukanir\*.pyd"; DestDir: "{app}";
+Source: "bukanir\*.exe"; DestDir: "{app}";
+Source: "bukanir\*.dll"; DestDir: "{app}";
+Source: "bukanir\*.zip"; DestDir: "{app}";
+Source: "bukanir\*.manifest"; DestDir: "{app}";
+Source: "bukanir\AUTHORS"; DestDir: "{app}";
+Source: "bukanir\COPYING"; DestDir: "{app}";
+Source: "bukanir\README.md"; DestDir: "{app}";
+Source: "bukanir\qt5_plugins\platforms\qwindows.dll"; DestDir: "{app}\qt5_plugins\platforms";
+Source: "bukanir\qt5_plugins\imageformats\qjpeg.dll"; DestDir: "{app}\qt5_plugins\imageformats";
+Source: "bukanir\qt5_plugins\imageformats\qsvg.dll"; DestDir: "{app}\qt5_plugins\imageformats";
+Source: "bukanir\qt5_plugins\imageformats\qgif.dll"; DestDir: "{app}\qt5_plugins\imageformats";
+Source: "bukanir\backend\bukanir-http.exe"; DestDir: "{app}\backend";
+Source: "bukanir\backend\torrent2http.exe"; DestDir: "{app}\backend";
+Source: "bukanir\fonts\*"; DestDir: "{app}\fonts";
+Source: "bukanir\mpv\*"; DestDir: "{app}\mpv";
+Source: "bukanir\mpv.com"; DestDir: "{app}";
+Source: "bukanir\mpv.exe"; DestDir: "{app}";
+
+[Icons]
+Name: {group}\Bukanir; Filename: {app}\bukanir.exe; Tasks: desktopicon;
+Name: {group}\{cm:ProgramOnTheWeb,bukanir}; Filename: http://bukanir.com/;
+Name: {group}\{cm:UninstallProgram,bukanir}; Filename: {app}\unins000.exe;
+Name: {userdesktop}\Bukanir; Filename: {app}\bukanir.exe; Tasks: desktopicon;
+
+[Run]
+Filename: {app}\bukanir.exe; Description: {cm:LaunchProgram,bukanir}; Flags: nowait postinstall skipifsilent;
+
+[Dirs]
+Tasks: desktopicon; Name: {ICON};

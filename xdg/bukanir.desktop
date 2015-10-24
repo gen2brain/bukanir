@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Bukanir
+Exec=bukanir
+Terminal=false
+Type=Application
+Icon=bukanir
+Comment=Bukanir streams movies from bittorrent magnet links
+Categories=AudioVideo;Video;Player;TV;

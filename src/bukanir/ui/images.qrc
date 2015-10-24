@@ -1,0 +1,11 @@
+<RCC>
+  <qresource prefix="/">
+    <file>images/back.png</file>
+    <file>images/bukanir.png</file>
+    <file>images/loading.gif</file>
+    <file>images/refresh.png</file>
+    <file>images/search.png</file>
+    <file>images/settings.png</file>
+    <file>images/tmdb.png</file>
+  </qresource>
+</RCC>
