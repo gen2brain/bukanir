@@ -16,5 +16,6 @@ License
 -------
 
 Author: Milan Nikolic <gen2brain>
+
 Bukanir is free/libre software released under the terms of the GNU GPL license,
 see the `COPYING' file for details.
