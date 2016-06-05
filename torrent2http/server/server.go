@@ -9,7 +9,7 @@ import (
 	"torrent2http"
 )
 
-func parseFlags() {
+func getConfig() string {
 	config := torrent2http.Config{}
 	flag.StringVar(&config.Uri, "uri", "", "Magnet URI or .torrent file URL")
 	flag.StringVar(&config.BindAddress, "bind", "localhost:5001", "Bind address of torrent2http")
@@ -47,12 +47,10 @@ func parseFlags() {
 		os.Exit(1)
 	}
 
-	torrent2http.SetConfig(string(js[:]))
+	return string(js[:])
 }
 
 func main() {
-	parseFlags()
-
-	torrent2http.Startup()
+	torrent2http.Startup(getConfig())
 	torrent2http.Shutdown()
 }
