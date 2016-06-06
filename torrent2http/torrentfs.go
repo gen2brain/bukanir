@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
-	lt "libtorrent-go"
+	lt "github.com/gen2brain/libtorrent-go"
 )
 
 type torrentFS struct {

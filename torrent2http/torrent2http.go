@@ -17,7 +17,7 @@ import (
 	"syscall"
 	"time"
 
-	lt "libtorrent-go"
+	lt "github.com/gen2brain/libtorrent-go"
 )
 
 type fileStatusInfo struct {
@@ -545,7 +545,6 @@ func Shutdown() {
 		}
 		lt.DeleteSession(session)
 	}
-	os.Exit(0)
 }
 
 func Stop() {

@@ -12,7 +12,7 @@ export PKG_CONFIG_LIBDIR=$ANDROID/lib/pkgconfig
 CC=arm-linux-androideabi-gcc CXX=arm-linux-androideabi-g++ \
 CC_FOR_TARGET=arm-linux-androideabi-gcc CXX_FOR_TARGET=arm-linux-androideabi-g++ \
 CGO_ENABLED=1 GOOS=android GOARCH=arm \
-gomobile bind -v -x -o build/bukanir-arm7.aar -target android/arm -ldflags "-s -w -extldflags=-Wl,--allow-multiple-definition" bukanir 
+gomobile bind -v -x -o build/torrent2http-arm7.aar -target android/arm -ldflags "-s -w -extldflags=-Wl,--allow-multiple-definition" torrent2http 
 
 ANDROID="/opt/android-toolchain-arm64"
 export CC=aarch64-linux-android-gcc CXX=aarch64-linux-android-g++
@@ -22,7 +22,7 @@ export PKG_CONFIG_LIBDIR=$ANDROID/lib/pkgconfig
 CC=aarch64-linux-android-gcc CXX=aarch64-linux-android-g++ \
 CC_FOR_TARGET=aarch64-linux-android-gcc CXX_FOR_TARGET=aarch64-linux-android-g++ \
 CGO_ENABLED=1 GOOS=android GOARCH=arm64 \
-gomobile bind -v -x -o build/bukanir-arm64.aar -target android/arm64 -ldflags "-s -w -extldflags=-Wl,--allow-multiple-definition" bukanir 
+gomobile bind -v -x -o build/torrent2http-arm64.aar -target android/arm64 -ldflags "-s -w -extldflags=-Wl,--allow-multiple-definition" torrent2http 
 
 ANDROID="/opt/android-toolchain-x86"
 export CC=i686-linux-android-gcc CXX=i686-linux-android-g++
@@ -32,4 +32,4 @@ export PKG_CONFIG_LIBDIR=$ANDROID/lib/pkgconfig
 CC=i686-linux-android-gcc CXX=i686-linux-android-g++ \
 CC_FOR_TARGET=i686-linux-android-gcc CXX_FOR_TARGET=i686-linux-android-g++ \
 CGO_ENABLED=1 GOOS=android GOARCH=arm64 \
-gomobile bind -v -x -o build/bukanir-x86.aar -target android/386 -ldflags "-s -w -extldflags=-Wl,--allow-multiple-definition" bukanir 
+gomobile bind -v -x -o build/torrent2http-x86.aar -target android/386 -ldflags "-s -w -extldflags=-Wl,--allow-multiple-definition" torrent2http 

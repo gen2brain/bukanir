@@ -16,11 +16,7 @@ import (
 )
 
 var hosts = []string{
-	"thepiratebay.mn",
-	"thepiratebay.vg",
-	"thepiratebay.la",
-	"thepiratebay.gd",
-	"thepiratebay.se",
+	"thepiratebay.org",
 	"thepiratebay.mk",
 	"thepiratebay.cd",
 	"thepiratebay.lv",

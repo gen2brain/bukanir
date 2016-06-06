@@ -17,6 +17,7 @@ import (
 	"sync"
 
 	"github.com/gen2brain/vidextr"
+	"guthub.com/geb2brain/bukanir-backend/torrent2http"
 )
 
 type movie struct {
@@ -156,7 +157,7 @@ func tmdbSearch(t torrent, config *tmdbConfig) {
 	}
 
 	if err != nil {
-		log.Printf("Error making TMDB call: %v\n", err.Error())
+		log.Printf("Error Search: %v\n", err.Error())
 		return
 	}
 
@@ -189,7 +190,7 @@ func tmdbSearch(t torrent, config *tmdbConfig) {
 	if t.Category == category_tv || t.Category == category_hdtv {
 		p, err = md.GetTvImages(strconv.Itoa(res.Id), t.Season)
 		if err != nil {
-			log.Printf("Error making TMDB call: %v\n", err.Error())
+			log.Printf("Error GetTvImages: %v\n", err.Error())
 			return
 		}
 	}
@@ -261,18 +262,18 @@ func tmdbSummary(id int, category int, season int, episode int) {
 	if category == category_tv || category == category_hdtv {
 		res, err = md.GetTvDetails(strconv.Itoa(id), -1)
 		if err != nil {
-			log.Printf("Error making TMDB call: %v\n", err.Error())
+			log.Printf("Error GetTvDetails: %v\n", err.Error())
 			return
 		}
 		res_season, err = md.GetTvDetails(strconv.Itoa(id), season)
 		if err != nil {
-			log.Printf("Error making TMDB call: %v\n", err.Error())
+			log.Printf("Error GetTvDetails season: %v\n", err.Error())
 			return
 		}
 	} else {
 		res, err = md.GetMovieDetails(strconv.Itoa(id))
 		if err != nil {
-			log.Printf("Error making TMDB call: %v\n", err.Error())
+			log.Printf("Error GetMovieDetails: %v\n", err.Error())
 			return
 		}
 	}
@@ -313,7 +314,7 @@ func tmdbSummary(id int, category int, season int, episode int) {
 		if imdbId == "" {
 			ext, err := md.GetTvExternals(strconv.Itoa(id))
 			if err != nil {
-				log.Printf("Error making TMDB call: %v\n", err.Error())
+				log.Printf("Error GetTvExternals: %v\n", err.Error())
 				return
 			}
 			imdbId = strings.Replace(ext.Imdb_id, "tt", "", -1)
@@ -346,12 +347,12 @@ func tmdbAutoComplete(query string) {
 
 	movies, err := md.AutoCompleteMovie(query)
 	if err != nil {
-		log.Printf("Error making TMDB call: %v\n", err.Error())
+		log.Printf("Error AutoCompleteMovie: %v\n", err.Error())
 		return
 	}
 	tvs, err := md.AutoCompleteTv(query)
 	if err != nil {
-		log.Printf("Error making TMDB call: %v\n", err.Error())
+		log.Printf("Error AutoCompleteTv: %v\n", err.Error())
 		return
 	}
 
@@ -428,7 +429,7 @@ func Category(category int, limit int, force int, cacheDir string, cacheDays int
 	md := tmdbInit(tmdbApiKey)
 	config, err := md.GetConfig()
 	if err != nil {
-		log.Printf("Error making TMDB call: %v\n", err.Error())
+		log.Printf("Error GetConfig: %v\n", err.Error())
 		return "empty", err
 	}
 
@@ -489,7 +490,7 @@ func Search(query string, limit int, force int, cacheDir string, cacheDays int64
 	md := tmdbInit(tmdbApiKey)
 	config, err := md.GetConfig()
 	if err != nil {
-		log.Printf("Error making TMDB call: %v\n", err.Error())
+		log.Printf("Error GetConfig: %v\n", err.Error())
 		return "empty", err
 	}
 
@@ -652,4 +653,24 @@ func Trailer(videoId string) (string, error) {
 	}
 
 	return uri, nil
+}
+
+func TorrentStartup(config string) {
+	torrent2http.Startup(config)
+}
+
+func TorrentShutdown() {
+	torrent2http.Shutdown()
+}
+
+func TorrentStop() {
+	torrent2http.Shutdown()
+}
+
+func TorrentStatus() (string, error) {
+	return torrent2http.Status()
+}
+
+func TorrentLs() (string, error) {
+	return torrent2http.Ls()
 }
