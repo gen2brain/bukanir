@@ -112,7 +112,7 @@ public class MovieActivity extends AppCompatActivity {
         if(Connectivity.isConnected(this)) {
             Tracker tracker = Utils.getTracker(this);
             tracker.setScreenName(movie.title);
-            tracker.send(new HitBuilders.AppViewBuilder().build());
+            tracker.send(new HitBuilders.ScreenViewBuilder().build());
 
             movieTask = new MovieTask();
             if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {

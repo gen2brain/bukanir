@@ -35,7 +35,6 @@ import java.util.List;
 public class SettingsActivity extends PreferenceActivity {
 
     private static final String TAG = "SettingsActivity";
-    private static final boolean ALWAYS_SIMPLE_PREFS = false;
 
     @Override
     public View onCreateView(String name, Context context, AttributeSet attrs) {
@@ -152,9 +151,8 @@ public class SettingsActivity extends PreferenceActivity {
     }
 
     private static boolean isSimplePreferences(Context context) {
-        return ALWAYS_SIMPLE_PREFS
-            || Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB
-            || !isXLargeTablet(context);
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB
+                || !isXLargeTablet(context);
     }
 
     @Override

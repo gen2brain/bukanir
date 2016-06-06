@@ -190,7 +190,7 @@ public class SearchActivity extends AppCompatActivity {
     private void startSearchTask(boolean refresh) {
         Tracker tracker = Utils.getTracker(this);
         tracker.setScreenName(query);
-        tracker.send(new HitBuilders.AppViewBuilder().build());
+        tracker.send(new HitBuilders.ScreenViewBuilder().build());
 
         String force;
         if(refresh) {

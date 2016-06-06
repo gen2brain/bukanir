@@ -90,6 +90,7 @@ public class Update {
         downloadmanager = (DownloadManager) ctx.getSystemService(Context.DOWNLOAD_SERVICE);
         Uri uri = Uri.parse(getUpdateUrl(ctx));
         DownloadManager.Request request = new DownloadManager.Request(uri);
+        request.setMimeType("application/vnd.android.package-archive");
         downloadmanager.enqueue(request);
     }
 

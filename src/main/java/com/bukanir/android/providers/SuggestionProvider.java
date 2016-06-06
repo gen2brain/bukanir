@@ -8,6 +8,7 @@ import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
 import android.provider.BaseColumns;
+import android.support.annotation.NonNull;
 
 import com.bukanir.android.clients.BukanirClient;
 import com.bukanir.android.entities.AutoComplete;
@@ -42,16 +43,18 @@ public class SuggestionProvider extends ContentProvider {
     }
 
     @Override
-    public Cursor query(Uri uri, String[] projectionIn, String selection, String[] selectionArgs, String sort) {
+    public Cursor query(@NonNull Uri uri, String[] projectionIn, String selection, String[] selectionArgs, String sort) {
         int match = uriMatcher.match(uri);
         switch(match) {
             case SEARCH_SUGGESTIONS:
                 String query = uri.getLastPathSegment().toLowerCase();
 
                 ArrayList<AutoComplete> list = BukanirClient.getAutoComplete(query, 13);
-                for(int i=0; i<list.size(); i++) {
-                    AutoComplete item = list.get(i);
-                    cursor.addRow(new String[]{String.valueOf(i), item.title, item.year, uri.toString(), item.title});
+                if(list != null) {
+                    for(int i=0; i<list.size(); i++) {
+                        AutoComplete item = list.get(i);
+                        cursor.addRow(new String[]{String.valueOf(i), item.title, item.year, uri.toString(), item.title});
+                    }
                 }
 
                 MatrixCursor returnMatrix = cursor;
@@ -64,7 +67,7 @@ public class SuggestionProvider extends ContentProvider {
     }
 
     @Override
-    public String getType(Uri uri) {
+    public String getType(@NonNull Uri uri) {
         return null;
     }
 
@@ -75,17 +78,17 @@ public class SuggestionProvider extends ContentProvider {
     }
 
     @Override
-    public int update(Uri uri, ContentValues values, String where, String[] whereArgs) {
+    public int update(@NonNull Uri uri, ContentValues values, String where, String[] whereArgs) {
         throw new UnsupportedOperationException("update not supported");
     }
 
     @Override
-    public Uri insert(Uri uri, ContentValues initialValues) {
+    public Uri insert(@NonNull Uri uri, ContentValues initialValues) {
         throw new UnsupportedOperationException("insert not supported");
     }
 
     @Override
-    public int delete(Uri uri, String where, String[] whereArgs) {
+    public int delete(@NonNull Uri uri, String where, String[] whereArgs) {
         throw new UnsupportedOperationException("delete not supported");
     }
 }

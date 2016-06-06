@@ -35,7 +35,7 @@ public class Settings {
     }
 
     public boolean seek() {
-        return preferences.getBoolean("seek", false);
+        return preferences.getBoolean("seek", true);
     }
 
     public String pixelFormat() {

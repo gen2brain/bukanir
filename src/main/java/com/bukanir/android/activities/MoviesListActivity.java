@@ -94,7 +94,7 @@ public class MoviesListActivity extends AppCompatActivity {
 
         Tracker tracker = Utils.getTracker(this);
         tracker.setScreenName("Movies List");
-        tracker.send(new HitBuilders.AppViewBuilder().build());
+        tracker.send(new HitBuilders.ScreenViewBuilder().build());
 
         if(Update.checkUpdate(this)) {
             downloadReceiver = Update.getDownloadReceiver(this);

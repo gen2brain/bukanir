@@ -327,8 +327,11 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
             runtime += "/ ";
         }
 
-        info.setText(rating + year);
-        info2.setText(runtime + size);
+        String infoText = rating + year;
+        String infoText2 = runtime + size;
+
+        info.setText(infoText);
+        info2.setText(infoText2);
     }
 
     private class Torrent2HttpTask extends AsyncTask<Void, Integer, TorrentFile> {

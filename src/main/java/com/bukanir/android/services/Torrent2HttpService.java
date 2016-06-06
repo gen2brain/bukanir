@@ -14,15 +14,14 @@ import com.bukanir.android.R;
 import com.bukanir.android.application.Settings;
 import com.bukanir.android.clients.Torrent2HttpClient;
 import com.bukanir.android.activities.MovieActivity;
+import com.bukanir.android.entities.TorrentConfig;
 import com.bukanir.android.helpers.Storage;
 import com.bukanir.android.helpers.Utils;
+import com.google.gson.Gson;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
+
+import go.bukanir.Bukanir;
 
 public class Torrent2HttpService extends Service {
 
@@ -30,14 +29,13 @@ public class Torrent2HttpService extends Service {
 
     int id = 313;
 
-    String binary;
     String magnetLink;
 
     File movieDir;
     File subtitlesDir;
 
     private Settings settings;
-    private Torrent2HttpThread thread;
+    private TorrentConfig config;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -47,7 +45,7 @@ public class Torrent2HttpService extends Service {
     @Override
     public void onCreate() {
         settings = new Settings(this);
-        binary = getApplicationInfo().nativeLibraryDir + File.separator + "libtorrent2http.so";
+        config = new TorrentConfig();
 
         String storageDir = Storage.getStorage(this) + File.separator + "bukanir";
         movieDir = new File(storageDir + File.separator + "movies");
@@ -64,11 +62,6 @@ public class Torrent2HttpService extends Service {
 
         (new Thread() { public void run() {
             Torrent2HttpClient.shutdown();
-
-            if(thread != null) {
-                thread.kill();
-                thread = null;
-            }
 
             if(!settings.keepFiles()) {
                 Log.d(TAG, "Removing files");
@@ -90,7 +83,7 @@ public class Torrent2HttpService extends Service {
 
         magnetLink = intent.getExtras().getString("magnet");
 
-        thread = new Torrent2HttpThread();
+        Torrent2HttpThread thread = new Torrent2HttpThread();
         thread.start();
 
         startNotification();
@@ -117,82 +110,31 @@ public class Torrent2HttpService extends Service {
 
     private class Torrent2HttpThread extends Thread {
 
-        private Process process;
-
         @Override
         public void run() {
             super.run();
             try {
-                String encryption = settings.encryption() ? "1" : "2";
-
-                ArrayList<String> params = new ArrayList<String>();
-                params.add(binary);
-                params.add("-dl-path");
-                params.add(movieDir.toString());
-                params.add("-uri");
-                params.add(magnetLink);
-                params.add("-listen-port");
-                params.add(settings.listenPort());
-                params.add("-dl-rate");
-                params.add(settings.downloadRate());
-                params.add("-ul-rate");
-                params.add(settings.uploadRate());
-                params.add("-encryption");
-                params.add(encryption);
-                params.add("-keep-files");
+                config.uri = magnetLink;
+                config.download_path = movieDir.toString();
+                config.listen_port = Integer.valueOf(settings.listenPort());
+                config.max_download_rate = Integer.valueOf(settings.downloadRate());
+                config.max_upload_rate = Integer.valueOf(settings.uploadRate());
+                config.encryption = settings.encryption() ? 1 : 2;
+                config.keep_files = true;
 
                 if(!settings.seek()) {
-                    params.add("-no-sparse");
+                    config.no_sparse_file = true;
                 }
 
                 if(BuildConfig.DEBUG) {
-                    params.add("-verbose");
+                    config.verbose = true;
                 }
 
-                ProcessBuilder pb = new ProcessBuilder(params);
-                Log.d(TAG, android.text.TextUtils.join(" ", pb.command()));
-
-                process = pb.start();
-
-                new StreamGobbler(process.getErrorStream()).start();
-
+                Gson gson = new Gson();
+                Bukanir.TorrentStartup(gson.toJson(config));
+                Bukanir.TorrentShutdown();
             } catch(Exception e){
                 e.getMessage();
-            }
-        }
-
-        public void kill() {
-            try {
-                if(process != null) {
-                    process.exitValue();
-                }
-            } catch(IllegalThreadStateException e) {
-                if(process != null) {
-                    process.destroy();
-                    process = null;
-                }
-            }
-        }
-
-        private class StreamGobbler extends Thread {
-            InputStream is;
-
-            private StreamGobbler(InputStream is) {
-                this.is = is;
-            }
-
-            @Override
-            public void run() {
-                try {
-                    InputStreamReader isr = new InputStreamReader(is);
-                    BufferedReader br = new BufferedReader(isr);
-                    String line;
-                    while((line = br.readLine()) != null) {
-                        Log.d("Torrent2Http", line);
-                    }
-                } catch(IOException e) {
-                    e.printStackTrace();
-                }
             }
         }
 

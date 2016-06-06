@@ -1,33 +1,26 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 23
-    buildToolsVersion '23.0.1'
+    compileSdkVersion 22
+    buildToolsVersion '22.0.1'
+
     defaultConfig {
+        applicationId = 'com.bukanir.android'
         minSdkVersion 9
-        targetSdkVersion 23
-        versionCode 75
-        versionName '1.9'
+        targetSdkVersion 22
+        versionCode 85
+        versionName '2.1'
+        setProperty("archivesBaseName", "bukanir-$versionName")
     }
 
     aaptOptions {
         useNewCruncher = false
     }
 
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_7
-        targetCompatibility JavaVersion.VERSION_1_7
-    }
-
-    signingConfigs {
-        release
-    }
-
     buildTypes {
         release {
             minifyEnabled false
             zipAlignEnabled true
-            signingConfig signingConfigs.release
         }
     }
 }
@@ -39,28 +32,14 @@ repositories {
 }
 
 dependencies {
-    compile 'com.android.support:appcompat-v7:23.0.1'
-    compile 'com.google.android.gms:play-services-analytics:8.1.0'
+    compile 'com.android.support:appcompat-v7:22.2.1'
+    compile 'com.google.android.gms:play-services-analytics:9.0.2'
     compile 'com.google.code.gson:gson:2.4'
-    compile 'com.nostra13.universalimageloader:universal-image-loader:1.9.4'
+    compile 'com.nostra13.universalimageloader:universal-image-loader:1.9.5'
 
     compile (name:'bukanir', ext:'aar')
-    compile (name:'ijkplayer-armv7a', ext:'aar')
+    compile (name:'ijkplayer-arm7', ext:'aar')
+    compile (name:'ijkplayer-arm64', ext:'aar')
+    //compile (name:'ijkplayer-x86', ext:'aar')
     compile (name:'ijkplayer-java', ext:'aar')
-}
-
-def propFile = file('signing.properties')
-if(propFile.canRead()){
-    def Properties props = new Properties()
-    props.load(new FileInputStream(propFile))
-    if(props != null) {
-        android.signingConfigs.release.storeFile = file(props['STORE_FILE'])
-        android.signingConfigs.release.storePassword = props['STORE_PASSWORD']
-        android.signingConfigs.release.keyAlias = props['KEY_ALIAS']
-        android.signingConfigs.release.keyPassword = props['KEY_PASSWORD']
-    } else {
-        android.buildTypes.release.signingConfig = null
-    }
-} else {
-    android.buildTypes.release.signingConfig = null
 }

@@ -218,7 +218,7 @@ public class IjkVideoView extends FrameLayout implements MediaController.MediaPl
         }
     }
 
-    @TargetApi(Build.VERSION_CODES.M)
+    @TargetApi(23)
     private void openVideo() {
         if(mUri == null || mSurfaceHolder == null) {
             // not ready for playback just yet, will try again later
