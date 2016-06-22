@@ -83,8 +83,7 @@ public class Torrent2HttpService extends Service {
 
         magnetLink = intent.getExtras().getString("magnet");
 
-        Torrent2HttpThread thread = new Torrent2HttpThread();
-        thread.start();
+        new Torrent2HttpThread().start();
 
         startNotification();
         Toast.makeText(this, getString(R.string.torrent_started), Toast.LENGTH_SHORT).show();
@@ -122,7 +121,9 @@ public class Torrent2HttpService extends Service {
                 config.encryption = settings.encryption() ? 1 : 2;
                 config.keep_files = true;
 
-                if(!settings.seek()) {
+                if(settings.seek()) {
+                    config.no_sparse_file = false;
+                } else {
                     config.no_sparse_file = true;
                 }
 
@@ -132,7 +133,6 @@ public class Torrent2HttpService extends Service {
 
                 Gson gson = new Gson();
                 Bukanir.TorrentStartup(gson.toJson(config));
-                Bukanir.TorrentShutdown();
             } catch(Exception e){
                 e.getMessage();
             }

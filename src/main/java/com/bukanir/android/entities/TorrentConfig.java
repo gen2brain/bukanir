@@ -40,15 +40,15 @@ public class TorrentConfig {
         encryption = 1;
         no_sparse_file = false;
         peer_connect_timeout = 2;
-        request_timeout = 5;
-        torrent_connect_boost = 100;
-        connection_speed = 100;
+        request_timeout = 2;
+        torrent_connect_boost = 500;
+        connection_speed = 500;
         listen_port = 6881;
         min_reconnect_time = 60;
         max_fail_count = 3;
         random_port = false;
         dht_routers = "router.bittorrent.com:6881,router.utorrent.com:6881,dht.transmissionbt.com:6881,dht.aelitis.com:6881";
-        trackers = "udp://tracker.publicbt.com:80/announce,udp://tracker.openbittorrent.com:80/announce,udp://open.demonii.com:1337/announce,udp://tracker.istole.it:6969,udp://tracker.coppersurfer.tk:80";
+        trackers = "udp://tracker.publicbt.com:80,udp://tracker.openbittorrent.com:80,udp://open.demonii.com:80,udp://tracker.istole.it:80,udp://tracker.coppersurfer.tk:80,udp://tracker.leechers-paradise.org:6969,udp://exodus.desync.com:6969,udp://tracker.pomf.se,udp://tracker.blackunicorn.xyz:6969,udp://pow7.com:80/announce";
         verbose = false;
     }
 

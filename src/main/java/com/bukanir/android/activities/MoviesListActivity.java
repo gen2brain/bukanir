@@ -1,5 +1,6 @@
 package com.bukanir.android.activities;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.DownloadManager;
@@ -11,12 +12,15 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.FragmentTransaction;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.view.MenuItemCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.SearchView;
@@ -67,6 +71,8 @@ public class MoviesListActivity extends AppCompatActivity {
 
     private Settings settings;
 
+    public static final int RC_PERMISSION_WRITE_EXTERNAL_STORAGE = 313;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Log.d(TAG, "onCreate");
@@ -106,6 +112,12 @@ public class MoviesListActivity extends AppCompatActivity {
             } else {
                 new UpdateTask().execute();
             }
+        }
+
+        int permissionCheck = ContextCompat.checkSelfPermission(MoviesListActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        if(permissionCheck != PackageManager.PERMISSION_GRANTED) {
+            Log.d(TAG, String.format("permissionCheck:%d", permissionCheck));
+            ActivityCompat.requestPermissions(MoviesListActivity.this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, RC_PERMISSION_WRITE_EXTERNAL_STORAGE);
         }
 
         prepareActionBar();
@@ -246,6 +258,20 @@ public class MoviesListActivity extends AppCompatActivity {
                 return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,  String permissions[], int[] grantResults) {
+        switch(requestCode) {
+            case RC_PERMISSION_WRITE_EXTERNAL_STORAGE: {
+                if(grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Log.d(TAG, "External storage allowed");
+                } else {
+                    Log.d(TAG, "External storage denied");
+                }
+                break;
+            }
+        }
     }
 
     public static class EulaFragment extends DialogFragment {

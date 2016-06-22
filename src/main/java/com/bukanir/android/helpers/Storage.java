@@ -47,16 +47,16 @@ public class Storage {
             externalStorage = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
         }
 
-        if(removableStorage != null && isFreeSpaceAvailable(removableStorage.toString(), (long) 1048576000) && removableStorage.canWrite()) {
-            return removableStorage.toString();
-        }
-
         if(externalStorage != null && isFreeSpaceAvailable(externalStorage.toString(), (long) 1048576000) && externalStorage.canWrite()) {
             return externalStorage.toString();
         }
 
+        if(removableStorage != null && isFreeSpaceAvailable(removableStorage.toString(), (long) 1048576000) && removableStorage.canWrite()) {
+            return removableStorage.toString();
+        }
+
         File hardcodeStorage = new File("/mnt/sdcard");
-        if(hardcodeStorage != null && isFreeSpaceAvailable(hardcodeStorage.toString(), (long) 1048576000) && hardcodeStorage.canWrite()) {
+        if(isFreeSpaceAvailable(hardcodeStorage.toString(), (long) 1048576000) && hardcodeStorage.canWrite()) {
             return hardcodeStorage.toString();
         }
 
