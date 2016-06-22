@@ -169,7 +169,7 @@ func getDocument(uri string) (*goquery.Document, error) {
 
 func httpGetResponse(uri string) (*http.Response, error) {
 	jar, _ := cookiejar.New(nil)
-	timeout := time.Duration(5 * time.Second)
+	timeout := time.Duration(10 * time.Second)
 
 	dialTimeout := func(network, addr string) (net.Conn, error) {
 		return net.DialTimeout(network, addr, timeout)

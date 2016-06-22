@@ -84,7 +84,6 @@ const (
 var (
 	config        Config
 	session       lt.Session
-	sessionHandle lt.SessionHandle
 	torrent       lt.TorrentHandle
 	torrentFs     *torrentFS
 	forceShutdown chan bool
@@ -114,7 +113,7 @@ var stateStrings = map[int]string{
 }
 
 func popAlert() lt.Alert {
-	alert := sessionHandle.PopAlert()
+	alert := session.PopAlert()
 	if alert.Swigcptr() == 0 {
 		return nil
 	}
@@ -127,66 +126,25 @@ func consumeAlerts() {
 		if alert = popAlert(); alert == nil {
 			break
 		}
-	}
-}
-
-func waitForAlert(name string, timeout time.Duration) lt.Alert {
-	start := time.Now()
-	for {
-		for {
-			alert := sessionHandle.WaitForAlert(lt.Milliseconds__SWIG_0(100))
-			if time.Now().Sub(start) > timeout {
-				return nil
-			}
-			if alert.Swigcptr() != 0 {
-				alert = popAlert()
-				if alert.What() == name {
-					return alert
-				}
-			}
-		}
-	}
-}
-
-func filesToRemove() []string {
-	var files []string
-	if torrentFs.HasTorrentInfo() {
-		for _, file := range torrentFs.Files() {
-			if (!config.KeepComplete || !file.IsComplete()) && (!config.KeepIncomplete || file.IsComplete()) {
-				if _, err := os.Stat(file.SavePath()); !os.IsNotExist(err) {
-					files = append(files, file.SavePath())
-				}
-			}
-		}
-	}
-	return files
-}
-
-func removeFiles(files []string) {
-	for _, file := range files {
-		if err := os.Remove(file); err != nil {
-			log.Printf("Error removeFiles: %v", err)
-		} else {
-			// Remove empty folders as well
-			path := filepath.Dir(file)
-			separator := fmt.Sprintf("%c", filepath.Separator)
-			savePath, _ := filepath.Abs(config.DownloadPath)
-			savePath = strings.TrimSuffix(savePath, separator)
-			for path != savePath {
-				os.Remove(path)
-				path = strings.TrimSuffix(filepath.Dir(path), separator)
-			}
-		}
+		lt.DeleteAlert(alert)
 	}
 }
 
 func buildTorrentParams(uri string) lt.AddTorrentParams {
 	fileUri, err := url.Parse(uri)
+	if err != nil {
+		log.Printf("Error url.Parse: %v", err)
+	}
+
 	torrentParams := lt.NewAddTorrentParams()
+
 	error := lt.NewErrorCode()
+	defer lt.DeleteErrorCode(error)
+
 	if err != nil {
 		log.Printf("Error buildTorrentParams: %v", err)
 	}
+
 	if fileUri.Scheme == "file" {
 		uriPath := fileUri.Path
 		if uriPath != "" && runtime.GOOS == "windows" && os.IsPathSeparator(uriPath[0]) {
@@ -202,10 +160,13 @@ func buildTorrentParams(uri string) lt.AddTorrentParams {
 		if _, err := os.Stat(absPath); err != nil {
 			log.Printf("Error buildTorrentParams: %v", err.Error())
 		}
+
 		torrentInfo := lt.NewTorrentInfo(absPath, error)
 		if error.Value() != 0 {
 			log.Printf("Error buildTorrentParams: %v", error.Message())
 		}
+		defer lt.DeleteTorrentInfo(torrentInfo)
+
 		torrentParams.SetTorrentInfo(torrentInfo)
 	} else {
 		if config.Verbose {
@@ -223,8 +184,7 @@ func buildTorrentParams(uri string) lt.AddTorrentParams {
 		if config.Verbose {
 			log.Println("Disabling sparse file support...")
 		}
-		//torrentParams.SetStorageMode(lt.StorageModeCompact)
-		torrentParams.SetStorageMode(lt.StorageModeAllocate)
+		torrentParams.SetStorageMode(lt.StorageModeCompact)
 	}
 
 	return torrentParams
@@ -234,11 +194,16 @@ func addTorrent(torrentParams lt.AddTorrentParams) {
 	if config.Verbose {
 		log.Println("Adding torrent")
 	}
+
 	error := lt.NewErrorCode()
-	torrent = sessionHandle.AddTorrent(torrentParams, error)
+	defer lt.DeleteErrorCode(error)
+
+	torrent = session.AddTorrent(torrentParams, error)
 	if error.Value() != 0 {
 		log.Printf("Error addTorrent: %v", error.Message())
 	}
+
+	defer lt.DeleteAddTorrentParams(torrentParams)
 
 	if config.Verbose {
 		log.Println("Enabling sequential download")
@@ -256,6 +221,7 @@ func addTorrent(torrentParams lt.AddTorrentParams) {
 				log.Printf("Adding tracker: %s", tracker)
 			}
 			torrent.AddTracker(announceEntry)
+			lt.DeleteAnnounceEntry(announceEntry)
 		}
 	}
 
@@ -267,27 +233,17 @@ func addTorrent(torrentParams lt.AddTorrentParams) {
 
 func removeTorrent() {
 	var flag int
-	var files []string
-
 	state := torrent.Status().GetState()
 	if state != state_checking_files && state != state_queued_for_checking && !config.KeepFiles {
 		if !config.KeepComplete && !config.KeepIncomplete {
-			flag = int(lt.SessionHandleDeleteFiles)
-		} else {
-			files = filesToRemove()
+			flag = int(lt.SessionDeleteFiles)
 		}
 	}
+
 	if config.Verbose {
 		log.Println("Removing the torrent")
 	}
-	sessionHandle.RemoveTorrent(torrent, flag)
-	if flag != 0 || len(files) > 0 {
-		if config.Verbose {
-			log.Println("Waiting for files to be removed")
-		}
-		waitForAlert("cache_flushed_alert", 10*time.Second)
-		removeFiles(files)
-	}
+	session.RemoveTorrent(torrent, flag)
 }
 
 func startSession() {
@@ -298,47 +254,72 @@ func startSession() {
 
 	session = lt.NewSession(
 		lt.NewFingerprint("LT", lt.LIBTORRENT_VERSION_MAJOR, lt.LIBTORRENT_VERSION_MINOR, 0, 0),
-		int(lt.SessionHandleAddDefaultPlugins),
+		int(lt.SessionAddDefaultPlugins),
 	)
-
-	sessionHandle = session.GetHandle()
 
 	alertMask := uint(lt.AlertErrorNotification) | uint(lt.AlertStorageNotification) |
 		uint(lt.AlertTrackerNotification) | uint(lt.AlertStatusNotification)
 
-	sessionHandle.SetAlertMask(alertMask)
+	session.SetAlertMask(alertMask)
 
-	settings := sessionHandle.Settings()
-	settings.SetRequestTimeout(config.RequestTimeout)
-	settings.SetPeerConnectTimeout(config.PeerConnectTimeout)
+	settings := session.Settings()
+
+	settings.SetStrictEndGameMode(true)
 	settings.SetAnnounceToAllTrackers(true)
 	settings.SetAnnounceToAllTiers(true)
+	settings.SetAnnounceDoubleNat(true)
+
+	settings.SetRequestTimeout(config.RequestTimeout)
+	settings.SetPeerConnectTimeout(config.PeerConnectTimeout)
 	settings.SetTorrentConnectBoost(config.TorrentConnectBoost)
 	settings.SetConnectionSpeed(config.ConnectionSpeed)
 	settings.SetMinReconnectTime(config.MinReconnectTime)
 	settings.SetMaxFailcount(config.MaxFailCount)
-	settings.SetRecvSocketBufferSize(1024 * 1024)
-	settings.SetSendSocketBufferSize(1024 * 1024)
+
 	settings.SetRateLimitIpOverhead(true)
+	settings.SetNoAtimeStorage(true)
+	settings.SetPrioritizePartialPieces(false)
+	settings.SetFreeTorrentHashes(true)
+	settings.SetUseParoleMode(true)
 	settings.SetMinAnnounceInterval(60)
 	settings.SetTrackerBackoff(0)
-	settings.SetDiskIoReadMode(0)
-	settings.SetDiskIoWriteMode(0)
-	sessionHandle.SetSettings(settings)
+
+	settings.SetLowPrioDisk(false)
+	settings.SetLockDiskCache(true)
+	settings.SetDiskCacheAlgorithm(lt.SessionSettingsLru)
+	//settings.SetDiskCacheAlgorithm(lt.SessionSettingsLargestContiguous)
+	settings.SetSeedChokingAlgorithm(int(lt.SessionSettingsFastestUpload))
+
+	settings.SetUpnpIgnoreNonrouters(true)
+	settings.SetLazyBitfields(true)
+	settings.SetStopTrackerTimeout(1)
+	settings.SetAutoScrapeInterval(1200)
+	settings.SetAutoScrapeMinInterval(900)
+	settings.SetIgnoreLimitsOnLocalNetwork(true)
+	settings.SetRateLimitUtp(true)
+	settings.SetMixedModeAlgorithm(int(lt.SessionSettingsPreferTcp))
+
+	session.SetSettings(settings)
 
 	err := lt.NewErrorCode()
+	defer lt.DeleteErrorCode(err)
+
 	rand.Seed(time.Now().UnixNano())
 	portLower := config.ListenPort
 	if config.RandomPort {
 		portLower = rand.Intn(16374) + 49152
 	}
 	portUpper := portLower + 10
-	sessionHandle.ListenOn(lt.NewStd_pair_int_int(portLower, portUpper), err)
+
+	ports := lt.NewStd_pair_int_int(portLower, portUpper)
+	defer lt.DeleteStd_pair_int_int(ports)
+
+	session.ListenOn(ports, err)
 	if err.Value() != 0 {
 		log.Printf("Error startSession: %v", err.Message())
 	}
 
-	settings = sessionHandle.Settings()
+	settings = session.Settings()
 	if config.UserAgent != "" {
 		settings.SetUserAgent(config.UserAgent)
 	} else {
@@ -350,11 +331,12 @@ func startSession() {
 	if config.MaxUploadRate >= 0 {
 		settings.SetUploadRateLimit(config.MaxUploadRate * 1024)
 	}
+
 	settings.SetEnableIncomingTcp(true)
 	settings.SetEnableOutgoingTcp(true)
 	settings.SetEnableIncomingUtp(true)
 	settings.SetEnableOutgoingUtp(true)
-	sessionHandle.SetSettings(settings)
+	session.SetSettings(settings)
 
 	if config.DhtRouters != "" {
 		routers := strings.Split(config.DhtRouters, ",")
@@ -371,7 +353,11 @@ func startSession() {
 						log.Printf("Error startSession: %v", err)
 					}
 				}
-				sessionHandle.AddDhtRouter(lt.NewStd_pair_string_int(host, port))
+
+				bind := lt.NewStd_pair_string_int(host, port)
+				defer lt.DeleteStd_pair_string_int(bind)
+
+				session.AddDhtRouter(bind)
 				if config.Verbose {
 					log.Printf("Added DHT router: %s:%d", host, port)
 				}
@@ -382,56 +368,59 @@ func startSession() {
 	if config.Verbose {
 		log.Println("Setting encryption settings")
 	}
+
 	encryptionSettings := lt.NewPeSettings()
+	defer lt.DeletePeSettings(encryptionSettings)
+
 	encryptionSettings.SetOutEncPolicy(byte(lt.LibtorrentPe_settingsEnc_policy(config.Encryption)))
 	encryptionSettings.SetInEncPolicy(byte(lt.LibtorrentPe_settingsEnc_policy(config.Encryption)))
 	encryptionSettings.SetAllowedEncLevel(byte(lt.PeSettingsBoth))
 	encryptionSettings.SetPreferRc4(true)
-	sessionHandle.SetPeSettings(encryptionSettings)
+	session.SetPeSettings(encryptionSettings)
 }
 
 func startServices() {
 	if config.Verbose {
 		log.Println("Starting DHT...")
 	}
-	sessionHandle.StartDht()
+	session.StartDht()
 
 	if config.Verbose {
 		log.Println("Starting LSD...")
 	}
-	sessionHandle.StartLsd()
+	session.StartLsd()
 
 	if config.Verbose {
 		log.Println("Starting UPNP...")
 	}
-	sessionHandle.StartUpnp()
+	session.StartUpnp()
 
 	if config.Verbose {
 		log.Println("Starting NATPMP...")
 	}
-	sessionHandle.StartNatpmp()
+	session.StartNatpmp()
 }
 
 func stopServices() {
 	if config.Verbose {
 		log.Println("Stopping DHT...")
 	}
-	sessionHandle.StopDht()
+	session.StopDht()
 
 	if config.Verbose {
 		log.Println("Stopping LSD...")
 	}
-	sessionHandle.StopLsd()
+	session.StopLsd()
 
 	if config.Verbose {
 		log.Println("Stopping UPNP...")
 	}
-	sessionHandle.StopUpnp()
+	session.StopUpnp()
 
 	if config.Verbose {
 		log.Println("Stopping NATPMP...")
 	}
-	sessionHandle.StopNatpmp()
+	session.StopNatpmp()
 }
 
 func startHTTP() {
@@ -444,7 +433,7 @@ func startHTTP() {
 	mux.HandleFunc("/ls", lsHandler)
 	mux.Handle("/get/", http.StripPrefix("/get/", getHandler(http.FileServer(torrentFs))))
 	mux.HandleFunc("/shutdown", func(w http.ResponseWriter, _ *http.Request) {
-		forceShutdown <- true
+		Stop()
 		fmt.Fprintf(w, "OK")
 	})
 	mux.Handle("/files/", http.StripPrefix("/files/", http.FileServer(torrentFs)))
@@ -465,6 +454,15 @@ func startHTTP() {
 		log.Printf("Error startHTTP: %v", err)
 	} else {
 		go s.Serve(httpListener)
+	}
+}
+
+func stopHTTP() {
+	if httpListener != nil {
+		err := httpListener.Close()
+		if err != nil {
+			log.Printf("Error stopHTTP: %v", err)
+		}
 	}
 }
 
@@ -499,10 +497,14 @@ func loop() {
 	forceShutdown = make(chan bool, 1)
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+
 	for {
 		select {
 		case <-forceShutdown:
-			httpListener.Close()
+			stopHTTP()
+			if config.Verbose {
+				log.Println("Exit from loop")
+			}
 			return
 		case <-signalChan:
 			forceShutdown <- true
@@ -531,11 +533,10 @@ func Startup(cfg string) {
 
 func Shutdown() {
 	if config.Verbose {
-		log.Println("Stopping torrent2http...")
+		log.Println("Shutdown torrentFs...")
 	}
-	stopServices()
-
 	torrentFs.Shutdown()
+
 	if session != nil {
 		if torrent != nil {
 			removeTorrent()
@@ -549,6 +550,7 @@ func Shutdown() {
 
 func Stop() {
 	forceShutdown <- true
+	Shutdown()
 }
 
 func Status() (string, error) {
