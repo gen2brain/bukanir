@@ -1,7 +1,7 @@
 Bukanir
 =======
 
-Bukanir is Android application that streams movies and TV shows from bittorrent magnet links
+Bukanir streams movies and TV shows from bittorrent magnet links
 
 Features
 --------
