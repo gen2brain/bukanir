@@ -1,4 +1,4 @@
-bukanir-backend
+bukanir-lib
 ===============
 
-Backend for https://github.com/gen2brain/bukanir written in Go.
+Library for https://github.com/gen2brain/bukanir written in Go.
