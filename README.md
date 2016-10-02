@@ -8,7 +8,6 @@ Features
 
 * Watch movies and TV shows on your Android devices
 * Many languages to choose for subtitles
-* Supports devices with large screen sizes
 * Ads free and free as in Freedom
 
 License
