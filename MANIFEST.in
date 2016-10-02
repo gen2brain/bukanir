@@ -1,5 +1,0 @@
-include setup.py bukanir AUTHORS README.md ChangeLog COPYING
-include backend/bukanir-http.go
-recursive-include src/bukanir *.py *.ui *.qrc *.svg *.png *.jpg *.ts
-recursive-include xdg *.desktop *.png
-global-exclude *_ui.py *_rc.py

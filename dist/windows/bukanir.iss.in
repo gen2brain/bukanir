@@ -3,7 +3,7 @@ AppName=Bukanir
 AppVerName=Bukanir {VERSION}
 VersionInfoVersion={VERSION}
 AppPublisher=
-AppPublisherURL=http://bukanir.com/
+AppPublisherURL=https://bukanir.com/
 AppSupportURL=
 AppUpdatesURL=
 DefaultDirName={pf}\Bukanir
@@ -23,24 +23,10 @@ ChangesAssociations=yes
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}";
 
 [Files]
-Source: "bukanir\*.pyd"; DestDir: "{app}";
-Source: "bukanir\*.exe"; DestDir: "{app}";
-Source: "bukanir\*.dll"; DestDir: "{app}";
-Source: "bukanir\*.zip"; DestDir: "{app}";
-Source: "bukanir\*.manifest"; DestDir: "{app}";
+Source: "bukanir\bukanir.exe"; DestDir: "{app}";
 Source: "bukanir\AUTHORS"; DestDir: "{app}";
 Source: "bukanir\COPYING"; DestDir: "{app}";
 Source: "bukanir\README.md"; DestDir: "{app}";
-Source: "bukanir\qt5_plugins\platforms\qwindows.dll"; DestDir: "{app}\qt5_plugins\platforms";
-Source: "bukanir\qt5_plugins\imageformats\qjpeg.dll"; DestDir: "{app}\qt5_plugins\imageformats";
-Source: "bukanir\qt5_plugins\imageformats\qsvg.dll"; DestDir: "{app}\qt5_plugins\imageformats";
-Source: "bukanir\qt5_plugins\imageformats\qgif.dll"; DestDir: "{app}\qt5_plugins\imageformats";
-Source: "bukanir\backend\bukanir-http.exe"; DestDir: "{app}\backend";
-Source: "bukanir\backend\torrent2http.exe"; DestDir: "{app}\backend";
-Source: "bukanir\fonts\*"; DestDir: "{app}\fonts";
-Source: "bukanir\mpv\*"; DestDir: "{app}\mpv";
-Source: "bukanir\mpv.com"; DestDir: "{app}";
-Source: "bukanir\mpv.exe"; DestDir: "{app}";
 
 [Icons]
 Name: {group}\Bukanir; Filename: {app}\bukanir.exe; Tasks: desktopicon;
@@ -50,6 +36,3 @@ Name: {userdesktop}\Bukanir; Filename: {app}\bukanir.exe; Tasks: desktopicon;
 
 [Run]
 Filename: {app}\bukanir.exe; Description: {cm:LaunchProgram,bukanir}; Flags: nowait postinstall skipifsilent;
-
-[Dirs]
-Tasks: desktopicon; Name: {ICON};
