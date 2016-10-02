@@ -1,0 +1,74 @@
+v2.3  :
+
+    * Desktop app is rewritten in Go (Qt5)
+    * Added eztv search provider
+    * Search by genre
+
+v2.2  Jun 22, 2016:
+
+    * Speedup loading of videos
+
+v2.1  Jun 6, 2016:
+
+    * Torrent2http is now bundled inside bukanir lib
+    * fixed crash on arm64
+
+v2.0  Oct 13, 2015:
+
+    * Fixed tpb domains
+    * Add support for arm64
+    * Update libtorrent to 1.1.0
+
+v1.9  Oct 13, 2015:
+
+    * Seeking in videos now works, but it must be enabled in settings, player startup time will be longer though
+    * Vitamio player is replaced with ijkplayer which currently uses FFmpeg version 2.8
+    * Trailers and favorites are added, also, genre and quality for HD Movies/HD Episodes are now shown
+    * Fetching metadata from themoviedb.org is much faster
+    * Subtitles, subtitle delay and video aspect can be changed during playback
+    * Added subscene.com subtitle provider
+    * Subtitle matching is now more precise
+    * Backend is compiled with Go version 1.5 and libtorrent 1.0.6
+
+v1.8  May 21, 2015:
+
+    * Implement rate limit for tmdb
+    * Add new tpb domains
+
+v1.7  May 17, 2015:
+
+    * Fix for podnapisi.net old api
+
+v1.6  Apr 20, 2015:
+
+    * Add opensubtitles support
+    * Add search suggestions
+
+v1.5  Apr 15, 2015:
+
+    * Add tv episodes
+    * Fix metadata and subtitles fetching
+
+v1.4  Apr 7, 2015:
+
+    * Fix metadata fetching
+    * Fix for external sd card location
+
+v1.3  Mar 19, 2015:
+
+    * Piratebay is back
+
+v1.2  Sep 12, 2014:
+
+    * Greatly speed up downloading metadata
+    * Fix subtitles download
+
+v1.1  Aug 10, 2014:
+
+    * Fix issue with tpb
+    * Compiled against libtorrent-1.0
+    * Bug fixes
+
+v1.0  Jun 17, 2014:
+
+    * First public release
