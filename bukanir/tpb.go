@@ -4,70 +4,41 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net"
 	"net/url"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/dustin/go-humanize"
 )
 
-var hosts = []string{
-	"thepiratebay.org",
-	"thepiratebay.mk",
-	"thepiratebay.cd",
-	"thepiratebay.lv",
-}
-
+// TPB struct
 type tpb struct {
 	Host string
 }
 
-type torrent struct {
-	Title          string
-	FormattedTitle string
-	MagnetLink     string
-	Year           string
-	Size           uint64
-	SizeHuman      string
-	Seeders        int
-	Category       int
-	Season         int
-	Episode        int
-}
-
-var (
-	category_movies   int = 201
-	category_hdmovies int = 207
-	category_tv       int = 205
-	category_hdtv     int = 208
-)
-
-var categories = []int{
-	category_movies,
-	category_hdmovies,
-	category_tv,
-	category_hdtv,
-}
-
-func tpbInit(host string) *tpb {
+// Returns new tpb
+func NewTpb(host string) *tpb {
 	return &tpb{Host: host}
 }
 
-func (t *tpb) Top(category int) ([]torrent, error) {
-	var results []torrent
-	uri := "https://%s/top/%d"
+// Returns top torrents for category
+func (t *tpb) Top(category int) ([]tTorrent, error) {
+	var results []tTorrent
+	uri := fmt.Sprintf("https://%s/top/%d", t.Host, category)
 
-	doc, err := getDocument(fmt.Sprintf(uri, t.Host, category))
+	if verbose {
+		log.Printf("TPB: GET %s\n", uri)
+	}
+
+	doc, err := getDocument(uri, false)
 	if err != nil {
 		return nil, err
 	}
 
 	if doc != nil {
-		results, err = t.getTorrents(doc)
+		results, err = t.getTorrents(doc, -1)
 		if err != nil {
 			return nil, err
 		}
@@ -76,17 +47,22 @@ func (t *tpb) Top(category int) ([]torrent, error) {
 	return results, nil
 }
 
-func (t *tpb) Search(query string, page int) ([]torrent, error) {
-	var results []torrent
-	uri := "https://%s/search/%s/%d/7/201,207,205,208"
+// Returns torrents for query
+func (t *tpb) Search(query string, page int, cats string) ([]tTorrent, error) {
+	var results []tTorrent
+	uri := fmt.Sprintf("https://%s/search/%s/%d/7/%s", t.Host, url.QueryEscape(query), page, cats)
 
-	doc, err := getDocument(fmt.Sprintf(uri, t.Host, url.QueryEscape(query), page))
+	if verbose {
+		log.Printf("TPB: GET %s\n", uri)
+	}
+
+	doc, err := getDocument(uri, false)
 	if err != nil {
 		return nil, err
 	}
 
 	if doc != nil {
-		results, err = t.getTorrents(doc)
+		results, err = t.getTorrents(doc, page)
 		if err != nil {
 			return nil, err
 		}
@@ -95,12 +71,13 @@ func (t *tpb) Search(query string, page int) ([]torrent, error) {
 	return results, nil
 }
 
-func (t *tpb) getTorrents(doc *goquery.Document) ([]torrent, error) {
-	var results []torrent
+// Gets torrents from html page
+func (t *tpb) getTorrents(doc *goquery.Document, page int) ([]tTorrent, error) {
+	var results []tTorrent
 	divs := doc.Find(`div.detName`)
 
 	if divs.Length() == 0 {
-		return nil, errors.New("No divs with class detName")
+		return nil, errors.New(fmt.Sprintf("No results on page %d", page))
 	}
 
 	var w sync.WaitGroup
@@ -119,7 +96,7 @@ func (t *tpb) getTorrents(doc *goquery.Document) ([]torrent, error) {
 		c, _ := prev.Find(`a[title="More from this category"]`).Last().Attr(`href`)
 		category, _ := strconv.Atoi(strings.Replace(c, "/browse/", "", -1))
 
-		if seeders == 0 || getTitle(title) == "" {
+		if seeders == 0 || getTitle(title) == "" || !strings.HasPrefix(magnet, "magnet:?") {
 			return
 		}
 
@@ -131,25 +108,25 @@ func (t *tpb) getTorrents(doc *goquery.Document) ([]torrent, error) {
 			sizeHuman = humanize.IBytes(size)
 		}
 
-		if size > 4095*1024*1024 {
+		if size > 5120*1024*1024 {
 			return
 		}
 
 		season, _ := strconv.Atoi(getSeason(title))
 		episode, _ := strconv.Atoi(getEpisode(title))
 
-		if category == category_tv || category == category_hdtv {
+		if category == CategoryTV || category == CategoryHDTV {
 			if season == 0 && episode == 0 {
 				return
 			}
 		}
 
-		t := torrent{
+		t := tTorrent{
 			title,
 			getTitle(title),
 			magnet,
 			getYear(title),
-			size,
+			int64(size),
 			sizeHuman,
 			seeders,
 			category,
@@ -167,20 +144,4 @@ func (t *tpb) getTorrents(doc *goquery.Document) ([]torrent, error) {
 	w.Wait()
 
 	return results, nil
-}
-
-func getHost() string {
-	for _, host := range hosts {
-		_, err := net.DialTimeout("tcp", host+":80", time.Duration(5)*time.Second)
-		if err == nil {
-			if verbose {
-				log.Printf("Using host %s\n", host)
-			}
-			return host
-		}
-	}
-	if verbose {
-		log.Printf("Using first host %s\n", hosts[0])
-	}
-	return hosts[0]
 }

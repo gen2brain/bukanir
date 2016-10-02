@@ -1,18 +1,12 @@
 package bukanir
 
 import (
-	"compress/gzip"
-	"crypto/md5"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
-	"net/http/cookiejar"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -29,6 +23,7 @@ var (
 	reSeason  = regexp.MustCompile(`(?i:s|season)(\d{2})(?i:e|x|episode)(\d{2}).*`)
 )
 
+// Gets title from torrent title
 func getTitle(torrentTitle string) string {
 	title := strings.ToLower(torrentTitle)
 	title = strings.Replace(title, ".", " ", -1)
@@ -57,6 +52,7 @@ func getTitle(torrentTitle string) string {
 	return strings.Trim(title, " ")
 }
 
+// Gets year from torrent title
 func getYear(torrentTitle string) string {
 	year := ""
 	re := reYear.FindAllStringSubmatch(torrentTitle, -1)
@@ -66,6 +62,7 @@ func getYear(torrentTitle string) string {
 	return year
 }
 
+// Gets quality from torrent title
 func getQuality(torrentTitle string) string {
 	quality := ""
 	re := reQuality.FindAllStringSubmatch(torrentTitle, -1)
@@ -75,6 +72,7 @@ func getQuality(torrentTitle string) string {
 	return quality
 }
 
+// Gets tv show season from torrent title
 func getSeason(torrentTitle string) string {
 	season := ""
 	re := reSeason.FindAllStringSubmatch(torrentTitle, -1)
@@ -84,6 +82,7 @@ func getSeason(torrentTitle string) string {
 	return season
 }
 
+// Gets tv show episode from torrent title
 func getEpisode(torrentTitle string) string {
 	episode := ""
 	re := reSeason.FindAllStringSubmatch(torrentTitle, -1)
@@ -93,6 +92,7 @@ func getEpisode(torrentTitle string) string {
 	return episode
 }
 
+// Gets cast string from []tmdbCast
 func getCast(res []tmdbCast) []string {
 	var cast []string
 	for _, c := range res {
@@ -101,7 +101,8 @@ func getCast(res []tmdbCast) []string {
 	return cast
 }
 
-func getVideo(res []video) string {
+// Gets youtube trailer from tmdb []tmdbVideo
+func getVideo(res []tmdbVideo) string {
 	for _, c := range res {
 		if strings.ToLower(c.Site) == "youtube" && strings.ToLower(c.Type) == "trailer" {
 			return c.Key
@@ -110,6 +111,7 @@ func getVideo(res []video) string {
 	return ""
 }
 
+// Gets list of genres from []tmdbGenre
 func getGenre(res []tmdbGenre) []string {
 	var genre []string
 	for _, g := range res {
@@ -118,6 +120,7 @@ func getGenre(res []tmdbGenre) []string {
 	return genre
 }
 
+// Gets director string from []tmdbCrew
 func getDirector(res []tmdbCrew) string {
 	var director string
 	for _, c := range res {
@@ -128,6 +131,7 @@ func getDirector(res []tmdbCrew) string {
 	return director
 }
 
+// Gets language from string
 func getLanguage(name string) *language {
 	lang := new(language)
 	for _, l := range languages {
@@ -139,174 +143,158 @@ func getLanguage(name string) *language {
 	return lang
 }
 
-func getDocument(uri string) (*goquery.Document, error) {
-	res, err := httpGetResponse(uri)
+// Gets tpb host
+func getTpbHost() string {
+	for _, host := range tpbHosts {
+		_, err := net.DialTimeout("tcp", host+":80", time.Duration(3)*time.Second)
+		if err == nil {
+			if verbose {
+				log.Printf("TPB: Using host %s\n", host)
+			}
+			return host
+		}
+	}
+	if verbose {
+		log.Printf("TPB: Using first host %s\n", tpbHosts[0])
+	}
+	return tpbHosts[0]
+}
+
+// Gets eztv host
+func getEztvHost() string {
+	for _, host := range eztvHosts {
+		_, err := net.DialTimeout("tcp", host+":80", time.Duration(3)*time.Second)
+		if err == nil {
+			if verbose {
+				log.Printf("EZTV: Using host %s\n", host)
+			}
+			return host
+		}
+	}
+	if verbose {
+		log.Printf("EZTV: Using first host %s\n", eztvHosts[0])
+	}
+	return eztvHosts[0]
+}
+
+// Gets goquery document
+func getDocument(uri string, fast bool) (*goquery.Document, error) {
+	res, err := getResponse(uri, fast)
 	if err != nil {
-		log.Printf("Error httpGetResponse %s: %v\n", uri, err.Error())
 		return nil, err
 	}
 
-	if verbose {
-		log.Printf("Get %s\n", uri)
-	}
-
 	if res == nil {
-		return nil, errors.New("httpGetResponse is nil")
+		return nil, errors.New("http.Response is nil")
 	}
 
 	doc, err := goquery.NewDocumentFromResponse(res)
 	if err != nil {
-		log.Printf("Error NewDocumentFromResponse %s: %v\n", uri, err.Error())
+		log.Printf("ERROR: NewDocumentFromResponse %s: %s\n", uri, err.Error())
 		return nil, err
 	}
 
 	if doc == nil {
-		return nil, errors.New("getDocument is nil")
+		return nil, errors.New("Document is nil")
 	}
 
 	return doc, nil
 }
 
-func httpGetResponse(uri string) (*http.Response, error) {
-	jar, _ := cookiejar.New(nil)
-	timeout := time.Duration(10 * time.Second)
-
-	dialTimeout := func(network, addr string) (net.Conn, error) {
-		return net.DialTimeout(network, addr, timeout)
-	}
-
-	transport := http.Transport{
-		Dial:            dialTimeout,
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-
-	httpClient := http.Client{
-		Jar:       jar,
-		Transport: &transport,
-	}
-
+// Gets http response
+func getResponse(uri string, fast bool) (*http.Response, error) {
 	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(strings.Replace(err.Error(), tmdbApiKey, "xxx", -1))
 	}
 
-	req.Close = true
+	req = req.WithContext(ctx)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:36.0) Gecko/20100101 Firefox/36.0")
 
-	res, err := httpClient.Do(req)
-	if err != nil || res == nil {
-		return nil, err
+	var res *http.Response
+
+	if fast {
+		res, err = clientFast.Do(req)
+		if err != nil || res == nil {
+			return nil, errors.New(strings.Replace(err.Error(), tmdbApiKey, "xxx", -1))
+		}
+	} else {
+		res, err = clientSlow.Do(req)
+		if err != nil || res == nil {
+			return nil, errors.New(strings.Replace(err.Error(), tmdbApiKey, "xxx", -1))
+		}
 	}
 
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusTooManyRequests {
 		return nil, errors.New(fmt.Sprintf("Status Code %d received", res.StatusCode))
 	}
 
 	return res, nil
 }
 
-func httpGetBody(uri string) ([]byte, error) {
+// Gets response body as byte
+func getBody(uri string) ([]byte, error) {
 	var err error
 	var body []byte
 	var res *http.Response
 
-	res, err = http.Get(uri)
+	// TMDB retry
+	retry := func(r *http.Response) (*http.Response, error) {
+		sleep, err := strconv.Atoi(r.Header.Get("Retry-After"))
+		if err == nil {
+			if verbose {
+				log.Printf("TMDB: Retry-After: %d, sleeping for %d seconds\n", sleep, sleep+1)
+			}
+
+			select {
+			case <-cancelchan:
+				return nil, errors.New("getBody request canceled")
+			case <-time.After(time.Duration(sleep+1) * time.Second):
+				break
+			}
+
+			return getResponse(uri, false)
+		}
+
+		return r, nil
+	}
+
+	res, err = getResponse(uri, false)
 	if err != nil {
 		return nil, err
 	}
 
-	if res.StatusCode == 429 {
-		sleep, err := strconv.Atoi(res.Header.Get("Retry-After"))
-		if err == nil {
-			if verbose {
-				log.Printf("Retry-After: %d, sleeping for %d seconds\n", sleep, sleep+1)
-			}
+	if res.StatusCode == http.StatusTooManyRequests {
+		res, err = retry(res)
+		if err != nil {
+			return nil, err
+		}
 
-			time.Sleep(time.Duration(sleep+1) * time.Second)
-
-			res, err = http.Get(uri)
+		if res.StatusCode == http.StatusTooManyRequests {
+			res, err = retry(res)
 			if err != nil {
 				return nil, err
 			}
-		} else {
-			return nil, err
+
+			if res.StatusCode == http.StatusTooManyRequests {
+				res, err = retry(res)
+				if err != nil {
+					return nil, err
+				}
+			}
 		}
 	}
 
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK {
 		return nil, errors.New(
-			fmt.Sprintf("Error httpGetBody: StatusCode %d received", res.StatusCode))
+			fmt.Sprintf("StatusCode %d received", res.StatusCode))
 	}
 
-	defer res.Body.Close()
 	body, err = ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
+	defer res.Body.Close()
 
 	return body, nil
-}
-
-func saveCache(key string, data []byte, cacheDir string) {
-	md5key := md5.Sum([]byte(strings.ToLower(key)))
-	file := filepath.Join(cacheDir, fmt.Sprintf("%x.json.gz", md5key))
-
-	err := os.MkdirAll(cacheDir, 0777)
-	if err != nil {
-		log.Printf("Error creating cache directory %s: %v\n", cacheDir, err.Error())
-	}
-
-	f, err := os.Create(file)
-	if err != nil {
-		log.Printf("Error creating cache file %s: %v\n", file, err.Error())
-	}
-	defer f.Close()
-
-	gz := gzip.NewWriter(f)
-	defer gz.Close()
-
-	_, err = gz.Write(data)
-	if err != nil {
-		log.Printf("Error writing gz data: %v\n", err.Error())
-	}
-}
-
-func getCache(key string, cacheDir string, days int64) []byte {
-	md5key := md5.Sum([]byte(strings.ToLower(key)))
-	file := filepath.Join(cacheDir, fmt.Sprintf("%x.json.gz", md5key))
-
-	info, err := os.Stat(file)
-	if err != nil {
-		return nil
-	}
-
-	if days != 0 && days > 0 {
-		mtime := info.ModTime().Unix()
-		if time.Now().Unix()-mtime > 86400*days {
-			return nil
-		}
-	}
-
-	if verbose {
-		log.Printf("Using cache file %s\n", file)
-	}
-
-	f, err := os.Open(file)
-	if err != nil {
-		log.Printf("Error opening cache file %s: %v\n", file, err.Error())
-	}
-	defer f.Close()
-
-	gz, err := gzip.NewReader(f)
-	if err != nil {
-		log.Printf("Error creating gzip reader %s: %v\n", file, err.Error())
-	}
-	defer gz.Close()
-
-	data, err := ioutil.ReadAll(gz)
-	if err != nil {
-		log.Printf("Error reading cache file: %v\n", err.Error())
-		return nil
-	}
-	return data
 }

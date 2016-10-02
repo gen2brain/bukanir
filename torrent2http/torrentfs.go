@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
-	lt "libtorrent-go"
+	lt "github.com/gen2brain/libtorrent-go"
 )
 
 type torrentFS struct {
@@ -58,11 +58,11 @@ func newTorrentFS(handle lt.TorrentHandle, startIndex int) *torrentFS {
 		if startIndex < 0 {
 			startIndex = tfs.FindLargestFileIndex()
 			if config.Verbose {
-				log.Printf("Largest file index: %d", startIndex)
+				log.Printf("T2HTTP: Largest file index: %d", startIndex)
 			}
 		} else {
 			if config.Verbose {
-				log.Printf("Start index: %d", startIndex)
+				log.Printf("T2HTTP: Start index: %d", startIndex)
 			}
 		}
 
@@ -83,7 +83,7 @@ func (tfs *torrentFS) Shutdown() {
 
 	if len(tfs.openedFiles) > 0 {
 		if config.Verbose {
-			log.Printf("Closing %d opened file(s)", len(tfs.openedFiles))
+			log.Printf("T2HTTP: Closing %d opened file(s)", len(tfs.openedFiles))
 		}
 		for _, f := range tfs.openedFiles {
 			f.Close()
@@ -102,7 +102,7 @@ func (tfs *torrentFS) addOpenedFile(file *torrentFile) {
 func (tfs *torrentFS) setPriority(index int, priority int) {
 	if val, ok := tfs.priorities[index]; !ok || val != priority {
 		if config.Verbose {
-			log.Printf("Setting %s priority to %d", tfs.info.FileAt(index).GetPath(), priority)
+			log.Printf("T2HTTP: Setting %s priority to %d", tfs.info.FileAt(index).GetPath(), priority)
 		}
 
 		tfs.priorities[index] = priority
@@ -333,7 +333,7 @@ func (tf *torrentFile) FilePtr() (*os.File, error) {
 
 func (tf *torrentFile) log(message string, v ...interface{}) {
 	args := append([]interface{}{tf.num}, v...)
-	log.Printf("[%d] "+message+"\n", args...)
+	log.Printf("T2HTTP: [%d] "+message+"\n", args...)
 }
 
 func (tf *torrentFile) Pieces() (int, int) {

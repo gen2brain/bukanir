@@ -20,7 +20,7 @@ import (
 	lt "github.com/gen2brain/libtorrent-go"
 )
 
-type fileStatusInfo struct {
+type FileStatusInfo struct {
 	Name     string  `json:"name"`
 	SavePath string  `json:"save_path"`
 	Url      string  `json:"url"`
@@ -30,11 +30,11 @@ type fileStatusInfo struct {
 	Progress float32 `json:"progress"`
 }
 
-type lsInfo struct {
-	Files []fileStatusInfo `json:"files"`
+type LsInfo struct {
+	Files []FileStatusInfo `json:"files"`
 }
 
-type sessionStatus struct {
+type SessionStatus struct {
 	Name          string  `json:"name"`
 	State         int     `json:"state"`
 	StateStr      string  `json:"state_str"`
@@ -58,8 +58,6 @@ type Config struct {
 	MaxDownloadRate     int    `json:"max_download_rate"`
 	DownloadPath        string `json:"download_path"`
 	UserAgent           string `json:"user_agent"`
-	KeepComplete        bool   `json:"keep_complete"`
-	KeepIncomplete      bool   `json:"keep_incomplete"`
 	KeepFiles           bool   `json:"keep_files"`
 	Encryption          int    `json:"encryption"`
 	NoSparseFile        bool   `json:"no_sparse_file"`
@@ -91,25 +89,25 @@ var (
 )
 
 const (
-	state_queued_for_checking = iota
-	state_checking_files
-	state_downloading_metadata
-	state_downloading
-	state_finished
-	state_seeding
-	state_allocating
-	state_checking_resume_data
+	stateQueuedForChecking = iota
+	stateCheckingFiles
+	stateDownloadingMetadata
+	stateDownloading
+	stateFinished
+	stateSeeding
+	stateAllocating
+	stateCheckingResumeData
 )
 
 var stateStrings = map[int]string{
-	state_queued_for_checking:  "Queued",
-	state_checking_files:       "Checking",
-	state_downloading_metadata: "Downloading metadata",
-	state_downloading:          "Downloading",
-	state_finished:             "Finished",
-	state_seeding:              "Seeding",
-	state_allocating:           "Allocating",
-	state_checking_resume_data: "Checking resume data",
+	stateQueuedForChecking:   "Queued",
+	stateCheckingFiles:       "Checking",
+	stateDownloadingMetadata: "Downloading torrent metadata",
+	stateDownloading:         "Downloading",
+	stateFinished:            "Finished",
+	stateSeeding:             "Seeding",
+	stateAllocating:          "Allocating",
+	stateCheckingResumeData:  "Checking resume data",
 }
 
 func popAlert() lt.Alert {
@@ -133,7 +131,7 @@ func consumeAlerts() {
 func buildTorrentParams(uri string) lt.AddTorrentParams {
 	fileUri, err := url.Parse(uri)
 	if err != nil {
-		log.Printf("Error url.Parse: %v", err)
+		log.Printf("ERROR: url.Parse: %v", err)
 	}
 
 	torrentParams := lt.NewAddTorrentParams()
@@ -142,7 +140,7 @@ func buildTorrentParams(uri string) lt.AddTorrentParams {
 	defer lt.DeleteErrorCode(error)
 
 	if err != nil {
-		log.Printf("Error buildTorrentParams: %v", err)
+		log.Printf("ERROR: buildTorrentParams: %v", err)
 	}
 
 	if fileUri.Scheme == "file" {
@@ -152,37 +150,37 @@ func buildTorrentParams(uri string) lt.AddTorrentParams {
 		}
 		absPath, err := filepath.Abs(uriPath)
 		if err != nil {
-			log.Printf("Error buildTorrentParams: %v", err.Error())
+			log.Printf("ERROR: buildTorrentParams: %v", err.Error())
 		}
 		if config.Verbose {
-			log.Printf("Opening local file: %s", absPath)
+			log.Printf("T2HTTP: Opening local file: %s", absPath)
 		}
 		if _, err := os.Stat(absPath); err != nil {
-			log.Printf("Error buildTorrentParams: %v", err.Error())
+			log.Printf("ERROR: buildTorrentParams: %v", err.Error())
 		}
 
 		torrentInfo := lt.NewTorrentInfo(absPath, error)
 		if error.Value() != 0 {
-			log.Printf("Error buildTorrentParams: %v", error.Message())
+			log.Printf("ERROR: buildTorrentParams: %v", error.Message())
 		}
 		defer lt.DeleteTorrentInfo(torrentInfo)
 
 		torrentParams.SetTorrentInfo(torrentInfo)
 	} else {
 		if config.Verbose {
-			log.Printf("Will fetch: %s", uri)
+			log.Printf("T2HTTP: Will fetch: %s", uri)
 		}
 		torrentParams.SetUrl(uri)
 	}
 
 	if config.Verbose {
-		log.Printf("Setting save path: %s", config.DownloadPath)
+		log.Printf("T2HTTP: Setting save path: %s", config.DownloadPath)
 	}
 	torrentParams.SetSavePath(config.DownloadPath)
 
 	if config.NoSparseFile {
 		if config.Verbose {
-			log.Println("Disabling sparse file support...")
+			log.Println("T2HTTP: Disabling sparse file support...")
 		}
 		torrentParams.SetStorageMode(lt.StorageModeCompact)
 	}
@@ -192,7 +190,7 @@ func buildTorrentParams(uri string) lt.AddTorrentParams {
 
 func addTorrent(torrentParams lt.AddTorrentParams) {
 	if config.Verbose {
-		log.Println("Adding torrent")
+		log.Println("T2HTTP: Adding torrent")
 	}
 
 	error := lt.NewErrorCode()
@@ -200,13 +198,13 @@ func addTorrent(torrentParams lt.AddTorrentParams) {
 
 	torrent = session.AddTorrent(torrentParams, error)
 	if error.Value() != 0 {
-		log.Printf("Error addTorrent: %v", error.Message())
+		log.Printf("ERROR: addTorrent: %v", error.Message())
 	}
 
 	defer lt.DeleteAddTorrentParams(torrentParams)
 
 	if config.Verbose {
-		log.Println("Enabling sequential download")
+		log.Println("T2HTTP: Enabling sequential download")
 	}
 	torrent.SetSequentialDownload(true)
 
@@ -218,7 +216,7 @@ func addTorrent(torrentParams lt.AddTorrentParams) {
 			announceEntry := lt.NewAnnounceEntry(tracker)
 			announceEntry.SetTier(byte(startTier + n))
 			if config.Verbose {
-				log.Printf("Adding tracker: %s", tracker)
+				log.Printf("T2HTTP: Adding tracker: %s", tracker)
 			}
 			torrent.AddTracker(announceEntry)
 			lt.DeleteAnnounceEntry(announceEntry)
@@ -226,7 +224,7 @@ func addTorrent(torrentParams lt.AddTorrentParams) {
 	}
 
 	if config.Verbose {
-		log.Printf("Downloading torrent: %s", torrent.Status().GetName())
+		log.Printf("T2HTTP: Downloading torrent: %s", torrent.Status().GetName())
 	}
 	torrentFs = newTorrentFS(torrent, config.FileIndex)
 }
@@ -234,22 +232,20 @@ func addTorrent(torrentParams lt.AddTorrentParams) {
 func removeTorrent() {
 	var flag int
 	state := torrent.Status().GetState()
-	if state != state_checking_files && state != state_queued_for_checking && !config.KeepFiles {
-		if !config.KeepComplete && !config.KeepIncomplete {
-			flag = int(lt.SessionDeleteFiles)
-		}
+	if state != stateCheckingFiles && state != stateQueuedForChecking && !config.KeepFiles {
+		flag = int(lt.SessionDeleteFiles)
 	}
 
 	if config.Verbose {
-		log.Println("Removing the torrent")
+		log.Println("T2HTTP: Removing the torrent")
 	}
 	session.RemoveTorrent(torrent, flag)
 }
 
 func startSession() {
 	if config.Verbose {
-		log.Println(fmt.Sprintf("%s-%s", LibName, LibVersion))
-		log.Println("Starting session...")
+		log.Println("T2HTTP: Starting session...")
+		log.Println(fmt.Sprintf("T2HTTP: Library %s-%s", LibName, LibVersion))
 	}
 
 	session = lt.NewSession(
@@ -307,7 +303,7 @@ func startSession() {
 	rand.Seed(time.Now().UnixNano())
 	portLower := config.ListenPort
 	if config.RandomPort {
-		portLower = rand.Intn(16374) + 49152
+		portLower = rand.Intn(6999-6881) + 6881
 	}
 	portUpper := portLower + 10
 
@@ -316,7 +312,7 @@ func startSession() {
 
 	session.ListenOn(ports, err)
 	if err.Value() != 0 {
-		log.Printf("Error startSession: %v", err.Message())
+		log.Printf("ERROR: startSession: %v", err.Message())
 	}
 
 	settings = session.Settings()
@@ -350,7 +346,7 @@ func startSession() {
 				if len(hostPort) > 1 {
 					port, err = strconv.Atoi(strings.TrimSpace(hostPort[1]))
 					if err != nil {
-						log.Printf("Error startSession: %v", err)
+						log.Printf("ERROR: startSession: %v", err)
 					}
 				}
 
@@ -359,14 +355,14 @@ func startSession() {
 
 				session.AddDhtRouter(bind)
 				if config.Verbose {
-					log.Printf("Added DHT router: %s:%d", host, port)
+					log.Printf("T2HTTP: Added DHT router: %s:%d", host, port)
 				}
 			}
 		}
 	}
 
 	if config.Verbose {
-		log.Println("Setting encryption settings")
+		log.Println("T2HTTP: Setting encryption settings")
 	}
 
 	encryptionSettings := lt.NewPeSettings()
@@ -381,51 +377,51 @@ func startSession() {
 
 func startServices() {
 	if config.Verbose {
-		log.Println("Starting DHT...")
+		log.Println("T2HTTP: Starting DHT...")
 	}
 	session.StartDht()
 
 	if config.Verbose {
-		log.Println("Starting LSD...")
+		log.Println("T2HTTP: Starting LSD...")
 	}
 	session.StartLsd()
 
 	if config.Verbose {
-		log.Println("Starting UPNP...")
+		log.Println("T2HTTP: Starting UPNP...")
 	}
 	session.StartUpnp()
 
 	if config.Verbose {
-		log.Println("Starting NATPMP...")
+		log.Println("T2HTTP: Starting NATPMP...")
 	}
 	session.StartNatpmp()
 }
 
 func stopServices() {
 	if config.Verbose {
-		log.Println("Stopping DHT...")
+		log.Println("T2HTTP: Stopping DHT...")
 	}
 	session.StopDht()
 
 	if config.Verbose {
-		log.Println("Stopping LSD...")
+		log.Println("T2HTTP: Stopping LSD...")
 	}
 	session.StopLsd()
 
 	if config.Verbose {
-		log.Println("Stopping UPNP...")
+		log.Println("T2HTTP: Stopping UPNP...")
 	}
 	session.StopUpnp()
 
 	if config.Verbose {
-		log.Println("Stopping NATPMP...")
+		log.Println("T2HTTP: Stopping NATPMP...")
 	}
 	session.StopNatpmp()
 }
 
 func startHTTP() {
 	if config.Verbose {
-		log.Println("Starting HTTP Server...")
+		log.Println("T2HTTP: Starting HTTP Server...")
 	}
 
 	mux := http.NewServeMux()
@@ -441,7 +437,7 @@ func startHTTP() {
 	handler := http.Handler(mux)
 
 	if config.Verbose {
-		log.Printf("Listening HTTP on %s...\n", config.BindAddress)
+		log.Printf("T2HTTP: Listening HTTP on %s...\n", config.BindAddress)
 	}
 	s := &http.Server{
 		Addr:    config.BindAddress,
@@ -451,7 +447,7 @@ func startHTTP() {
 	var err error
 	httpListener, err = net.Listen("tcp4", config.BindAddress)
 	if err != nil {
-		log.Printf("Error startHTTP: %v", err)
+		log.Printf("ERROR: startHTTP: %v", err)
 	} else {
 		go s.Serve(httpListener)
 	}
@@ -461,8 +457,9 @@ func stopHTTP() {
 	if httpListener != nil {
 		err := httpListener.Close()
 		if err != nil {
-			log.Printf("Error stopHTTP: %v", err)
+			log.Printf("ERROR: stopHTTP: %v", err)
 		}
+		httpListener = nil
 	}
 }
 
@@ -503,7 +500,7 @@ func loop() {
 		case <-forceShutdown:
 			stopHTTP()
 			if config.Verbose {
-				log.Println("Exit from loop")
+				log.Println("T2HTTP: Exit loop")
 			}
 			return
 		case <-signalChan:
@@ -521,7 +518,7 @@ func loop() {
 func Startup(cfg string) {
 	err := json.Unmarshal([]byte(cfg), &config)
 	if err != nil {
-		log.Printf("Error SetConfig: %s\n", err.Error())
+		log.Printf("ERROR: Unmarshal: %s\n", err.Error())
 	}
 
 	startSession()
@@ -533,7 +530,7 @@ func Startup(cfg string) {
 
 func Shutdown() {
 	if config.Verbose {
-		log.Println("Shutdown torrentFs...")
+		log.Println("T2HTTP: Shutdown torrentFs...")
 	}
 	torrentFs.Shutdown()
 
@@ -542,7 +539,7 @@ func Shutdown() {
 			removeTorrent()
 		}
 		if config.Verbose {
-			log.Println("Aborting the session")
+			log.Println("T2HTTP: Aborting the session")
 		}
 		lt.DeleteSession(session)
 	}
@@ -550,16 +547,20 @@ func Shutdown() {
 
 func Stop() {
 	forceShutdown <- true
-	Shutdown()
+	//Shutdown()
+}
+
+func Started() bool {
+	return httpListener != nil
 }
 
 func Status() (string, error) {
-	var status sessionStatus
+	var status SessionStatus
 	if torrent == nil {
-		status = sessionStatus{State: -1}
+		status = SessionStatus{State: -1}
 	} else {
 		tstatus := torrent.Status()
-		status = sessionStatus{
+		status = SessionStatus{
 			Name:          tstatus.GetName(),
 			State:         int(tstatus.GetState()),
 			StateStr:      stateStrings[int(tstatus.GetState())],
@@ -584,7 +585,7 @@ func Status() (string, error) {
 }
 
 func Ls() (string, error) {
-	retFiles := lsInfo{}
+	retFiles := LsInfo{}
 
 	if torrentFs.HasTorrentInfo() {
 		for _, file := range torrentFs.Files() {
@@ -593,7 +594,7 @@ func Ls() (string, error) {
 				Host:   config.BindAddress,
 				Path:   "/files/" + file.Name(),
 			}
-			fi := fileStatusInfo{
+			fi := FileStatusInfo{
 				Name:     file.Name(),
 				Size:     file.Size(),
 				Offset:   file.Offset(),

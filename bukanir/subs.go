@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/url"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,12 +18,17 @@ import (
 	"github.com/xrash/smetrics"
 )
 
+// Language struct
 type language struct {
 	Name      string
 	ISO_639_2 string
 	ID        string
 }
 
+// Minimum score required
+var scoreRequired float64 = 0.65
+
+// Supported languages
 var languages = []language{
 	{"Albanian", "alb", "29"},
 	{"Arabic", "ara", "12"},
@@ -73,11 +79,12 @@ var languages = []language{
 	{"Vietnamese", "vie", "51"},
 }
 
+// podnapisi.net subtitles
 func podnapisi(movie string, year string, torrentRelease string, lang string, category int, season int, episode int) {
 	defer wgs.Done()
 	defer func() {
 		if r := recover(); r != nil {
-			log.Print("Recovered in podnapisi: ", r)
+			log.Print("SUB: Recovered in podnapisi")
 		}
 	}()
 
@@ -109,46 +116,41 @@ func podnapisi(movie string, year string, torrentRelease string, lang string, ca
 
 	l := getLanguage(lang)
 
-	searchUrl := podnapisiUrl + "search/old?sXML=1&sK=%s&sY=%s&sJ=%s"
+	searchUrl := "http://podnapisi.net/subtitles/search/old?sXML=1&sK=%s&sY=%s&sJ=%s"
 	uri := fmt.Sprintf(searchUrl, url.QueryEscape(movie), year, l.ID)
 
-	if category == category_tv || category == category_hdtv {
+	if category == CategoryTV || category == CategoryHDTV {
 		if season != 0 {
 			uri = uri + fmt.Sprintf("&sTS=%d&sTE=%d", season, episode)
 		}
 	}
 
 	if verbose {
-		log.Printf("Get %s\n", uri)
+		log.Printf("SUB: GET %s\n", uri)
 	}
 
-	res, err := httpGetResponse(uri)
+	res, err := getResponse(uri, true)
 	if err != nil {
-		log.Printf("Error httpGetResponse %s: %v\n", uri, err.Error())
+		log.Printf("ERROR: getResponse %s\n", err.Error())
 		return
 	}
 
 	defer res.Body.Close()
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		log.Printf("Error reading body: %v\n", err.Error())
+		log.Printf("ERROR: ReadAll: %s\n", err.Error())
 		return
 	}
 
 	var r Data
 	err = xml.Unmarshal(body, &r)
 	if err != nil {
-		log.Printf("Error unmarshalling response: %v\n", err.Error())
+		log.Printf("ERROR: Unmarshal: %s\n", err.Error())
 		return
 	}
 
 	if len(r.SubtitleList) == 0 {
 		return
-	}
-
-	scoreRequired := 0.7
-	if lang != "english" {
-		scoreRequired = 0.75
 	}
 
 	for _, s := range r.SubtitleList {
@@ -165,40 +167,41 @@ func podnapisi(movie string, year string, torrentRelease string, lang string, ca
 			continue
 		}
 
-		score := getScore(torrentRelease, subtitleRelease)
+		score := getSubScore(torrentRelease, subtitleRelease)
 		if score < scoreRequired {
 			continue
 		}
 
-		if category == category_tv || category == category_hdtv {
+		if category == CategoryTV || category == CategoryHDTV {
 			if season != s.TvSeason || episode != s.TvEpisode {
 				continue
 			}
 		}
 
-		downloadLink := fmt.Sprintf(podnapisiUrl+"%s/download", s.Pid)
+		downloadLink := fmt.Sprintf("http://podnapisi.net/subtitles/%s/download", s.Pid)
 
-		s := subtitle{strconv.Itoa(s.Id), s.Title, s.Year, subtitleRelease, downloadLink, score}
+		s := TSubtitle{strconv.Itoa(s.Id), s.Title, s.Year, subtitleRelease, downloadLink, score}
 		subtitles = append(subtitles, s)
 	}
 }
 
+// opensubtitles.org
 func opensubtitles(movie string, imdbId string, year string, torrentRelease string, lang string, category int, season int, episode int) {
 	defer wgs.Done()
 	defer func() {
 		if r := recover(); r != nil {
-			log.Print("Recovered in opensubtitles: ", r)
+			log.Print("SUB: Recovered in opensubtitles")
 		}
 	}()
 
 	o, err := osdb.NewClient()
 	if err != nil {
-		log.Printf("Error NewClient: %v\n", err.Error())
+		log.Printf("ERROR: NewClient: %s\n", err.Error())
 	}
 
 	err = o.LogIn(opensubsUser, opensubsPassword, "en")
 	if err != nil {
-		log.Printf("Error LogIn: %v\n", err.Error())
+		log.Printf("ERROR: LogIn: %s\n", err.Error())
 	}
 
 	o.UserAgent = opensubsUserAgent
@@ -213,7 +216,7 @@ func opensubtitles(movie string, imdbId string, year string, torrentRelease stri
 	listArgs = append(listArgs, map[string]string{"imdbid": imdbId})
 	listArgs = append(listArgs, map[string]string{"sublanguageid": l.ISO_639_2})
 
-	if category == category_tv || category == category_hdtv {
+	if category == CategoryTV || category == CategoryHDTV {
 		if season != 0 {
 			listArgs = append(listArgs, map[string]string{"season": strconv.Itoa(season)})
 			listArgs = append(listArgs, map[string]string{"episode": strconv.Itoa(episode)})
@@ -221,13 +224,13 @@ func opensubtitles(movie string, imdbId string, year string, torrentRelease stri
 	}
 
 	if verbose {
-		log.Printf("XmlRpc %+v\n", listArgs)
+		log.Printf("SUB: XML-RPC http://opensubtitles.org %+v\n", listArgs)
 	}
 
 	params[1] = listArgs
 	subs, err := o.SearchSubtitles(&params)
 	if err != nil {
-		log.Printf("Error SearchSubtitles: %v\n", err.Error())
+		log.Printf("ERROR: SearchSubtitles: %v\n", err.Error())
 		return
 	}
 
@@ -235,17 +238,12 @@ func opensubtitles(movie string, imdbId string, year string, torrentRelease stri
 		return
 	}
 
-	scoreRequired := 0.7
-	if lang != "english" {
-		scoreRequired = 0.75
-	}
-
 	for _, sub := range subs {
 		if sub.SubLanguageID != l.ISO_639_2 {
 			continue
 		}
 
-		if !isValidFormat(sub.SubFormat) {
+		if !isSubValid(sub.SubFormat) {
 			continue
 		}
 
@@ -254,12 +252,12 @@ func opensubtitles(movie string, imdbId string, year string, torrentRelease stri
 			continue
 		}
 
-		score := getScore(torrentRelease, sub.MovieReleaseName)
+		score := getSubScore(torrentRelease, sub.MovieReleaseName)
 		if score < scoreRequired {
 			continue
 		}
 
-		if category == category_tv || category == category_hdtv {
+		if category == CategoryTV || category == CategoryHDTV {
 			subSeason, _ := strconv.Atoi(sub.SeriesSeason)
 			subEpisode, _ := strconv.Atoi(sub.SeriesEpisode)
 			if season != subSeason || episode != subEpisode {
@@ -267,27 +265,32 @@ func opensubtitles(movie string, imdbId string, year string, torrentRelease stri
 			}
 		}
 
-		s := subtitle{sub.IDSubtitleFile, sub.MovieName, sub.MovieYear, sub.MovieReleaseName, sub.ZipDownloadLink, score}
+		s := TSubtitle{sub.IDSubtitleFile, sub.MovieName, sub.MovieYear, sub.MovieReleaseName, sub.ZipDownloadLink, score}
 		subtitles = append(subtitles, s)
 	}
 
 }
 
+// subscene.com subtitles
 func subscene(movie string, year string, torrentRelease string, lang string, category int, season int, episode int) {
 	defer wgs.Done()
 	defer func() {
 		if r := recover(); r != nil {
-			log.Print("Recovered in subscene: ", r)
+			log.Print("SUB: Recovered in subscene")
 		}
 	}()
 
-	searchUrl := subsceneUrl + "/subtitles/release?q=%s"
+	searchUrl := "http://subscene.com/subtitles/release?q=%s"
 
 	uri := fmt.Sprintf(searchUrl, url.QueryEscape(torrentRelease))
 
-	doc, err := getDocument(uri)
+	if verbose {
+		log.Printf("SUB: GET %s\n", uri)
+	}
+
+	doc, err := getDocument(uri, true)
 	if err != nil {
-		log.Printf("Error getDocument %s: %v", uri, err.Error())
+		log.Printf("ERROR: getDocument %s", err.Error())
 		return
 	}
 
@@ -297,19 +300,14 @@ func subscene(movie string, year string, torrentRelease string, lang string, cat
 		return
 	}
 
-	scoreRequired := 0.7
-	if lang != "english" {
-		scoreRequired = 0.75
-	}
-
-	subs := make([]subtitle, 0)
+	subs := make([]TSubtitle, 0)
 
 	var w sync.WaitGroup
 	parseHTML := func(i int, td *goquery.Selection) {
 		defer w.Done()
 		defer func() {
 			if r := recover(); r != nil {
-				log.Print("Recovered in parseHTML: ", r)
+				log.Print("SUB: Recovered in parseHTML")
 			}
 		}()
 
@@ -339,12 +337,12 @@ func subscene(movie string, year string, torrentRelease string, lang string, cat
 			return
 		}
 
-		score := getScore(torrentRelease, subtitleRelease)
+		score := getSubScore(torrentRelease, subtitleRelease)
 		if score < scoreRequired {
 			return
 		}
 
-		if category == category_tv || category == category_hdtv {
+		if category == CategoryTV || category == CategoryHDTV {
 			rs, _ := strconv.Atoi(getSeason(subtitleRelease))
 			re, _ := strconv.Atoi(getEpisode(subtitleRelease))
 			if season != rs || episode != re {
@@ -352,7 +350,7 @@ func subscene(movie string, year string, torrentRelease string, lang string, cat
 			}
 		}
 
-		s := subtitle{id, subtitleTitle, subtitleYear, subtitleRelease, href, score}
+		s := TSubtitle{id, subtitleTitle, subtitleYear, subtitleRelease, href, score}
 		subs = append(subs, s)
 	}
 
@@ -369,20 +367,21 @@ func subscene(movie string, year string, torrentRelease string, lang string, cat
 	sort.Sort(byScore(subs))
 	s := subs[0]
 
-	d, err := getDocument(subsceneUrl + s.DownloadLink)
+	d, err := getDocument("http://subscene.com"+s.DownloadLink, true)
 	if err != nil {
-		log.Printf("Error getDocument %s: %v", subsceneUrl+s.DownloadLink, err.Error())
+		log.Printf("ERROR: getDocument %s\n", err.Error())
 		return
 	}
 
 	downloadHref := d.Find("#downloadButton")
 	downloadLink, _ := downloadHref.Attr("href")
 
-	sub := subtitle{"0", s.Title, s.Year, s.Release, subsceneUrl + downloadLink, s.Score}
+	sub := TSubtitle{"0", s.Title, s.Year, s.Release, "http://subscene.com" + downloadLink, s.Score}
 	subtitles = append(subtitles, sub)
 }
 
-func getScore(torrentRelease string, subtitleRelease string) float64 {
+// Gets subtitle score
+func getSubScore(torrentRelease string, subtitleRelease string) float64 {
 	for _, char := range []string{".", "-", "_"} {
 		torrentRelease = strings.Replace(torrentRelease, char, " ", -1)
 		subtitleRelease = strings.Replace(subtitleRelease, char, " ", -1)
@@ -390,8 +389,12 @@ func getScore(torrentRelease string, subtitleRelease string) float64 {
 	return smetrics.Jaro(torrentRelease, subtitleRelease)
 }
 
-func isValidFormat(format string) bool {
-	formats := []string{"srt", "ass", "ssa", "sub"}
+// Checks if subtitle is valid
+func isSubValid(format string) bool {
+	formats := []string{"srt", "ass", "ssa"}
+	if runtime.GOOS != "android" {
+		formats = append(formats, "sub")
+	}
 	for _, f := range formats {
 		if f == format {
 			return true

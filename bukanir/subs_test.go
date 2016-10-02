@@ -33,8 +33,8 @@ func TestPodnapisi(t *testing.T) {
 	if len(subtitles) == 0 {
 		t.Error("FAIL")
 	} else {
-		fmt.Printf("%+v\n", subtitles[0])
-		subtitles = make([]subtitle, 0)
+		fmt.Printf("Podnapisi:%+v\n", subtitles[0])
+		subtitles = make([]TSubtitle, 0)
 	}
 
 	wgs.Add(1)
@@ -44,8 +44,8 @@ func TestPodnapisi(t *testing.T) {
 	if len(subtitles) == 0 {
 		t.Error("FAIL")
 	} else {
-		fmt.Printf("%+v\n", subtitles[0])
-		subtitles = make([]subtitle, 0)
+		fmt.Printf("Podnapisi:%+v\n", subtitles[0])
+		subtitles = make([]TSubtitle, 0)
 	}
 }
 
@@ -57,8 +57,8 @@ func TestOpensubtitles(t *testing.T) {
 	if len(subtitles) == 0 {
 		t.Error("FAIL")
 	} else {
-		fmt.Printf("%+v\n", subtitles[0])
-		subtitles = make([]subtitle, 0)
+		fmt.Printf("OpenSubtitles:%+v\n", subtitles[0])
+		subtitles = make([]TSubtitle, 0)
 	}
 
 	wgs.Add(1)
@@ -68,8 +68,8 @@ func TestOpensubtitles(t *testing.T) {
 	if len(subtitles) == 0 {
 		t.Error("FAIL")
 	} else {
-		fmt.Printf("%+v\n", subtitles[0])
-		subtitles = make([]subtitle, 0)
+		fmt.Printf("OpenSubtitles:%+v\n", subtitles[0])
+		subtitles = make([]TSubtitle, 0)
 	}
 }
 
@@ -81,8 +81,8 @@ func TestSubscene(t *testing.T) {
 	if len(subtitles) == 0 {
 		t.Error("FAIL")
 	} else {
-		fmt.Printf("%+v\n", subtitles[0])
-		subtitles = make([]subtitle, 0)
+		fmt.Printf("SubScene:%+v\n", subtitles[0])
+		subtitles = make([]TSubtitle, 0)
 	}
 
 	wgs.Add(1)
@@ -92,8 +92,8 @@ func TestSubscene(t *testing.T) {
 	if len(subtitles) == 0 {
 		t.Error("FAIL")
 	} else {
-		fmt.Printf("%+v\n", subtitles[0])
-		subtitles = make([]subtitle, 0)
+		fmt.Printf("SubScene:%+v\n", subtitles[0])
+		subtitles = make([]TSubtitle, 0)
 	}
 
 	fmt.Println()
