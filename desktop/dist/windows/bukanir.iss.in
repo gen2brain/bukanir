@@ -1,0 +1,38 @@
+[Setup]
+AppName=Bukanir
+AppVerName=Bukanir {VERSION}
+VersionInfoVersion={VERSION}
+AppPublisher=
+AppPublisherURL=https://bukanir.com/
+AppSupportURL=
+AppUpdatesURL=
+DefaultDirName={pf}\Bukanir
+DefaultGroupName=Bukanir
+AllowNoIcons=yes
+OutputDir=.
+Uninstallable=yes
+WindowVisible=no
+AppCopyright=Author: Milan Nikolic <gen2brain@gmail.com>
+OutputBaseFilename=bukanir-{VERSION}-setup
+UninstallDisplayIcon={app}\bukanir.exe
+LicenseFile=bukanir\COPYING
+DisableStartupPrompt=yes
+ChangesAssociations=yes
+
+[Tasks]
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}";
+
+[Files]
+Source: "bukanir\bukanir.exe"; DestDir: "{app}";
+Source: "bukanir\AUTHORS"; DestDir: "{app}";
+Source: "bukanir\COPYING"; DestDir: "{app}";
+Source: "bukanir\README.md"; DestDir: "{app}";
+
+[Icons]
+Name: {group}\Bukanir; Filename: {app}\bukanir.exe; Tasks: desktopicon;
+Name: {group}\{cm:ProgramOnTheWeb,bukanir}; Filename: http://bukanir.com/;
+Name: {group}\{cm:UninstallProgram,bukanir}; Filename: {app}\unins000.exe;
+Name: {userdesktop}\Bukanir; Filename: {app}\bukanir.exe; Tasks: desktopicon;
+
+[Run]
+Filename: {app}\bukanir.exe; Description: {cm:LaunchProgram,bukanir}; Flags: nowait postinstall skipifsilent;
