@@ -14,7 +14,7 @@ import (
 	"github.com/therecipe/qt/widgets"
 	"gitlab.com/hannahxy/go-mpv"
 
-	"github.com/gen2brain/bukanir-lib/bukanir"
+	"github.com/gen2brain/bukanir/lib/bukanir"
 )
 
 //go:generate qtmoc

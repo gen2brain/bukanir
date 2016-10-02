@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/gen2brain/bukanir-lib/bukanir"
+	"github.com/gen2brain/bukanir/lib/bukanir"
 )
 
 type Client struct {

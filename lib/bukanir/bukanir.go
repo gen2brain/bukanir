@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	t2http "github.com/gen2brain/bukanir-lib/torrent2http"
+	t2http "github.com/gen2brain/bukanir/lib/torrent2http"
 	"github.com/gen2brain/vidextr"
 )
 
