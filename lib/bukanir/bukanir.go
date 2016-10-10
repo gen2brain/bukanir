@@ -136,18 +136,15 @@ var Categories = []int{
 	CategoryHDTV,
 }
 
-var tpbHosts = []string{
+var TpbHosts = []string{
 	"thepiratebay.org",
 	"thepiratebay.mk",
 	"thepbproxy.site",
 	"thepiratebay.lv",
 	"proxybay.site",
-	//"tpbproxy.tech",
-	//"proxxy.website",
-	//"themagnetbay.net",
 }
 
-var eztvHosts = []string{
+var EztvHosts = []string{
 	"eztv.ag",
 	"eztv.tf",
 	"eztv.yt",
@@ -175,7 +172,7 @@ var (
 
 	clientFast *http.Client = &http.Client{
 		Transport: &http.Transport{
-			Dial:                func(network, addr string) (net.Conn, error) { return net.DialTimeout(network, addr, 2*time.Second) },
+			Dial:                func(network, addr string) (net.Conn, error) { return net.DialTimeout(network, addr, 3*time.Second) },
 			TLSHandshakeTimeout: 5 * time.Second,
 			MaxIdleConnsPerHost: 10,
 		},
@@ -192,7 +189,7 @@ var (
 	}
 )
 
-func Category(category int, limit int, force int, cacheDir string, cacheDays int64, host string) (string, error) {
+func Category(category int, limit int, force int, cacheDir string, cacheDays int64, tpbHost string) (string, error) {
 	if force != 1 {
 		cache := getCache(strconv.Itoa(category), cacheDir, cacheDays)
 		if cache != nil {
@@ -204,12 +201,12 @@ func Category(category int, limit int, force int, cacheDir string, cacheDays int
 	ctx, cancel = context.WithCancel(context.TODO())
 	torrents = make([]tTorrent, 0)
 
-	if host == "" {
-		host = getTpbHost()
+	if tpbHost == "" {
+		tpbHost = getTpbHost()
 	}
 
 	wgt.Add(1)
-	go tpbTop(category, host)
+	go tpbTop(category, tpbHost)
 	wgt.Wait()
 
 	if limit > 0 {
@@ -264,7 +261,7 @@ func Category(category int, limit int, force int, cacheDir string, cacheDays int
 	return string(js[:]), nil
 }
 
-func Search(query string, limit int, force int, cacheDir string, cacheDays int64, pages int, host string) (string, error) {
+func Search(query string, limit int, force int, cacheDir string, cacheDays int64, pages int, tpbHost string, eztvHost string) (string, error) {
 	query = strings.TrimSpace(query)
 	if force != 1 {
 		cache := getCache(query, cacheDir, cacheDays)
@@ -277,19 +274,27 @@ func Search(query string, limit int, force int, cacheDir string, cacheDays int64
 	ctx, cancel = context.WithCancel(context.TODO())
 	torrents = make([]tTorrent, 0)
 
-	if host == "" {
-		host = getTpbHost()
+	if tpbHost == "" {
+		tpbHost = getTpbHost()
 	} else {
 		if verbose {
-			log.Printf("TPB: Using host %s\n", host)
+			log.Printf("TPB: Using host %s\n", tpbHost)
+		}
+	}
+
+	if eztvHost == "" {
+		eztvHost = getEztvHost()
+	} else {
+		if verbose {
+			log.Printf("EZTV: Using host %s\n", eztvHost)
 		}
 	}
 
 	wgt.Add(pages + 1)
 	for n := 0; n < pages; n++ {
-		go tpbSearch(query, n, host)
+		go tpbSearch(query, n, tpbHost)
 	}
-	go eztvSearch(query, "eztv.ag")
+	go eztvSearch(query, eztvHost)
 	wgt.Wait()
 
 	if limit > 0 {
@@ -527,7 +532,7 @@ func Genres() (string, error) {
 	return string(js[:]), nil
 }
 
-func Genre(id int, limit int, force int, cacheDir string, cacheDays int64, host string) (string, error) {
+func Genre(id int, limit int, force int, cacheDir string, cacheDays int64, tpbHost string) (string, error) {
 	if force != 1 {
 		cache := getCache("genre"+strconv.Itoa(id), cacheDir, cacheDays)
 		if cache != nil {
@@ -539,16 +544,16 @@ func Genre(id int, limit int, force int, cacheDir string, cacheDays int64, host 
 	ctx, cancel = context.WithCancel(context.TODO())
 	bygenre = make([]TMovie, 0)
 
-	if host == "" {
-		host = getTpbHost()
+	if tpbHost == "" {
+		tpbHost = getTpbHost()
 	} else {
 		if verbose {
-			log.Printf("TPB: Using host %s\n", host)
+			log.Printf("TPB: Using host %s\n", tpbHost)
 		}
 	}
 
 	wg.Add(1)
-	go tmdbByGenre(id, limit, host)
+	go tmdbByGenre(id, limit, tpbHost)
 	wg.Wait()
 
 	if verbose {

@@ -10,14 +10,14 @@
     <item
         android:state_selected="true"
         android:state_pressed="false"
-        android:drawable="@color/primary" />
+        android:drawable="@color/secondary_text_default_material_light" />
 
     <item
         android:state_focused="true"
-        android:drawable="@color/primary" />
+        android:drawable="@color/secondary_text_default_material_light" />
 
     <item
         android:state_activated="true"
-        android:drawable="@color/primary" />
+        android:drawable="@color/secondary_text_default_material_light" />
 
 </selector>

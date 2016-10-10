@@ -111,7 +111,7 @@
                     android:id="@+id/watch"
                     android:layout_width="@dimen/watch_button_width"
                     android:layout_height="wrap_content"
-                    android:background="@color/primary_dark"
+                    android:background="@color/primary_material_dark"
                     android:text="@string/action_watch"
                     android:layout_alignParentLeft="true" />
 
@@ -119,7 +119,7 @@
                     android:id="@+id/trailer"
                     android:layout_width="@dimen/trailer_button_width"
                     android:layout_height="wrap_content"
-                    android:background="@color/primary"
+                    android:background="@color/primary_material_dark"
                     android:text="@string/action_trailer"
                     android:layout_alignParentRight="true" />
 
@@ -136,9 +136,9 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dip"
                     android:visibility="invisible"
-                    android:singleLine="true"
                     android:ellipsize="none"
-                    android:textSize="@dimen/movie_progress" />
+                    android:textSize="@dimen/movie_progress"
+                    android:maxLines="1" />
 
                 <ProgressBar
                     style="?android:attr/progressBarStyleHorizontal"

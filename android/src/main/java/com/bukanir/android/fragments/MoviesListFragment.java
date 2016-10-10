@@ -4,14 +4,17 @@ import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
 import android.support.v4.app.FragmentTransaction;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.ImageView;
@@ -42,6 +45,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 
 public class MoviesListFragment extends Fragment {
 
@@ -64,7 +68,7 @@ public class MoviesListFragment extends Fragment {
     public static MoviesListFragment newInstance(ArrayList<Movie> movies, boolean mTwoPane) {
         MoviesListFragment fragment = new MoviesListFragment();
         Bundle args = new Bundle();
-        args.putParcelableArrayList("movies", movies);
+        args.putSerializable("movies", movies);
         args.putBoolean("twoPane", mTwoPane);
         fragment.setArguments(args);
         return fragment;
@@ -77,10 +81,10 @@ public class MoviesListFragment extends Fragment {
         favorites = new Favorites(getActivity());
 
         if(savedInstanceState != null) {
-            movies = savedInstanceState.getParcelableArrayList("movies");
+            movies = (ArrayList<Movie>) savedInstanceState.getSerializable("movies");
             selectedListItem = savedInstanceState.getInt("selectedListItem");
         } else {
-            movies = getArguments().getParcelableArrayList("movies");
+            movies = (ArrayList<Movie>) getArguments().getSerializable("movies");
             selectedListItem = -1;
         }
 
@@ -100,10 +104,10 @@ public class MoviesListFragment extends Fragment {
             File imagesDir = new File(getActivity().getCacheDir().toString() + File.separator + "images");
             imagesDir.mkdirs();
             ImageLoaderConfiguration config = new
-                ImageLoaderConfiguration.Builder(getActivity().getApplicationContext())
-                .diskCache(new UnlimitedDiskCache(imagesDir))
-                .defaultDisplayImageOptions(DisplayImageOptions.createSimple())
-                .build();
+                    ImageLoaderConfiguration.Builder(getActivity().getApplicationContext())
+                    .diskCache(new UnlimitedDiskCache(imagesDir))
+                    .defaultDisplayImageOptions(DisplayImageOptions.createSimple())
+                    .build();
             imageLoader.init(config);
         }
 
@@ -129,7 +133,7 @@ public class MoviesListFragment extends Fragment {
         Log.d(TAG, "onSaveInstanceState");
         super.onSaveInstanceState(outState);
         if(movies != null && !movies.isEmpty()) {
-            outState.putParcelableArrayList("movies", movies);
+            outState.putSerializable("movies", movies);
         }
         if(selectedListItem != -1) {
             outState.putInt("selectedListItem", selectedListItem);
@@ -157,6 +161,71 @@ public class MoviesListFragment extends Fragment {
 
         listView.setAdapter(adapter);
 
+        listView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE_MODAL);
+        listView.setMultiChoiceModeListener(new AbsListView.MultiChoiceModeListener() {
+            @Override
+            public boolean onCreateActionMode(android.view.ActionMode mode, Menu menu) {
+                MenuInflater inflater = mode.getMenuInflater();
+                String className = getActivity().getClass().getSimpleName();
+                if(className.equals("FavoritesActivity")) {
+                    inflater.inflate(R.menu.contextfav, menu);
+                } else {
+                    inflater.inflate(R.menu.context, menu);
+                }
+                return true;
+            }
+
+            @Override
+            public boolean onActionItemClicked(android.view.ActionMode mode, MenuItem item) {
+                int id = item.getItemId();
+                if(id == R.id.action_favorites || id == R.id.action_delete) {
+                    String className = getActivity().getClass().getSimpleName();
+                    for(Movie m: adapter.getSelectedItems()) {
+                        if(className.equals("FavoritesActivity")) {
+                            favorites.removeFromFavorites(m);
+                            movies = favorites.getFavorites();
+                        } else {
+                            favorites.addToFavorites(m);
+                        }
+                    }
+
+                    adapter.notifyDataSetChanged();
+
+                    if(className.equals("FavoritesActivity")) {
+                        Toast.makeText(getActivity(), getString(R.string.favorite_removed), Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(getActivity(), getString(R.string.favorite_added), Toast.LENGTH_SHORT).show();
+                    }
+                    mode.finish();
+                    return true;
+                }
+
+                return false;
+            }
+
+            @Override
+            public void onItemCheckedStateChanged(android.view.ActionMode mode, int position, long id, boolean checked) {
+                if(checked) {
+                    adapter.selectItem(position);
+                } else {
+                    adapter.unselectItem(position);
+                }
+
+                int count = adapter.getSelectedCount();
+                mode.setTitle(count + " selected");
+            }
+
+            @Override
+            public boolean onPrepareActionMode(android.view.ActionMode mode, Menu menu) {
+                return false;
+            }
+
+            @Override
+            public void onDestroyActionMode(android.view.ActionMode mode) {
+                adapter.unselectItems();
+            }
+        });
+
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
@@ -170,25 +239,6 @@ public class MoviesListFragment extends Fragment {
                     intent.putExtra("movie", movies.get(position));
                     startActivity(intent);
                 }
-            }
-        });
-
-        listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
-            @Override
-            public boolean onItemLongClick(AdapterView<?> adapterView, View view, int position, long id) {
-                String className = getActivity().getClass().getSimpleName();
-                if(className.equals("MoviesListActivity") || className.equals("SearchActivity")) {
-                    movie = movies.get(position);
-                    favorites.addToFavorites(movie);
-                    Toast.makeText(getActivity(), movie.title + getString(R.string.favorite_added), Toast.LENGTH_SHORT).show();
-                } else if(className.equals("FavoritesActivity")) {
-                    movie = movies.get(position);
-                    favorites.removeFromFavorites(movie);
-                    movies = favorites.getFavorites();
-                    adapter.notifyDataSetChanged();
-                    Toast.makeText(getActivity(), movie.title + getString(R.string.favorite_removed), Toast.LENGTH_SHORT).show();
-                }
-                return true;
             }
         });
 
@@ -219,11 +269,7 @@ public class MoviesListFragment extends Fragment {
         }
         if(Connectivity.isConnected(getActivity())) {
             movieTask = new MovieTask();
-            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-                movieTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, movies.get(selectedListItem));
-            } else {
-                movieTask.execute(movies.get(selectedListItem));
-            }
+            movieTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, movies.get(selectedListItem));
         } else {
             Toast.makeText(getActivity(), getString(R.string.network_not_available), Toast.LENGTH_LONG).show();
         }
@@ -233,6 +279,7 @@ public class MoviesListFragment extends Fragment {
         if(movieTask != null) {
             if(movieTask.getStatus().equals(AsyncTask.Status.RUNNING)) {
                 movieTask.cancel(true);
+                BukanirClient.cancel();
             }
         }
     }
@@ -274,6 +321,7 @@ public class MoviesListFragment extends Fragment {
     class ItemAdapter extends BaseAdapter {
 
         private ImageLoadingListener animateFirstListener = new AnimateFirstDisplayListener();
+        private ArrayList<Movie> selectedMovies = new ArrayList<>();
 
         private class ViewHolder {
             public TextView title;
@@ -304,7 +352,7 @@ public class MoviesListFragment extends Fragment {
         public View getView(final int position, View convertView, ViewGroup parent) {
             View view = convertView;
             final ViewHolder holder;
-            if (convertView == null) {
+            if(convertView == null) {
                 LayoutInflater inflater = getLayoutInflater(null);
                 view = inflater.inflate(R.layout.item_list_image, parent, false);
 
@@ -324,15 +372,15 @@ public class MoviesListFragment extends Fragment {
                 int season = Integer.valueOf(m.season);
                 int episode = Integer.valueOf(m.episode);
                 if(season != 0) {
-                    String text = String.format("S%02dE%02d", season, episode);
-                    if(m.category.equals("208") && m.quality != null && !m.quality.isEmpty()) {
+                    String text = String.format(Locale.ROOT, "S%02dE%02d", season, episode);
+                    if(m.quality != null && !m.quality.isEmpty()) {
                         text += String.format(" (%sp)", m.quality);;
                     }
                     holder.year.setText(text);
                 }
             } else {
                 String text = m.year;
-                if(m.category.equals("207") && m.quality != null && !m.quality.isEmpty()) {
+                if(m.quality != null && !m.quality.isEmpty()) {
                     text += String.format(" (%sp)", m.quality);;
                 }
                 holder.year.setText(text);
@@ -342,6 +390,28 @@ public class MoviesListFragment extends Fragment {
 
             return view;
         }
+
+        void selectItem(int position) {
+            Movie m = movies.get(position);
+            selectedMovies.add(m);
+       	}
+
+       	void unselectItem(int position) {
+            Movie m = movies.get(position);
+            selectedMovies.remove(m);
+       	}
+
+       	void unselectItems() {
+            selectedMovies = new ArrayList<>();
+       	}
+
+       	ArrayList<Movie> getSelectedItems() {
+            return selectedMovies;
+       	}
+
+       	int getSelectedCount() {
+            return selectedMovies.size();
+       	}
     }
 
     private static class AnimateFirstDisplayListener extends SimpleImageLoadingListener {

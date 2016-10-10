@@ -12,7 +12,6 @@ import android.widget.Toast;
 import com.bukanir.android.BuildConfig;
 import com.bukanir.android.R;
 import com.bukanir.android.application.Settings;
-import com.bukanir.android.clients.Torrent2HttpClient;
 import com.bukanir.android.activities.MovieActivity;
 import com.bukanir.android.entities.TorrentConfig;
 import com.bukanir.android.helpers.Storage;
@@ -61,7 +60,7 @@ public class Torrent2HttpService extends Service {
         super.onDestroy();
 
         (new Thread() { public void run() {
-            Torrent2HttpClient.shutdown();
+            Bukanir.torrentStop();
 
             if(!settings.keepFiles()) {
                 Log.d(TAG, "Removing files");
@@ -99,7 +98,7 @@ public class Torrent2HttpService extends Service {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
         builder.setTicker(getString(R.string.torrent_started)).setContentTitle(getString(R.string.app_name))
                 .setWhen(System.currentTimeMillis()).setAutoCancel(false)
-                .setOngoing(true).setPriority(Notification.PRIORITY_HIGH)
+                .setOngoing(true)
                 .setContentIntent(pendIntent);
         Notification notification = builder.build();
 
@@ -121,18 +120,14 @@ public class Torrent2HttpService extends Service {
                 config.encryption = settings.encryption() ? 1 : 2;
                 config.keep_files = true;
 
-                if(settings.seek()) {
-                    config.no_sparse_file = false;
-                } else {
-                    config.no_sparse_file = true;
-                }
+                config.no_sparse_file = !settings.seek();
 
                 if(BuildConfig.DEBUG) {
                     config.verbose = true;
                 }
 
                 Gson gson = new Gson();
-                Bukanir.TorrentStartup(gson.toJson(config));
+                Bukanir.torrentStartup(gson.toJson(config));
             } catch(Exception e){
                 e.getMessage();
             }

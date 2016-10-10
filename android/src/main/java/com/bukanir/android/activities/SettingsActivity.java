@@ -1,14 +1,11 @@
 package com.bukanir.android.activities;
 
-import android.annotation.TargetApi;
 import android.content.Context;
-import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
-import android.preference.PreferenceCategory;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
 import android.support.v7.widget.Toolbar;
@@ -25,7 +22,6 @@ import android.support.v7.widget.AppCompatCheckedTextView;
 import android.support.v7.widget.AppCompatEditText;
 import android.support.v7.widget.AppCompatRadioButton;
 import android.support.v7.widget.AppCompatSpinner;
-import android.widget.TextView;
 
 import com.bukanir.android.R;
 import com.quietlycoding.android.picker.NumberPickerPreference;
@@ -44,7 +40,7 @@ public class SettingsActivity extends PreferenceActivity {
         }
 
         if(Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-            switch (name) {
+            switch(name) {
                 case "EditText":
                     return new AppCompatEditText(this, attrs);
                 case "Spinner":
@@ -101,66 +97,11 @@ public class SettingsActivity extends PreferenceActivity {
                 finish();
             }
         });
-
-        setupSimplePreferencesScreen();
-    }
-
-    private void setupSimplePreferencesScreen() {
-        if (!isSimplePreferences(this)) {
-            return;
-        }
-
-        addPreferencesFromResource(R.xml.pref_general);
-
-        PreferenceCategory headerPlayer;
-        headerPlayer = new PreferenceCategory(this);
-        headerPlayer.setTitle(R.string.pref_header_player);
-        getPreferenceScreen().addPreference(headerPlayer);
-        addPreferencesFromResource(R.xml.pref_player);
-
-        PreferenceCategory headerSubtitles;
-        headerSubtitles = new PreferenceCategory(this);
-        headerSubtitles.setTitle(R.string.pref_header_subtitles);
-        getPreferenceScreen().addPreference(headerSubtitles);
-        addPreferencesFromResource(R.xml.pref_subtitles);
-
-        PreferenceCategory headerTorrent;
-        headerTorrent = new PreferenceCategory(this);
-        headerTorrent.setTitle(R.string.pref_header_torrent);
-        getPreferenceScreen().addPreference(headerTorrent);
-        addPreferencesFromResource(R.xml.pref_torrents);
-
-        bindPreferenceSummaryToValue(findPreference("list_count"));
-        bindPreferenceSummaryToValue(findPreference("cache_days"));
-        bindPreferenceSummaryToValue(findPreference("pixel_format"));
-        bindPreferenceSummaryToValue(findPreference("sub_lang"));
-        bindPreferenceSummaryToValue(findPreference("sub_size"));
-        bindPreferenceSummaryToValue(findPreference("download_rate"));
-        bindPreferenceSummaryToValue(findPreference("upload_rate"));
-        bindPreferenceSummaryToIntValue(findPreference("listen_port"));
     }
 
     @Override
-    public boolean onIsMultiPane() {
-        return isXLargeTablet(this) && !isSimplePreferences(this);
-    }
-
-    private static boolean isXLargeTablet(Context context) {
-        return (context.getResources().getConfiguration().screenLayout
-                & Configuration.SCREENLAYOUT_SIZE_MASK) >= Configuration.SCREENLAYOUT_SIZE_LARGE;
-    }
-
-    private static boolean isSimplePreferences(Context context) {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB
-                || !isXLargeTablet(context);
-    }
-
-    @Override
-    @TargetApi(Build.VERSION_CODES.HONEYCOMB)
     public void onBuildHeaders(List<Header> target) {
-        if(!isSimplePreferences(this)) {
-            loadHeadersFromResource(R.xml.pref_headers, target);
-        }
+        loadHeadersFromResource(R.xml.pref_headers, target);
     }
 
     @Override
@@ -202,7 +143,6 @@ public class SettingsActivity extends PreferenceActivity {
                 String.valueOf(PreferenceManager.getDefaultSharedPreferences(preference.getContext()).getInt(preference.getKey(), 0)));
     }
 
-    @TargetApi(Build.VERSION_CODES.HONEYCOMB)
     public static class GeneralPreferenceFragment extends PreferenceFragment {
         @Override
         public void onCreate(Bundle savedInstanceState) {
@@ -214,7 +154,6 @@ public class SettingsActivity extends PreferenceActivity {
         }
     }
 
-    @TargetApi(Build.VERSION_CODES.HONEYCOMB)
     public static class PlayerPreferenceFragment extends PreferenceFragment {
         @Override
         public void onCreate(Bundle savedInstanceState) {
@@ -224,7 +163,6 @@ public class SettingsActivity extends PreferenceActivity {
         }
     }
 
-    @TargetApi(Build.VERSION_CODES.HONEYCOMB)
     public static class TorrentsPreferenceFragment extends PreferenceFragment {
         @Override
         public void onCreate(Bundle savedInstanceState) {
@@ -234,10 +172,11 @@ public class SettingsActivity extends PreferenceActivity {
             bindPreferenceSummaryToValue(findPreference("download_rate"));
             bindPreferenceSummaryToValue(findPreference("upload_rate"));
             bindPreferenceSummaryToIntValue(findPreference("listen_port"));
+            bindPreferenceSummaryToValue(findPreference("tpb_host"));
+            bindPreferenceSummaryToValue(findPreference("eztv_host"));
         }
     }
 
-    @TargetApi(Build.VERSION_CODES.HONEYCOMB)
     public static class SubtitlesPreferenceFragment extends PreferenceFragment {
         @Override
         public void onCreate(Bundle savedInstanceState) {

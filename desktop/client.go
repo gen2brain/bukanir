@@ -21,8 +21,8 @@ func NewClient() *Client {
 	return &Client{mutex, cacheDir}
 }
 
-func (c *Client) Top(widget *List, category, limit, force, cacheDays int, host string) {
-	data, err := bukanir.Category(category, limit, force, c.CacheDir, int64(cacheDays), host)
+func (c *Client) Top(widget *List, category, limit, force, cacheDays int, tpbHost string) {
+	data, err := bukanir.Category(category, limit, force, c.CacheDir, int64(cacheDays), tpbHost)
 	if err != nil {
 		log.Printf("ERROR: Category: %s\n", err.Error())
 		widget.Finished("")
@@ -32,8 +32,8 @@ func (c *Client) Top(widget *List, category, limit, force, cacheDays int, host s
 	widget.Finished(data)
 }
 
-func (c *Client) Search(widget *List, query string, limit, force, cacheDays int, pages int, host string) {
-	data, err := bukanir.Search(query, limit, force, c.CacheDir, int64(cacheDays), pages, host)
+func (c *Client) Search(widget *List, query string, limit, force, cacheDays int, pages int, tpbHost string, eztvHost string) {
+	data, err := bukanir.Search(query, limit, force, c.CacheDir, int64(cacheDays), pages, tpbHost, eztvHost)
 	if err != nil {
 		log.Printf("ERROR: Search: %s\n", err.Error())
 		widget.Finished("")
@@ -119,8 +119,8 @@ func (c *Client) Genres(widget *Toolbar) {
 	widget.Finished4(data)
 }
 
-func (c *Client) Genre(widget *List, id int, limit int, force int, cacheDays int, host string) {
-	data, err := bukanir.Genre(id, limit, force, c.CacheDir, int64(cacheDays), host)
+func (c *Client) Genre(widget *List, id int, limit int, force int, cacheDays int, tpbHost string) {
+	data, err := bukanir.Genre(id, limit, force, c.CacheDir, int64(cacheDays), tpbHost)
 	if err != nil {
 		log.Printf("ERROR: Genre: %s\n", err.Error())
 		widget.Finished("")

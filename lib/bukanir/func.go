@@ -534,7 +534,7 @@ func tmdbGetGenres() {
 }
 
 // TMDB movies by genre
-func tmdbByGenre(id int, limit int, host string) {
+func tmdbByGenre(id int, limit int, tpbHost string) {
 	defer wg.Done()
 	defer func() {
 		if r := recover(); r != nil {
@@ -563,7 +563,7 @@ func tmdbByGenre(id int, limit int, host string) {
 		return
 	}
 
-	pb := NewTpb(host)
+	pb := NewTpb(tpbHost)
 
 	if limit > 0 {
 		if limit > len(m) {
@@ -572,7 +572,7 @@ func tmdbByGenre(id int, limit int, host string) {
 		m = m[0:limit]
 	}
 
-	var th = make(chan int, 10)
+	var th = make(chan int, 15)
 
 	searchTorrents := func(r tmdbResult) {
 		defer wgt.Done()

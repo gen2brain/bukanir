@@ -19,7 +19,7 @@ import com.bukanir.android.application.Favorites;
 import com.bukanir.android.R;
 import com.bukanir.android.entities.Movie;
 import com.bukanir.android.fragments.MoviesListFragment;
-import com.bukanir.android.helpers.Utils;
+import com.bukanir.android.helpers.Dialogs;
 
 import java.util.ArrayList;
 
@@ -44,14 +44,12 @@ public class FavoritesActivity extends AppCompatActivity {
         toolbar.setLogo(R.drawable.ic_launcher);
         setSupportActionBar(toolbar);
 
-        getSupportActionBar().setDisplayShowTitleEnabled(true);
-        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-
-        if(findViewById(R.id.movie_container) != null) {
-            twoPane = true;
-        } else {
-            twoPane = false;
+        if(getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayShowTitleEnabled(true);
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         }
+
+        twoPane = findViewById(R.id.movie_container) != null;
 
         movies = favorites.getFavorites();
         beginTransaction(movies);
@@ -122,7 +120,7 @@ public class FavoritesActivity extends AppCompatActivity {
                 NavUtils.navigateUpFromSameTask(this);
                 return true;
             case R.id.action_about:
-                Utils.showAbout(this);
+                Dialogs.showAbout(this);
                 return true;
         }
         return super.onOptionsItemSelected(item);

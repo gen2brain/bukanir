@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/hpcloud/tail"
@@ -54,6 +55,8 @@ type Window struct {
 	LabelStatus *LabelStatus
 	StatusBar   *widgets.QStatusBar
 	ProgressBar *widgets.QProgressBar
+
+	Side widgets.QTabBar__ButtonPosition
 }
 
 func NewWindow() *Window {
@@ -62,7 +65,12 @@ func NewWindow() *Window {
 	w.SetWindowTitle("Bukanir")
 	w.SetWindowIcon(gui.NewQIcon5(":/qml/images/bukanir.png"))
 
-	window := &Window{w, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil}
+	side := widgets.QTabBar__LeftSide
+	if runtime.GOOS == "darwin" {
+		side = widgets.QTabBar__RightSide
+	}
+
+	window := &Window{w, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, side}
 	window.Log = NewLog(window.QWidget_PTR())
 	window.Client = NewClient()
 	window.Settings = NewSettings(window.QWidget_PTR())
@@ -91,8 +99,10 @@ func (w *Window) AddWidgets() {
 
 	w.TabWidget = widgets.NewQTabWidget(w)
 	w.TabWidget.SetTabsClosable(true)
+	w.TabWidget.TabBar().SetTabsClosable(true)
 	w.TabWidget.TabBar().SetExpanding(false)
 	w.TabWidget.TabBar().SetElideMode(core.Qt__ElideRight)
+	w.TabWidget.TabBar().SetDocumentMode(true)
 	w.TabWidget.SetStyleSheet(`
 		QTabWidget { background-color: black; }
 		QTabWidget::pane { background-color: black; }
@@ -194,27 +204,31 @@ func (w *Window) ConnectSignals() {
 			w.LabelStatus.SetText("Downloading torrents metadata...")
 
 			t.Widget.Started = true
-			go w.Client.Search(t.Widget, t.Query, w.Settings.Limit, 1, w.Settings.Days, 3, w.Settings.Host)
+			t.Widget.Initialized = false
+			go w.Client.Search(t.Widget, t.Query, w.Settings.Limit, 1, w.Settings.Days, 3, w.Settings.TPBHost, w.Settings.EZTVHost)
 		} else if t.Category != 0 {
 			w.setLoading(index, true)
 			w.Toolbar.SetEnabled(false)
 			w.LabelStatus.SetText("Downloading torrents metadata...")
 
 			t.Widget.Started = true
-			go w.Client.Top(t.Widget, t.Category, w.Settings.Limit, 1, w.Settings.Days, w.Settings.Host)
+			t.Widget.Initialized = false
+			go w.Client.Top(t.Widget, t.Category, w.Settings.Limit, 1, w.Settings.Days, w.Settings.TPBHost)
 		} else if t.Genre != 0 {
 			w.setLoading(index, true)
 			w.Toolbar.SetEnabled(false)
 			w.LabelStatus.SetText("Downloading torrents metadata...")
 
 			t.Widget.Started = true
-			go w.Client.Genre(t.Widget, t.Genre, w.Settings.Limit, 1, w.Settings.Days, w.Settings.Host)
+			t.Widget.Initialized = false
+			go w.Client.Genre(t.Widget, t.Genre, w.Settings.Limit, 1, w.Settings.Days, w.Settings.TPBHost)
 		} else if t.Movie.Id != 0 {
 			w.setLoading(index, true)
 			w.Toolbar.SetEnabled(false)
 			w.LabelStatus.SetText("Downloading movie metadata...")
 
 			t.Widget2.Started = true
+			t.Widget2.Initialized = false
 			go w.Client.Summary(t.Widget2, t.Movie)
 		}
 	})
@@ -257,15 +271,27 @@ func (w *Window) ConnectSignals() {
 		w.TabWidget.SetCurrentIndex(index)
 		label := widgets.NewQLabel(w.TabWidget.TabBar(), 0)
 		label.SetMovie(w.Movie)
-		w.TabWidget.TabBar().SetTabButton(index, widgets.QTabBar__LeftSide, label)
+		w.TabWidget.TabBar().SetTabButton(index, w.Side, label)
 	})
 
 	w.TabWidget.ConnectTabCloseRequested(func(index int) {
+		for idx, tb := range tabs {
+			if idx == index {
+				continue
+			}
+			if tb.Widget2 != nil && !tb.Widget2.Initialized {
+				return
+			} else if tb.Widget != nil && !tb.Widget.Initialized {
+				return
+			}
+		}
+
 		t := tabs[index]
 		if t.Widget2 != nil {
 			t.Widget2.DisconnectFinished()
 			t.Widget2.DisconnectFinished2()
 			t.Widget2.Player.DisconnectShutdown()
+			t.Widget2.Player.DisconnectFileLoaded()
 			t.Widget2.Player.Stop()
 
 			w.LabelStatus.SetText("")
@@ -362,7 +388,7 @@ func (w *Window) Top(title string, category int) {
 	tab.Started = true
 	tabs = append(tabs, Tab{"", category, 0, bukanir.TMovie{}, tab, nil})
 
-	go w.Client.Top(tab, category, w.Settings.Limit, 0, w.Settings.Days, w.Settings.Host)
+	go w.Client.Top(tab, category, w.Settings.Limit, 0, w.Settings.Days, w.Settings.TPBHost)
 }
 
 func (w *Window) Search(title, query string, pages int) {
@@ -402,7 +428,7 @@ func (w *Window) Search(title, query string, pages int) {
 	tab.Started = true
 	tabs = append(tabs, Tab{query, 0, 0, bukanir.TMovie{}, tab, nil})
 
-	go w.Client.Search(tab, query, w.Settings.Limit, 0, w.Settings.Days, pages, w.Settings.Host)
+	go w.Client.Search(tab, query, w.Settings.Limit, 0, w.Settings.Days, pages, w.Settings.TPBHost, w.Settings.EZTVHost)
 }
 
 func (w *Window) Genre(title string, id int) {
@@ -436,7 +462,7 @@ func (w *Window) Genre(title string, id int) {
 	tab.Started = true
 	tabs = append(tabs, Tab{"", 0, id, bukanir.TMovie{}, tab, nil})
 
-	go w.Client.Genre(tab, id, w.Settings.Limit, 0, w.Settings.Days, w.Settings.Host)
+	go w.Client.Genre(tab, id, w.Settings.Limit, 0, w.Settings.Days, w.Settings.TPBHost)
 }
 
 func (w *Window) Summary(movie bukanir.TMovie) {
@@ -484,7 +510,7 @@ func (w *Window) Summary(movie bukanir.TMovie) {
 
 	summary.Watch.ConnectClicked(func(bool) {
 		idx := w.TabWidget.CurrentIndex()
-		label := widgets.NewQLabelFromPointer(w.TabWidget.TabBar().TabButton(idx, widgets.QTabBar__LeftSide).Pointer())
+		label := widgets.NewQLabelFromPointer(w.TabWidget.TabBar().TabButton(idx, w.Side).Pointer())
 
 		playPixmap := gui.NewQPixmap5(":/qml/images/play.png", "PNG", core.Qt__AutoColor)
 		pausePixmap := gui.NewQPixmap5(":/qml/images/pause.png", "PNG", core.Qt__AutoColor)
@@ -548,7 +574,6 @@ func (w *Window) Summary(movie bukanir.TMovie) {
 			if !summary.Player.IsStarted() {
 				summary.TorrentStarted = true
 				bukanir.TorrentStartup(w.Settings.TorrentConfig(movie.MagnetLink))
-				bukanir.TorrentShutdown()
 				summary.TorrentStarted = false
 			}
 		}()
@@ -564,7 +589,7 @@ func (w *Window) Summary(movie bukanir.TMovie) {
 
 	summary.Trailer.ConnectClicked(func(bool) {
 		idx := w.TabWidget.CurrentIndex()
-		label := widgets.NewQLabelFromPointer(w.TabWidget.TabBar().TabButton(idx, widgets.QTabBar__LeftSide).Pointer())
+		label := widgets.NewQLabelFromPointer(w.TabWidget.TabBar().TabButton(idx, w.Side).Pointer())
 
 		playPixmap := gui.NewQPixmap5(":/qml/images/play.png", "PNG", core.Qt__AutoColor)
 		pausePixmap := gui.NewQPixmap5(":/qml/images/pause.png", "PNG", core.Qt__AutoColor)
@@ -627,11 +652,17 @@ func (w *Window) Summary(movie bukanir.TMovie) {
 }
 
 func (w *Window) TailLog() {
-	t, err := tail.TailFile(filepath.Join(tempDir, "log.txt"), tail.Config{Follow: true, Poll: true})
+	poll := false
+	if runtime.GOOS == "windows" {
+		poll = true
+	}
+
+	t, err := tail.TailFile(filepath.Join(tempDir, "log.txt"), tail.Config{Follow: true, Poll: poll})
 	if err != nil {
 		log.Printf("ERROR: Trailer: %s\n", err.Error())
 		return
 	}
+
 	for line := range t.Lines {
 		w.Log.ValueChanged(line.Text)
 	}
@@ -652,7 +683,7 @@ func (w *Window) Init() {
 }
 
 func (w *Window) setLoading(index int, visible bool) {
-	label := w.TabWidget.TabBar().TabButton(index, widgets.QTabBar__LeftSide)
+	label := w.TabWidget.TabBar().TabButton(index, w.Side)
 	label.SetVisible(visible)
 }
 

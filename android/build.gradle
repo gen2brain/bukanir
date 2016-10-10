@@ -1,15 +1,16 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 22
-    buildToolsVersion '22.0.1'
+    compileSdkVersion 24
+    buildToolsVersion '24.0.3'
+    //buildToolsVersion '22.0.1'
 
     defaultConfig {
         applicationId = 'com.bukanir.android'
-        minSdkVersion 9
+        minSdkVersion 11
         targetSdkVersion 22
-        versionCode 85
-        versionName '2.1'
+        versionCode 95
+        versionName '2.3'
         setProperty("archivesBaseName", "bukanir-$versionName")
     }
 
@@ -32,9 +33,10 @@ repositories {
 }
 
 dependencies {
-    compile 'com.android.support:appcompat-v7:22.2.1'
-    compile 'com.google.android.gms:play-services-analytics:9.0.2'
-    compile 'com.google.code.gson:gson:2.4'
+    compile 'com.android.support:appcompat-v7:24.2.1'
+    //compile 'com.android.support:appcompat-v7:22.2.1'
+    compile 'com.google.android.gms:play-services-analytics:9.6.1'
+    compile 'com.google.code.gson:gson:2.7'
     compile 'com.nostra13.universalimageloader:universal-image-loader:1.9.5'
 
     compile (name:'bukanir', ext:'aar')

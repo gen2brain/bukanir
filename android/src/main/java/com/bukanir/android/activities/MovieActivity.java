@@ -2,7 +2,6 @@ package com.bukanir.android.activities;
 
 import android.content.Intent;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.AppCompatActivity;
@@ -20,6 +19,7 @@ import com.bukanir.android.entities.Movie;
 import com.bukanir.android.entities.Summary;
 import com.bukanir.android.fragments.MovieFragment;
 import com.bukanir.android.helpers.Connectivity;
+import com.bukanir.android.helpers.Dialogs;
 import com.bukanir.android.helpers.Utils;
 import com.google.android.gms.analytics.HitBuilders;
 import com.google.android.gms.analytics.Tracker;
@@ -47,14 +47,16 @@ public class MovieActivity extends AppCompatActivity {
         toolbar.setLogo(R.drawable.ic_launcher);
         setSupportActionBar(toolbar);
 
-        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        if(getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        }
 
         if(savedInstanceState != null) {
-            movie = savedInstanceState.getParcelable("movie");
+            movie = (Movie) savedInstanceState.getSerializable("movie");
             getSupportActionBar().setTitle(movie.title);
         } else {
             Bundle bundle = getIntent().getExtras();
-            movie = bundle.getParcelable("movie");
+            movie = (Movie) bundle.getSerializable("movie");
             getSupportActionBar().setTitle(movie.title);
 
             startMovieTask();
@@ -71,7 +73,7 @@ public class MovieActivity extends AppCompatActivity {
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         if(movie != null) {
-            outState.putParcelable("movie", movie);
+            outState.putSerializable("movie", movie);
         }
         super.onSaveInstanceState(outState);
     }
@@ -102,7 +104,7 @@ public class MovieActivity extends AppCompatActivity {
                 onBackPressed();
                 return true;
             case R.id.action_about:
-                Utils.showAbout(this);
+                Dialogs.showAbout(this);
                 return true;
         }
         return super.onOptionsItemSelected(item);
@@ -115,11 +117,7 @@ public class MovieActivity extends AppCompatActivity {
             tracker.send(new HitBuilders.ScreenViewBuilder().build());
 
             movieTask = new MovieTask();
-            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-                movieTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-            } else {
-                movieTask.execute();
-            }
+            movieTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
         } else {
             Toast.makeText(this, getString(R.string.network_not_available), Toast.LENGTH_LONG).show();
         }
@@ -129,6 +127,7 @@ public class MovieActivity extends AppCompatActivity {
         if(movieTask != null) {
             if(movieTask.getStatus().equals(AsyncTask.Status.RUNNING)) {
                 movieTask.cancel(true);
+                BukanirClient.cancel();
             }
         }
     }
@@ -166,6 +165,7 @@ public class MovieActivity extends AppCompatActivity {
             if(progressBar != null) {
                 progressBar.setVisibility(View.GONE);
             }
+
             if(s != null && movie != null) {
                 summary = s;
                 try {

@@ -16,48 +16,46 @@ public class BukanirClient {
 
     static {
         if(BuildConfig.DEBUG) {
-            Bukanir.SetVerbose(true);
+            Bukanir.setVerbose(true);
         }
     }
 
-    public static ArrayList<Movie> getTopResults(int category, int limit, int refresh, String cacheDir, int cacheDays) {
+    public static ArrayList<Movie> getTopResults(int category, int limit, int refresh, String cacheDir, int cacheDays, String tpbHost) {
         String result = null;
         try {
-            result = Bukanir.Category(category, limit, refresh, cacheDir, cacheDays);
+            result = Bukanir.category(category, limit, refresh, cacheDir, cacheDays, tpbHost);
         } catch(Exception e) {
             e.printStackTrace();
         }
 
-        if(result == null) {
+        if(result == null || result.equals("empty")) {
             return null;
         }
 
         try {
             Type listType = new TypeToken<ArrayList<Movie>>() {}.getType();
-            ArrayList<Movie> list = new Gson().fromJson(result, listType);
-            return list;
+            return new Gson().fromJson(result, listType);
         } catch(Exception e) {
             e.printStackTrace();
             return null;
         }
     }
 
-    public static ArrayList<Movie> getSearchResults(String query, int limit, int refresh, String cacheDir, int cacheDays) {
+    public static ArrayList<Movie> getSearchResults(String query, int limit, int refresh, String cacheDir, int cacheDays, int pages, String tpbHost, String eztvHost) {
         String result = null;
         try {
-            result = Bukanir.Search(query, limit, refresh, cacheDir, cacheDays);
+            result = Bukanir.search(query, limit, refresh, cacheDir, cacheDays, pages, tpbHost, eztvHost);
         } catch(Exception e) {
             e.printStackTrace();
         }
 
-        if(result == null) {
+        if(result == null || result.equals("empty")) {
             return null;
         }
 
         try {
             Type listType = new TypeToken<ArrayList<Movie>>() {}.getType();
-            ArrayList<Movie> list = new Gson().fromJson(result, listType);
-            return list;
+            return new Gson().fromJson(result, listType);
         } catch(Exception e) {
             e.printStackTrace();
             return null;
@@ -67,18 +65,17 @@ public class BukanirClient {
     public static Summary getSummary(int id, int category, int season, int episode) {
         String result = null;
         try {
-            result = Bukanir.Summary(id, category, season, episode);
+            result = Bukanir.summary(id, category, season, episode);
         } catch(Exception e) {
             e.printStackTrace();
         }
 
-        if(result == null) {
+        if(result == null || result.equals("empty")) {
             return null;
         }
 
         try {
-            Summary summary = new Gson().fromJson(result, Summary.class);
-            return summary;
+            return new Gson().fromJson(result, Summary.class);
         } catch(Exception e) {
             e.printStackTrace();
             return null;
@@ -89,19 +86,18 @@ public class BukanirClient {
         String category, String season, String episode, String imdbId) {
         String result = null;
         try {
-            result = Bukanir.Subtitle(movie, year, release, language, Integer.valueOf(category), Integer.valueOf(season), Integer.valueOf(episode), imdbId);
+            result = Bukanir.subtitle(movie, year, release, language, Integer.valueOf(category), Integer.valueOf(season), Integer.valueOf(episode), imdbId);
         } catch(Exception e) {
             e.printStackTrace();
         }
 
-        if(result == null) {
+        if(result == null || result.equals("empty")) {
             return null;
         }
 
         try {
             Type listType = new TypeToken<ArrayList<Subtitle>>() {}.getType();
-            ArrayList<Subtitle> list = new Gson().fromJson(result, listType);
-            return list;
+            return new Gson().fromJson(result, listType);
         } catch(Exception e) {
             e.printStackTrace();
             return null;
@@ -111,19 +107,18 @@ public class BukanirClient {
     public static ArrayList<AutoComplete> getAutoComplete(String query, int limit) {
         String result = null;
         try {
-            result = Bukanir.AutoComplete(query, limit);
+            result = Bukanir.autoComplete(query, limit);
         } catch(Exception e) {
             e.printStackTrace();
         }
 
-        if(result == null) {
+        if(result == null || result.equals("empty")) {
             return null;
         }
 
         try {
             Type listType = new TypeToken<ArrayList<AutoComplete>>() {}.getType();
-            ArrayList<AutoComplete> list = new Gson().fromJson(result, listType);
-            return list;
+            return new Gson().fromJson(result, listType);
         } catch(Exception e) {
             e.printStackTrace();
             return null;
@@ -133,12 +128,12 @@ public class BukanirClient {
     public static String getTrailer(String videoId) {
         String result = null;
         try {
-            result = Bukanir.Trailer(videoId);
+            result = Bukanir.trailer(videoId);
         } catch(Exception e) {
             e.printStackTrace();
         }
 
-        if(result == null) {
+        if(result == null || result.equals("empty")) {
             return null;
         }
 
@@ -148,12 +143,16 @@ public class BukanirClient {
     public static String unzipSubtitle(String url, String dest) {
         String result = null;
         try {
-            result = Bukanir.UnzipSubtitle(url, dest);
+            result = Bukanir.unzipSubtitle(url, dest);
         } catch(Exception e) {
             e.printStackTrace();
         }
 
         return result;
+    }
+
+    public static void cancel() {
+        Bukanir.cancel();
     }
 
 }

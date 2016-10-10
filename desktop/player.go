@@ -1,12 +1,14 @@
 package main
 
 // #include <mpv/client.h>
+// #cgo darwin CFLAGS: -I/usr/local/include
 import "C"
 
 import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"runtime"
 	"strings"
 	"time"
 
@@ -46,21 +48,28 @@ func NewPlayer(w *Window) *Player {
 func (p *Player) Init() {
 	p.Mpv = mpv.Create()
 	p.Mpv.RequestLogMessages("info")
+	//p.Mpv.RequestLogMessages("v")
 
 	x := (widgets.QApplication_Desktop().Width() / 2) - (960 / 2)
 	p.SetOptionString("geometry", fmt.Sprintf("960+%d+%d", x, p.Window.Y()+100))
 
-	p.SetOptionString("osc", "yes")
-	p.SetOptionString("vo", "opengl")
+	if runtime.GOOS != "windows" {
+		p.SetOptionString("osc", "yes")
+	}
 
-	// opengl-hq
-	p.SetOptionString("scale", "spline36")
-	p.SetOptionString("cscale", "spline36")
-	p.SetOptionString("dscale", "mitchell")
-	p.SetOptionString("dither-depth", "auto")
-	p.SetOptionString("correct-downscaling", "yes")
-	p.SetOptionString("sigmoid-upscaling", "yes")
-	p.SetOptionString("deband", "yes")
+	p.SetOptionString("ytdl", "no")
+
+	switch runtime.GOOS {
+	case "windows":
+		p.SetOptionString("vo", "direct3d,opengl,sdl,null")
+		p.SetOptionString("ao", "wasapi,sdl,null")
+	case "linux":
+		p.SetOptionString("vo", "opengl,sdl,xv,null")
+		p.SetOptionString("ao", "alsa,sdl,null")
+	case "darwin":
+		p.SetOptionString("vo", "opengl,sdl,null")
+		p.SetOptionString("ao", "coreaudio,sdl,null")
+	}
 
 	//p.SetOptionString("no-cache", "yes")
 	p.SetOption("cache-default", mpv.FORMAT_INT64, 128)
@@ -95,7 +104,7 @@ func (p *Player) Init() {
 func (p *Player) SetOption(name string, format mpv.Format, data interface{}) {
 	err := p.Mpv.SetOption(name, format, data)
 	if err != nil {
-		log.Printf("ERROR: SetOption name: %s\n", name, err.Error())
+		log.Printf("ERROR: SetOption %s: %s\n", name, err.Error())
 	}
 }
 

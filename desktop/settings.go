@@ -31,7 +31,8 @@ type Settings struct {
 	DlRate          int
 	UlRate          int
 	Port            int
-	Host            string
+	TPBHost         string
+	EZTVHost        string
 	KeepFiles       bool
 	DlPath          string
 }
@@ -152,6 +153,7 @@ func NewSettings(parent *widgets.QWidget) *Settings {
 	labelUlRate := widgets.NewQLabel2("Maximum upload rate (KB/s)", widget, 0)
 	labelPort := widgets.NewQLabel2("Port for incoming connections", widget, 0)
 	labelTPB := widgets.NewQLabel2("TPB host", widget, 0)
+	labelEZTV := widgets.NewQLabel2("EZTV host", widget, 0)
 
 	comboDlRate := widgets.NewQComboBox(widget)
 	comboDlRate.SetObjectName("comboDlRate")
@@ -166,9 +168,19 @@ func NewSettings(parent *widgets.QWidget) *Settings {
 	spinPort.SetMinimum(6800)
 	spinPort.SetMaximum(6999)
 
-	lineTPB := widgets.NewQLineEdit(widget)
-	lineTPB.SetObjectName("lineTPB")
-	lineTPB.SetToolTip("TPB domain name, if empty it will be autodetected")
+	comboTPB := widgets.NewQComboBox(widget)
+	comboTPB.SetObjectName("comboTPB")
+	comboTPB.AddItems(bukanir.TpbHosts)
+	comboTPB.SetEditable(true)
+	comboTPB.SetInsertPolicy(widgets.QComboBox__NoInsert)
+	comboTPB.SetToolTip("TPB domain name, if empty it will be autodetected")
+
+	comboEZTV := widgets.NewQComboBox(widget)
+	comboEZTV.SetObjectName("comboEZTV")
+	comboEZTV.AddItems(bukanir.EztvHosts)
+	comboEZTV.SetEditable(true)
+	comboEZTV.SetInsertPolicy(widgets.QComboBox__NoInsert)
+	comboEZTV.SetToolTip("EZTV domain name, if empty it will be autodetected")
 
 	lineDlPath := widgets.NewQLineEdit(widget)
 	lineDlPath.SetObjectName("lineDlPath")
@@ -188,10 +200,12 @@ func NewSettings(parent *widgets.QWidget) *Settings {
 	torrentsLayout.AddWidget(labelPort, 3, 0, 0)
 	torrentsLayout.AddWidget(spinPort, 3, 1, 0)
 	torrentsLayout.AddWidget(labelTPB, 4, 0, 0)
-	torrentsLayout.AddWidget(lineTPB, 4, 1, 0)
-	torrentsLayout.AddWidget(checkKeepFiles, 5, 0, 0)
-	torrentsLayout.AddWidget(pushDlPath, 5, 1, 0)
-	torrentsLayout.AddWidget3(lineDlPath, 6, 0, 6, 2, 0)
+	torrentsLayout.AddWidget(comboTPB, 4, 1, 0)
+	torrentsLayout.AddWidget(labelEZTV, 5, 0, 0)
+	torrentsLayout.AddWidget(comboEZTV, 5, 1, 0)
+	torrentsLayout.AddWidget(checkKeepFiles, 6, 0, 0)
+	torrentsLayout.AddWidget(pushDlPath, 6, 1, 0)
+	torrentsLayout.AddWidget3(lineDlPath, 7, 0, 7, 2, 0)
 
 	groupTorrents.SetLayout(torrentsLayout)
 
@@ -209,7 +223,7 @@ func NewSettings(parent *widgets.QWidget) *Settings {
 	widget.SetLayout(layout)
 
 	qsettings := core.NewQSettings("bukanir", "bukanir", parent)
-	settings := &Settings{widget, qsettings, 0, 0, false, false, 0, false, "", "", 0, "", false, 0, 0, 0, "", false, ""}
+	settings := &Settings{widget, qsettings, 0, 0, false, false, 0, false, "", "", 0, "", false, 0, 0, 0, "", "", false, ""}
 	settings.Set()
 
 	// Show event
@@ -313,7 +327,8 @@ func (s *Settings) Set() {
 	comboDlRate := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboDlRate", core.Qt__FindChildrenRecursively))
 	comboUlRate := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboUlRate", core.Qt__FindChildrenRecursively))
 	spinPort := widgets.NewQSpinBoxFromPointer(s.QWidget.FindChild("spinPort", core.Qt__FindChildrenRecursively))
-	lineTPB := widgets.NewQLineEditFromPointer(s.QWidget.FindChild("lineTPB", core.Qt__FindChildrenRecursively))
+	comboTPB := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboTPB", core.Qt__FindChildrenRecursively))
+	comboEZTV := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboEZTV", core.Qt__FindChildrenRecursively))
 	checkKeepFiles := widgets.NewQCheckBoxFromPointer(s.QWidget.FindChild("checkKeepFiles", core.Qt__FindChildrenRecursively))
 	lineDlPath := widgets.NewQLineEditFromPointer(s.QWidget.FindChild("lineDlPath", core.Qt__FindChildrenRecursively))
 	pushDlPath := widgets.NewQPushButtonFromPointer(s.QWidget.FindChild("pushDlPath", core.Qt__FindChildrenRecursively))
@@ -332,7 +347,8 @@ func (s *Settings) Set() {
 	dlrate := s.Value("dlrate", core.NewQVariant7(-1))
 	ulrate := s.Value("ulrate", core.NewQVariant7(-1))
 	port := s.Value("port", core.NewQVariant7(6881))
-	host := s.Value("host", core.NewQVariant14("thepiratebay.org"))
+	tpbHost := s.Value("tpbhost", core.NewQVariant14("thepiratebay.org"))
+	eztvHost := s.Value("eztvhost", core.NewQVariant14("eztv.ag"))
 	keep := s.Value("keep", core.NewQVariant7(0))
 	dlpath := s.Value("dlpath", core.NewQVariant14(""))
 
@@ -351,7 +367,8 @@ func (s *Settings) Set() {
 	comboDlRate.SetCurrentText(dlrate.ToString())
 	comboUlRate.SetCurrentText(ulrate.ToString())
 	spinPort.SetValue(port.ToInt(false))
-	lineTPB.SetText(host.ToString())
+	comboTPB.SetCurrentText(tpbHost.ToString())
+	comboEZTV.SetCurrentText(eztvHost.ToString())
 	checkKeepFiles.SetChecked(keep.ToBool())
 	lineDlPath.SetText(dlpath.ToString())
 
@@ -372,7 +389,8 @@ func (s *Settings) Set() {
 	s.DlRate = dlrate.ToInt(false)
 	s.UlRate = ulrate.ToInt(false)
 	s.Port = port.ToInt(false)
-	s.Host = host.ToString()
+	s.TPBHost = tpbHost.ToString()
+	s.EZTVHost = eztvHost.ToString()
 	s.KeepFiles = keep.ToBool()
 	s.DlPath = dlpath.ToString()
 }
@@ -392,7 +410,8 @@ func (s *Settings) Save() {
 	comboDlRate := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboDlRate", core.Qt__FindChildrenRecursively))
 	comboUlRate := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboUlRate", core.Qt__FindChildrenRecursively))
 	spinPort := widgets.NewQSpinBoxFromPointer(s.QWidget.FindChild("spinPort", core.Qt__FindChildrenRecursively))
-	lineTPB := widgets.NewQLineEditFromPointer(s.QWidget.FindChild("lineTPB", core.Qt__FindChildrenRecursively))
+	comboTPB := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboTPB", core.Qt__FindChildrenRecursively))
+	comboEZTV := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboEZTV", core.Qt__FindChildrenRecursively))
 	checkKeepFiles := widgets.NewQCheckBoxFromPointer(s.QWidget.FindChild("checkKeepFiles", core.Qt__FindChildrenRecursively))
 	lineDlPath := widgets.NewQLineEditFromPointer(s.QWidget.FindChild("lineDlPath", core.Qt__FindChildrenRecursively))
 
@@ -410,7 +429,8 @@ func (s *Settings) Save() {
 	dlrate := comboDlRate.CurrentText()
 	ulrate := comboUlRate.CurrentText()
 	port := spinPort.Value()
-	host := lineTPB.Text()
+	tpbHost := comboTPB.CurrentText()
+	eztvHost := comboEZTV.CurrentText()
 	keep := checkKeepFiles.IsChecked()
 	dlpath := lineDlPath.Text()
 
@@ -428,7 +448,8 @@ func (s *Settings) Save() {
 	s.SetValue("dlrate", core.NewQVariant14(dlrate))
 	s.SetValue("ulrate", core.NewQVariant14(ulrate))
 	s.SetValue("port", core.NewQVariant7(port))
-	s.SetValue("host", core.NewQVariant14(host))
+	s.SetValue("tpbhost", core.NewQVariant14(tpbHost))
+	s.SetValue("eztvhost", core.NewQVariant14(eztvHost))
 	s.SetValue("keep", core.NewQVariant11(keep))
 	s.SetValue("dlpath", core.NewQVariant14(dlpath))
 
@@ -446,7 +467,8 @@ func (s *Settings) Save() {
 	s.DlRate = core.NewQVariant14(dlrate).ToInt(false)
 	s.UlRate = core.NewQVariant14(ulrate).ToInt(false)
 	s.Port = core.NewQVariant7(port).ToInt(false)
-	s.Host = core.NewQVariant14(host).ToString()
+	s.TPBHost = core.NewQVariant14(tpbHost).ToString()
+	s.EZTVHost = core.NewQVariant14(eztvHost).ToString()
 	s.KeepFiles = core.NewQVariant11(keep).ToBool()
 	s.DlPath = core.NewQVariant14(dlpath).ToString()
 }

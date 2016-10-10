@@ -145,7 +145,7 @@ func getLanguage(name string) *language {
 
 // Gets tpb host
 func getTpbHost() string {
-	for _, host := range tpbHosts {
+	for _, host := range TpbHosts {
 		_, err := net.DialTimeout("tcp", host+":80", time.Duration(3)*time.Second)
 		if err == nil {
 			if verbose {
@@ -155,14 +155,14 @@ func getTpbHost() string {
 		}
 	}
 	if verbose {
-		log.Printf("TPB: Using first host %s\n", tpbHosts[0])
+		log.Printf("TPB: Using first host %s\n", TpbHosts[0])
 	}
-	return tpbHosts[0]
+	return TpbHosts[0]
 }
 
 // Gets eztv host
 func getEztvHost() string {
-	for _, host := range eztvHosts {
+	for _, host := range EztvHosts {
 		_, err := net.DialTimeout("tcp", host+":80", time.Duration(3)*time.Second)
 		if err == nil {
 			if verbose {
@@ -172,9 +172,9 @@ func getEztvHost() string {
 		}
 	}
 	if verbose {
-		log.Printf("EZTV: Using first host %s\n", eztvHosts[0])
+		log.Printf("EZTV: Using first host %s\n", EztvHosts[0])
 	}
-	return eztvHosts[0]
+	return EztvHosts[0]
 }
 
 // Gets goquery document

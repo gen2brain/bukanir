@@ -576,9 +576,9 @@ func NewToolbar(parent *widgets.QWidget) *Toolbar {
 	settingsButton.SetToolTip("Settings")
 
 	aboutButton := widgets.NewQPushButton(widget)
-	aboutButton.SetStyleSheet("QPushButton {border: 0; margin: 0; padding: 0; outline: 0;}")
+	//aboutButton.SetStyleSheet("QPushButton {border: 0; outline: 0;}")
 	aboutButton.SetIcon(gui.NewQIcon5(":/qml/images/bukanir-gray.png"))
-	aboutButton.SetIconSize(core.NewQSize2(24, 24))
+	aboutButton.SetIconSize(core.NewQSize2(20, 20))
 	aboutButton.SetCursor(gui.NewQCursor2(core.Qt__PointingHandCursor))
 	aboutButton.SetToolTip("About")
 
@@ -789,7 +789,7 @@ func NewLog(parent *widgets.QWidget) *Log {
 func NewAbout(parent *widgets.QWidget) *widgets.QDialog {
 	dialog := widgets.NewQDialog(parent, 0)
 	dialog.SetWindowTitle("About")
-	dialog.Resize2(450, 190)
+	dialog.Resize2(450, 200)
 
 	textBrowser := widgets.NewQTextBrowser(dialog)
 	textBrowser.SetOpenExternalLinks(true)
@@ -845,8 +845,8 @@ func NewHelp(parent *widgets.QWidget) *widgets.QDialog {
 	textBrowser.Append("<li><b>ctrl++</b>\t\tIncrease audio delay</li>")
 	textBrowser.Append("<li><b>ctrl+-</b>\t\tDecrease audio delay</li>")
 	textBrowser.Append("<br/>")
-	textBrowser.Append("<li><b>RIGHT/LEFT</b>\t\tSeek 5 seconds</li>")
-	textBrowser.Append("<li><b>UP/DOWN</b>\t\tSeek 60 seconds</li>")
+	textBrowser.Append("<li><b>Right/Left</b>\t\tSeek 5 seconds</li>")
+	textBrowser.Append("<li><b>Up/Down</b>\t\tSeek 60 seconds</li>")
 	textBrowser.Append("<br/>")
 	textBrowser.Append("<li><b>1/2</b>\t\tDecrease/increase contrast</li>")
 	textBrowser.Append("<li><b>3/4</b>\t\tDecrease/increase brightness</li>")

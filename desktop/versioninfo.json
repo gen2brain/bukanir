@@ -21,7 +21,7 @@
 	},
 	"StringFileInfo":
 	{
-		"Comments": "Bukanir streams movies from bittorrent magnet links",
+		"Comments": "Bukanir streams movies and TV shows from bittorrent magnet links",
 		"CompanyName": "",
 		"FileDescription": "Bukanir",
 		"FileVersion": "2.3.0",

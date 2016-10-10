@@ -3,6 +3,7 @@ v2.3  :
     * Desktop app is rewritten in Go (Qt5)
     * Added eztv search provider
     * Search by genre
+    * Updated ijkplayer (FFmpeg v3.1) and libtorrent-rasterbar (v1.0.10)
 
 v2.2  Jun 22, 2016:
 

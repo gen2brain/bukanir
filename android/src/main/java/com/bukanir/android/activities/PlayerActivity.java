@@ -4,7 +4,6 @@ import android.content.Context;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v7.app.ActionBar;
@@ -39,6 +38,7 @@ import com.bukanir.android.widget.media.MeasureHelper;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Locale;
 
 import tv.danmaku.ijk.media.player.IMediaPlayer;
 import tv.danmaku.ijk.media.player.IjkMediaPlayer;
@@ -149,12 +149,8 @@ public class PlayerActivity extends AppCompatActivity implements SurfaceHolder.C
     @Override
     public void surfaceCreated(SurfaceHolder surfaceHolder) {
         int wifiLockMode;
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1) {
-            if(settings.wifiHigh()) {
-                wifiLockMode = WifiManager.WIFI_MODE_FULL_HIGH_PERF;
-            } else {
-                wifiLockMode = WifiManager.WIFI_MODE_FULL;
-            }
+        if(settings.wifiHigh()) {
+            wifiLockMode = WifiManager.WIFI_MODE_FULL_HIGH_PERF;
         } else {
             wifiLockMode = WifiManager.WIFI_MODE_FULL;
         }
@@ -210,11 +206,11 @@ public class PlayerActivity extends AppCompatActivity implements SurfaceHolder.C
             }
         } else if(id == R.id.action_sub_delay_plus) {
             subtitleDelay += 1;
-            toastTextView.setText(String.format("Sub delay: %ds", subtitleDelay));
+            toastTextView.setText(String.format(Locale.ROOT, "Sub delay: %ds", subtitleDelay));
             mediaController.showOnce(toastTextView);
         } else if(id == R.id.action_sub_delay_minus) {
             subtitleDelay -= 1;
-            toastTextView.setText(String.format("Sub delay: %ds", subtitleDelay));
+            toastTextView.setText(String.format(Locale.ROOT, "Sub delay: %ds", subtitleDelay));
             mediaController.showOnce(toastTextView);
         }
 
@@ -227,14 +223,17 @@ public class PlayerActivity extends AppCompatActivity implements SurfaceHolder.C
             if(movie.category.equals("205") || movie.category.equals("208")) {
                 int season = Integer.valueOf(movie.season);
                 int episode = Integer.valueOf(movie.episode);
-                dataTitle = String.format("%s (S%02dE%02d)", movie.title, season, episode);
+                dataTitle = String.format(Locale.ROOT, "%s (S%02dE%02d)", movie.title, season, episode);
             } else {
                 dataTitle = String.format("%s (%s)", movie.title, movie.year);
             }
         } else if(trailerURL != null && !trailerURL.isEmpty() && !trailerURL.equals("null")) {
             dataTitle = String.format("%s (%s) - Trailer", movie.title, movie.year);
         }
-        getSupportActionBar().setTitle(dataTitle);
+
+        if(getSupportActionBar() != null) {
+            getSupportActionBar().setTitle(dataTitle);
+        }
     }
 
     private void setSeekVisibility() {
@@ -268,11 +267,7 @@ public class PlayerActivity extends AppCompatActivity implements SurfaceHolder.C
 
                 if(subtitles != null && !subtitles.isEmpty()) {
                     subtitleTask = new SubtitleTask();
-                    if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-                        subtitleTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, 0);
-                    } else {
-                        subtitleTask.execute(0);
-                    }
+                    subtitleTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, 0);
                 }
 
                 wifiLock.acquire();
@@ -367,11 +362,7 @@ public class PlayerActivity extends AppCompatActivity implements SurfaceHolder.C
             invalidateOptionsMenu();
             if(subtitleCurrent != -1) {
                 subtitleTask = new SubtitleTask();
-                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-                    subtitleTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, subtitleCurrent);
-                } else {
-                    subtitleTask.execute(subtitleCurrent);
-                }
+                subtitleTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, subtitleCurrent);
             } else {
                 subtitleTextView.setVisibility(View.INVISIBLE);
                 toastTextView.setText(getString(R.string.sub_disabled));
@@ -446,7 +437,7 @@ public class PlayerActivity extends AppCompatActivity implements SurfaceHolder.C
                     subtitleHandler.post(subtitleProcessesor);
                 }
             }
-            toastTextView.setText(String.format("Subtitle %d", subtitleCurrent+1));
+            toastTextView.setText(String.format(Locale.ROOT, "Subtitle %d", subtitleCurrent+1));
             mediaController.showOnce(toastTextView);
             super.onPostExecute(s);
         }

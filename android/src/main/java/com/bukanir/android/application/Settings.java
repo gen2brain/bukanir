@@ -6,12 +6,11 @@ import android.preference.PreferenceManager;
 
 public class Settings {
 
-    private Context context;
     private SharedPreferences preferences;
 
     public Settings(Context context) {
-        this.context = context.getApplicationContext();
-        preferences = PreferenceManager.getDefaultSharedPreferences(this.context);
+        Context context1 = context.getApplicationContext();
+        preferences = PreferenceManager.getDefaultSharedPreferences(context1);
     }
 
     public int listCount() {
@@ -76,6 +75,14 @@ public class Settings {
 
     public String listenPort() {
         return String.valueOf(preferences.getInt("listen_port", 6881));
+    }
+
+    public String tpbHost() {
+        return String.valueOf(preferences.getString("tpb_host", "thepiratebay.org"));
+    }
+
+    public String eztvHost() {
+        return String.valueOf(preferences.getString("eztv_host", "eztv.ag"));
     }
 
 }

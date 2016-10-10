@@ -2,7 +2,6 @@ package com.bukanir.android.fragments;
 
 import android.content.Intent;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
 import android.text.Html;
@@ -39,6 +38,7 @@ import com.nostra13.universalimageloader.core.listener.SimpleImageLoadingListene
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Locale;
 
 public class MovieFragment extends Fragment implements View.OnClickListener {
 
@@ -68,8 +68,8 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
     public static MovieFragment newInstance(Movie movie, Summary summary) {
         MovieFragment fragment = new MovieFragment();
         Bundle args = new Bundle();
-        args.putParcelable("movie", movie);
-        args.putParcelable("summary", summary);
+        args.putSerializable("movie", movie);
+        args.putSerializable("summary", summary);
         fragment.setArguments(args);
         return fragment;
     }
@@ -78,11 +78,11 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         Log.d(TAG, "onCreateView");
         if(savedInstanceState != null) {
-            movie = savedInstanceState.getParcelable("movie");
-            summary = savedInstanceState.getParcelable("summary");
+            movie = (Movie) savedInstanceState.getSerializable("movie");
+            summary = (Summary) savedInstanceState.getSerializable("summary");
         } else {
-            movie = getArguments().getParcelable("movie");
-            summary = getArguments().getParcelable("summary");
+            movie = (Movie) getArguments().getSerializable("movie");
+            summary = (Summary) getArguments().getSerializable("summary");
         }
 
         settings = new Settings(getActivity());
@@ -119,10 +119,10 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
             File imagesDir = new File(getActivity().getCacheDir().toString() + File.separator + "images");
             imagesDir.mkdirs();
             ImageLoaderConfiguration config = new
-                ImageLoaderConfiguration.Builder(getActivity().getApplicationContext())
-                .diskCache(new UnlimitedDiskCache(imagesDir))
-                .defaultDisplayImageOptions(DisplayImageOptions.createSimple())
-                .build();
+                    ImageLoaderConfiguration.Builder(getActivity().getApplicationContext())
+                    .diskCache(new UnlimitedDiskCache(imagesDir))
+                    .defaultDisplayImageOptions(DisplayImageOptions.createSimple())
+                    .build();
             imageLoader.init(config);
         }
 
@@ -153,8 +153,8 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         Log.d(TAG, "onSaveInstanceState");
         super.onSaveInstanceState(outState);
         if(movie != null && summary != null) {
-            outState.putParcelable("movie", movie);
-            outState.putParcelable("summary", summary);
+            outState.putSerializable("movie", movie);
+            outState.putSerializable("summary", summary);
         }
     }
 
@@ -205,20 +205,12 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         getActivity().startService(intent);
 
         torrent2HttpTask = new Torrent2HttpTask();
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-            torrent2HttpTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-        } else {
-            torrent2HttpTask.execute();
-        }
+        torrent2HttpTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
     public void startTrailerTask() {
         trailerTask = new TrailerTask();
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-            trailerTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-        } else {
-            trailerTask.execute();
-        }
+        trailerTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
     public void cancelTorrent2HttpTask() {
@@ -235,6 +227,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         if(trailerTask != null) {
             if(trailerTask.getStatus().equals(AsyncTask.Status.RUNNING)) {
                 trailerTask.cancel(true);
+                BukanirClient.cancel();
             }
         }
     }
@@ -295,7 +288,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
             int season = Integer.valueOf(movie.season);
             int episode = Integer.valueOf(movie.episode);
             if(season != 0 && episode != 0) {
-                tagline.setText(String.format("S%02dE%02d", season, episode));
+                tagline.setText(String.format(Locale.ROOT, "S%02dE%02d", season, episode));
             } else {
                 tagline.setVisibility(View.GONE);
             }
@@ -350,10 +343,8 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         }
 
         protected TorrentFile doInBackground(Void... params) {
-
             Torrent2HttpClient t2h = new Torrent2HttpClient();
-            boolean startup = t2h.waitStartup();
-            if(!startup) {
+            if(!t2h.waitStartup()) {
                 return null;
             }
 
@@ -361,13 +352,20 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
                 return null;
             }
 
-            int required = 16;
+
             boolean ready = false;
             while(!ready) {
                 TorrentStatus status = t2h.getStatus();
                 if(status != null && Integer.parseInt(status.state) >= 3 && !ready) {
-                    int downloaded = Integer.parseInt(status.total_download) / (1024*1024);
-                    Float percent = (float) downloaded / (float) required * 100;
+                    TorrentFile file = t2h.getLargestFile();
+                    if(file == null) {
+                        continue;
+                    }
+
+                    float required = (Long.valueOf(file.size))/100;
+                    int downloaded = Integer.parseInt(status.total_download);
+
+                    Float percent = (float) downloaded / required * 100;
                     publishProgress(
                             percent.intValue(),
                             Integer.parseInt(status.state),
@@ -392,7 +390,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
                 }
 
                 try {
-                    Thread.sleep(t2h.T2H_POLL);
+                    Thread.sleep(1000);
                 } catch(InterruptedException e) {
                 }
             }
@@ -431,6 +429,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
                 downloadingText.setText(getString(R.string.downloading));
             } else if(state >= 3) {
                 String status = String.format(
+                        Locale.ROOT,
                         "D:%dk U:%dk S:%d P:%d",
                         progress[2], progress[3], progress[4], progress[5]);
                 downloadingText.setText(status);

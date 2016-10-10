@@ -1,17 +1,19 @@
 <resources>
 
     <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
-        <item name="colorPrimary">@color/primary</item>
-        <item name="colorPrimaryDark">@color/primary_dark</item>
-        <item name="colorAccent">@color/accent</item>
+        <item name="colorPrimary">@color/primary_material_light</item>
+        <item name="colorPrimaryDark">@color/primary_material_dark</item>
+        <item name="colorAccent">@color/accent_material_light</item>
         <item name="android:windowBackground">@color/window_background</item>
-        <item name="android:textColorPrimary">@color/text_color_primary</item>
+        <item name="android:textColorPrimary">@color/primary_material_light</item>
+        <item name="android:windowAnimationStyle">@null</item>
+       	<item name="windowActionModeOverlay">true</item>
     </style>
 
     <style name="AppFullscreenTheme" parent="Theme.AppCompat.NoActionBar">
-        <item name="colorPrimary">@color/primary</item>
-        <item name="colorPrimaryDark">@color/primary_dark</item>
-        <item name="colorAccent">@color/accent</item>
+        <item name="colorPrimary">@color/primary_material_light</item>
+        <item name="colorPrimaryDark">@color/primary_material_dark</item>
+        <item name="colorAccent">@color/accent_material_light</item>
         <item name="windowNoTitle">true</item>
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowContentOverlay">@null</item>

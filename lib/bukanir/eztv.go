@@ -15,18 +15,21 @@ import (
 
 // EZTV struct
 type eztv struct {
-	Host string
+	Host  string
+	Query string
 }
 
 // Returns new tpb
 func NewEztv(host string) *eztv {
-	return &eztv{Host: host}
+	return &eztv{host, ""}
 }
 
 // Returns torrents for query
 func (t *eztv) Search(query string) ([]tTorrent, error) {
 	var results []tTorrent
 	uri := fmt.Sprintf("https://%s/search/%s", t.Host, url.QueryEscape(query))
+
+	t.Query = query
 
 	if verbose {
 		log.Printf("EZTV: GET %s\n", uri)
@@ -69,7 +72,13 @@ func (t *eztv) getTorrents(doc *goquery.Document) ([]tTorrent, error) {
 		magnet, _ := td2.Find(`a`).Attr(`href`)
 		seeders, _ := strconv.Atoi(strings.Replace(td4.Text(), ",", "", -1))
 
-		if seeders == 0 || getTitle(title) == "" || !strings.HasPrefix(magnet, "magnet:?") {
+		formattedTitle := getTitle(title)
+
+		if seeders == 0 || formattedTitle == "" || !strings.HasPrefix(magnet, "magnet:?") {
+			return
+		}
+
+		if !strings.Contains(strings.ToLower(formattedTitle), strings.ToLower(t.Query)) {
 			return
 		}
 
@@ -91,7 +100,7 @@ func (t *eztv) getTorrents(doc *goquery.Document) ([]tTorrent, error) {
 
 		t := tTorrent{
 			title,
-			getTitle(title),
+			formattedTitle,
 			magnet,
 			getYear(title),
 			int64(size),

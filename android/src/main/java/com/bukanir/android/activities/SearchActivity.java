@@ -25,6 +25,7 @@ import com.bukanir.android.R;
 import com.bukanir.android.entities.Movie;
 import com.bukanir.android.fragments.MoviesListFragment;
 import com.bukanir.android.helpers.Connectivity;
+import com.bukanir.android.helpers.Dialogs;
 import com.bukanir.android.helpers.Utils;
 import com.google.android.gms.analytics.HitBuilders;
 import com.google.android.gms.analytics.Tracker;
@@ -63,14 +64,12 @@ public class SearchActivity extends AppCompatActivity {
         toolbar.setLogo(R.drawable.ic_launcher);
         setSupportActionBar(toolbar);
 
-        getSupportActionBar().setDisplayShowTitleEnabled(true);
-        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-
-        if(findViewById(R.id.movie_container) != null) {
-            twoPane = true;
-        } else {
-            twoPane = false;
+        if(getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayShowTitleEnabled(true);
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         }
+
+        twoPane = findViewById(R.id.movie_container) != null;
 
         if(savedInstanceState != null) {
             query = savedInstanceState.getString("query");
@@ -78,7 +77,7 @@ public class SearchActivity extends AppCompatActivity {
                 getSupportActionBar().setTitle(query);
             }
 
-            movies = savedInstanceState.getParcelableArrayList("search");
+            movies = (ArrayList<Movie>) savedInstanceState.getSerializable("search");
             if(movies != null) {
                 beginTransaction(movies);
             }
@@ -105,7 +104,7 @@ public class SearchActivity extends AppCompatActivity {
     public void onSaveInstanceState(Bundle outState) {
         Log.d(TAG, "onSaveInstanceState");
         if(movies != null && !movies.isEmpty()) {
-            outState.putParcelableArrayList("search", movies);
+            outState.putSerializable("search", movies);
         }
         if(query != null && !query.isEmpty()) {
            outState.putString("query", query);
@@ -168,7 +167,7 @@ public class SearchActivity extends AppCompatActivity {
                 onBackPressed();
                 return true;
             case R.id.action_about:
-                Utils.showAbout(this);
+                Dialogs.showAbout(this);
                 return true;
         }
         return super.onOptionsItemSelected(item);
@@ -211,6 +210,7 @@ public class SearchActivity extends AppCompatActivity {
         if(searchTask != null) {
             if(searchTask.getStatus().equals(AsyncTask.Status.RUNNING)) {
                 searchTask.cancel(true);
+                BukanirClient.cancel();
             }
         }
     }
@@ -224,7 +224,10 @@ public class SearchActivity extends AppCompatActivity {
             query = bundle.getString("intent_extra_data_key");
         }
 
-        getSupportActionBar().setTitle(query);
+        if(getSupportActionBar() != null) {
+            getSupportActionBar().setTitle(query);
+        }
+
         startSearchTask(false);
     }
 
@@ -252,7 +255,8 @@ public class SearchActivity extends AppCompatActivity {
             ArrayList<Movie> results;
 
             try {
-                results = BukanirClient.getSearchResults(query, -1, refresh, cacheDir, settings.cacheDays());
+                results = BukanirClient.getSearchResults(query, -1, refresh, cacheDir,
+                        settings.cacheDays(), 3, settings.tpbHost(), settings.eztvHost());
             } catch(Exception e) {
                 e.printStackTrace();
                 return null;

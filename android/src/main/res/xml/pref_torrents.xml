@@ -34,4 +34,18 @@
         picker:startRange="1024"
         picker:endRange="65535" />
 
+    <ListPreference
+        android:key="tpb_host"
+        android:title="@string/pref_tpb_host"
+        android:defaultValue="thepiratebay.org"
+        android:entries="@array/pref_tpb_hosts"
+        android:entryValues="@array/pref_tpb_hosts" />
+
+    <ListPreference
+        android:key="eztv_host"
+        android:title="@string/pref_eztv_host"
+        android:defaultValue="eztv.ag"
+        android:entries="@array/pref_eztv_hosts"
+        android:entryValues="@array/pref_eztv_hosts" />
+
 </PreferenceScreen>

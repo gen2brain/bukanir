@@ -295,6 +295,10 @@ func startSession() {
 	settings.SetRateLimitUtp(true)
 	settings.SetMixedModeAlgorithm(int(lt.SessionSettingsPreferTcp))
 
+	if runtime.GOARCH == "arm" && runtime.NumCPU() == 1 {
+		settings.SetConnectionsLimit(50)
+	}
+
 	session.SetSettings(settings)
 
 	err := lt.NewErrorCode()
@@ -547,7 +551,7 @@ func Shutdown() {
 
 func Stop() {
 	forceShutdown <- true
-	//Shutdown()
+	Shutdown()
 }
 
 func Started() bool {

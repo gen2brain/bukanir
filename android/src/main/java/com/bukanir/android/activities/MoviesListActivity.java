@@ -3,18 +3,14 @@ package com.bukanir.android.activities;
 import android.Manifest;
 import android.app.AlertDialog;
 import android.app.Dialog;
-import android.app.DownloadManager;
 import android.app.SearchManager;
-import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
@@ -41,6 +37,7 @@ import com.bukanir.android.R;
 import com.bukanir.android.entities.Movie;
 import com.bukanir.android.fragments.MoviesListFragment;
 import com.bukanir.android.helpers.Connectivity;
+import com.bukanir.android.helpers.Dialogs;
 import com.bukanir.android.helpers.Update;
 import com.bukanir.android.helpers.Utils;
 import com.google.android.gms.analytics.HitBuilders;
@@ -63,8 +60,6 @@ public class MoviesListActivity extends AppCompatActivity {
     private String cacheDir;
 
     private boolean userIsInteracting;
-    private BroadcastReceiver downloadReceiver;
-    private boolean downloadReceiverRegistered;
 
     private String category = "201";
     private int selectedCategory;
@@ -90,28 +85,18 @@ public class MoviesListActivity extends AppCompatActivity {
         toolbar.setLogo(R.drawable.ic_launcher);
         setSupportActionBar(toolbar);
 
-        getSupportActionBar().setTitle(null);
-
-        if(findViewById(R.id.movie_container) != null) {
-            twoPane = true;
-        } else {
-            twoPane = false;
+        if(getSupportActionBar() != null) {
+            getSupportActionBar().setTitle(null);
         }
+
+        twoPane = findViewById(R.id.movie_container) != null;
 
         Tracker tracker = Utils.getTracker(this);
         tracker.setScreenName("Movies List");
         tracker.send(new HitBuilders.ScreenViewBuilder().build());
 
         if(Update.checkUpdate(this)) {
-            downloadReceiver = Update.getDownloadReceiver(this);
-            registerReceiver(downloadReceiver, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
-            downloadReceiverRegistered = true;
-
-            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-                new UpdateTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-            } else {
-                new UpdateTask().execute();
-            }
+            new UpdateTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
         }
 
         int permissionCheck = ContextCompat.checkSelfPermission(MoviesListActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
@@ -126,7 +111,7 @@ public class MoviesListActivity extends AppCompatActivity {
             new EulaFragment().show(getSupportFragmentManager(), "Eula");
         } else {
             if(savedInstanceState != null) {
-                movies = savedInstanceState.getParcelableArrayList("movies");
+                movies = (ArrayList<Movie>) savedInstanceState.getSerializable("movies");
                 if(movies != null && !movies.isEmpty()) {
                     try {
                         beginTransaction(movies);
@@ -144,16 +129,6 @@ public class MoviesListActivity extends AppCompatActivity {
     protected void onPause() {
         Log.d(TAG, "onPause");
         super.onPause();
-        if(downloadReceiver != null) {
-            if(downloadReceiverRegistered) {
-                try {
-                    unregisterReceiver(downloadReceiver);
-                } catch(Exception e) {
-                    e.printStackTrace();
-                }
-                downloadReceiverRegistered = false;
-            }
-        }
         cancelMoviesTask();
     }
 
@@ -161,9 +136,10 @@ public class MoviesListActivity extends AppCompatActivity {
     protected void onResume() {
         Log.d(TAG, "onResume");
         super.onResume();
-        if (progressBar != null) {
+        if(progressBar != null) {
             progressBar.setVisibility(View.GONE);
         }
+
         if(settings != null && settings.eulaAccepted()) {
             if(movies == null || movies.isEmpty()) {
                 startMoviesTask(false);
@@ -175,7 +151,7 @@ public class MoviesListActivity extends AppCompatActivity {
     public void onSaveInstanceState(Bundle outState) {
         Log.d(TAG, "onSaveInstanceState");
         if(movies != null) {
-            outState.putParcelableArrayList("movies", movies);
+            outState.putSerializable("movies", movies);
         }
         if(selectedCategory >= 0) {
             outState.putInt("selectedCategory", selectedCategory);
@@ -205,7 +181,7 @@ public class MoviesListActivity extends AppCompatActivity {
         final MenuItem searchItem = menu.findItem(R.id.action_search);
 
         SearchManager searchManager = (SearchManager) getSystemService(Context.SEARCH_SERVICE);
-        SearchView searchView = (SearchView) MenuItemCompat.getActionView(searchItem);
+        final SearchView searchView = (SearchView) MenuItemCompat.getActionView(searchItem);
         searchView.setSearchableInfo(searchManager.getSearchableInfo(new ComponentName(getApplicationContext(), SearchActivity.class)));
         searchView.setIconifiedByDefault(false);
         searchView.setSubmitButtonEnabled(true);
@@ -218,9 +194,40 @@ public class MoviesListActivity extends AppCompatActivity {
 
             @Override
             public boolean onQueryTextSubmit(String query) {
-                if (searchItem != null) {
-                    MenuItemCompat.collapseActionView(searchItem);
-                }
+                searchView.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if(searchItem != null) {
+                            MenuItemCompat.collapseActionView(searchItem);
+                        }
+                        searchView.onActionViewCollapsed();
+                        searchView.setIconified(true);
+                        searchView.clearFocus();
+                    }
+                });
+                return false;
+            }
+        });
+
+        searchView.setOnSuggestionListener(new SearchView.OnSuggestionListener(){
+            @Override
+            public boolean onSuggestionSelect(int position) {
+                return false;
+            }
+
+            @Override
+            public boolean onSuggestionClick(int position) {
+                searchView.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if(searchItem != null) {
+                            MenuItemCompat.collapseActionView(searchItem);
+                        }
+                        searchView.onActionViewCollapsed();
+                        searchView.setIconified(true);
+                        searchView.clearFocus();
+                    }
+                });
                 return false;
             }
         });
@@ -254,20 +261,21 @@ public class MoviesListActivity extends AppCompatActivity {
                 startActivity(new Intent(this, SettingsActivity.class));
                 return true;
             case R.id.action_about:
-                Utils.showAbout(this);
+                Dialogs.showAbout(this);
                 return true;
         }
         return super.onOptionsItemSelected(item);
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode,  String permissions[], int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String permissions[], @NonNull int[] grantResults) {
         switch(requestCode) {
             case RC_PERMISSION_WRITE_EXTERNAL_STORAGE: {
                 if(grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     Log.d(TAG, "External storage allowed");
                 } else {
                     Log.d(TAG, "External storage denied");
+                    finish();
                 }
                 break;
             }
@@ -316,29 +324,20 @@ public class MoviesListActivity extends AppCompatActivity {
     }
 
     private void prepareActionBar() {
-        getSupportActionBar().setDisplayShowTitleEnabled(true);
-        getSupportActionBar().setDisplayHomeAsUpEnabled(false);
+        if(getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayShowTitleEnabled(true);
+            getSupportActionBar().setDisplayHomeAsUpEnabled(false);
+        }
 
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-
             @Override
             public void onItemSelected(AdapterView<?> adapter, View v, int position, long id) {
-                if (position == 0) {
-                    category = "201";
-                    selectedCategory = 0;
-                } else if (position == 1) {
-                    category = "207";
-                    selectedCategory = 1;
-                } else if (position == 2) {
-                    category = "205";
-                    selectedCategory = 2;
-                } else if (position == 3) {
-                    category = "208";
-                    selectedCategory = 3;
-                }
+                category = getResources().getStringArray(R.array.categories_values)[position];
+                selectedCategory = position;
 
                 if(userIsInteracting) {
                     startMoviesTask(false);
+                    userIsInteracting = false;
                 }
             }
 
@@ -357,17 +356,14 @@ public class MoviesListActivity extends AppCompatActivity {
         }
 
         moviesTask = new MoviesTask();
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-            moviesTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, category, force);
-        } else {
-            moviesTask.execute(category, force);
-        }
+        moviesTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, category, force);
     }
 
     public void cancelMoviesTask() {
         if(moviesTask != null) {
             if(moviesTask.getStatus().equals(AsyncTask.Status.RUNNING)) {
                 moviesTask.cancel(true);
+                BukanirClient.cancel();
             }
         }
     }
@@ -411,13 +407,8 @@ public class MoviesListActivity extends AppCompatActivity {
             ArrayList<Movie> results;
 
             try {
-                results = BukanirClient.getTopResults(
-                        Integer.valueOf(category),
-                        settings.listCount(),
-                        refresh,
-                        cacheDir,
-                        settings.cacheDays()
-                );
+                results = BukanirClient.getTopResults(Integer.valueOf(category), settings.listCount(),
+                        refresh, cacheDir, settings.cacheDays(), settings.tpbHost());
             } catch(Exception e) {
                 e.printStackTrace();
                 return null;
@@ -434,6 +425,7 @@ public class MoviesListActivity extends AppCompatActivity {
             if(progressBar != null) {
                 progressBar.setVisibility(View.GONE);
             }
+
             if(results != null && !results.isEmpty()) {
                 movies = results;
                 try {
@@ -464,7 +456,7 @@ public class MoviesListActivity extends AppCompatActivity {
 
         protected void onPostExecute(Boolean result) {
             if(result) {
-                Update.showUpdate(MoviesListActivity.this);
+                Dialogs.showUpdate(MoviesListActivity.this);
             }
         }
     }
