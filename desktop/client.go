@@ -1,24 +1,17 @@
 package main
 
 import (
-	"io/ioutil"
 	"log"
-	"net/http"
-	"path/filepath"
-	"sync"
 
 	"github.com/gen2brain/bukanir/lib/bukanir"
 )
 
 type Client struct {
-	Mutex    sync.RWMutex
 	CacheDir string
 }
 
 func NewClient() *Client {
-	var mutex sync.RWMutex
-	cacheDir := filepath.Join(homeDir(), ".cache", "bukanir")
-	return &Client{mutex, cacheDir}
+	return &Client{cacheDir()}
 }
 
 func (c *Client) Top(widget *List, category, limit, force, cacheDays int, tpbHost string) {
@@ -52,27 +45,7 @@ func (c *Client) Summary(widget *Summary, m bukanir.TMovie) {
 		return
 	}
 
-	res, err := http.Get(m.PosterXLarge)
-	if err != nil {
-		log.Printf("ERROR: Get: %s\n", err.Error())
-		widget.Finished("")
-		return
-	}
-
-	poster, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		log.Printf("ERROR: ReadAll: %s\n", err.Error())
-		widget.Finished("")
-		return
-	}
-	res.Body.Close()
-
-	c.Mutex.Lock()
-	posters[m.MagnetLink] = poster
-	c.Mutex.Unlock()
-
 	widget.Finished(data)
-	widget.Finished2(m.MagnetLink)
 }
 
 func (c *Client) Complete(widget *Toolbar, text string) {

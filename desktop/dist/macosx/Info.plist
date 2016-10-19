@@ -9,10 +9,10 @@
 	<string>bukanir</string>
 
 	<key>CFBundleIconFile</key>
-	<string>bukanir.icns</string>
+	<string>icon</string>
 
 	<key>CFBundleIdentifier</key>
-	<string>com.identifier.bukanir</string>
+	<string>com.bukanir</string>
 
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>

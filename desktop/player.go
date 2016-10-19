@@ -1,3 +1,5 @@
+// +build !windows
+
 package main
 
 // #include <mpv/client.h>
@@ -8,6 +10,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -53,10 +58,7 @@ func (p *Player) Init() {
 	x := (widgets.QApplication_Desktop().Width() / 2) - (960 / 2)
 	p.SetOptionString("geometry", fmt.Sprintf("960+%d+%d", x, p.Window.Y()+100))
 
-	if runtime.GOOS != "windows" {
-		p.SetOptionString("osc", "yes")
-	}
-
+	p.SetOptionString("osc", "yes")
 	p.SetOptionString("ytdl", "no")
 
 	switch runtime.GOOS {
@@ -90,7 +92,7 @@ func (p *Player) Init() {
 	p.SetOption("volume-max", mpv.FORMAT_INT64, p.Window.Settings.VolumeMax)
 
 	p.SetOption("sub-scale", mpv.FORMAT_DOUBLE, p.Window.Settings.Scale)
-	p.SetOptionString("sub-text-color", p.Window.Settings.Color)
+	p.SetOptionString("sub-color", p.Window.Settings.Color)
 	if strings.ToLower(p.Window.Settings.Codepage) != "auto" {
 		p.SetOptionString("sub-codepage", strings.ToLower(p.Window.Settings.Codepage))
 	}
@@ -115,21 +117,26 @@ func (p *Player) SetOptionString(name, value string) {
 	}
 }
 
-func (p *Player) Wait(movie bukanir.TMovie, imdbId string) {
+func (p *Player) Wait(movie bukanir.TMovie, imdbId string) (bool, string) {
 	if !bukanir.TorrentWaitStartup() {
-		return
+		return false, ""
 	}
-
-	go func() {
-		if p.Window.Settings.Subtitles {
-			p.AddSubtitles(movie, imdbId)
-		}
-	}()
 
 	var file bukanir.TFileInfo
 
+	retry := 0
 	ready := false
+	subs := false
+
 	for !ready {
+		started := bukanir.TorrentStarted()
+		if !started {
+			if retry > 3 {
+				return false, ""
+			}
+			retry += 1
+		}
+
 		s, err := bukanir.TorrentStatus()
 		if err == nil {
 			var status bukanir.TStatus
@@ -151,6 +158,26 @@ func (p *Player) Wait(movie bukanir.TMovie, imdbId string) {
 						continue
 					}
 
+					if !subs && p.Window.Settings.Subtitles {
+						subDir := strings.Replace(file.Url, "http://127.0.0.1:5001/files", "", -1)
+						subDir = filepath.Dir(subDir)
+						subDir, _ = url.QueryUnescape(subDir)
+
+						if p.Window.Settings.KeepFiles && p.Window.Settings.DlPath != "" {
+							subDir = filepath.Join(p.Window.Settings.DlPath, subDir)
+						} else {
+							subDir = filepath.Join(tempDir, subDir)
+						}
+
+						_, err := os.Stat(subDir)
+						if err == nil {
+							subs = true
+							go func() {
+								p.AddSubtitles(movie, imdbId, subDir)
+							}()
+						}
+					}
+
 					required := file.Size / 100
 					value := float64(status.TotalDownload) / float64(required) * 100
 					p.Window.ProgressBar.ValueChanged(int(value))
@@ -167,7 +194,7 @@ func (p *Player) Wait(movie bukanir.TMovie, imdbId string) {
 		time.Sleep(1 * time.Second)
 	}
 
-	p.Play(file.Url, fmt.Sprintf("%s (%s)", movie.Title, movie.Year))
+	return true, file.Url
 }
 
 func (p *Player) Status() {
@@ -194,7 +221,7 @@ func (p *Player) Status() {
 	p.Window.LabelStatus.ValueChanged("")
 }
 
-func (p *Player) AddSubtitles(m bukanir.TMovie, imdbId string) {
+func (p *Player) AddSubtitles(m bukanir.TMovie, imdbId string, subDir string) {
 	str, err := bukanir.Subtitle(m.Title, m.Year, m.Release, p.Window.Settings.Language, m.Category, m.Season, m.Episode, imdbId)
 	if err != nil {
 		log.Printf("ERROR: Subtitle: %s\n", err.Error())
@@ -220,7 +247,8 @@ func (p *Player) AddSubtitles(m bukanir.TMovie, imdbId string) {
 
 	list := make([]*mpv.Node, 0)
 	for _, sub := range subs[:cnt] {
-		subPath, err := bukanir.UnzipSubtitle(sub.DownloadLink, tempDir)
+		subPath, err := bukanir.UnzipSubtitle(sub.DownloadLink, subDir)
+
 		if err != nil {
 			log.Printf("ERROR: UnzipSubtitle: %s\n", err.Error())
 			continue

@@ -6,6 +6,7 @@ import "C"
 
 import (
 	"os"
+	"path/filepath"
 	"runtime"
 	"unsafe"
 )
@@ -36,4 +37,14 @@ func homeDir() string {
 		return home
 	}
 	return os.Getenv("HOME")
+}
+
+func cacheDir() string {
+	dir := os.Getenv("XDG_CACHE_HOME")
+	if dir == "" {
+		dir = filepath.Join(homeDir(), ".cache", "bukanir")
+	} else {
+		dir = filepath.Join(dir, "bukanir")
+	}
+	return dir
 }

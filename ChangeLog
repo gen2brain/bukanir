@@ -1,4 +1,4 @@
-v2.3  :
+v2.3  Oct 20, 2016:
 
     * Desktop app is rewritten in Go (Qt5)
     * Added eztv search provider

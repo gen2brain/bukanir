@@ -572,7 +572,7 @@ func tmdbByGenre(id int, limit int, tpbHost string) {
 		m = m[0:limit]
 	}
 
-	var th = make(chan int, 15)
+	var th = make(chan int, 10)
 
 	searchTorrents := func(r tmdbResult) {
 		defer wgt.Done()

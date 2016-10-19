@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -483,10 +484,10 @@ func (s *Settings) TorrentConfig(url string) string {
 	c.DhtRouters = "router.bittorrent.com:6881,router.utorrent.com:6881,dht.transmissionbt.com:6881,dht.aelitis.com:6881"
 	c.Trackers = "udp://tracker.publicbt.com:80,udp://tracker.openbittorrent.com:80,udp://open.demonii.com:80,udp://tracker.istole.it:80,udp://tracker.coppersurfer.tk:80,udp://tracker.leechers-paradise.org:6969,udp://exodus.desync.com:6969,udp://tracker.pomf.se,udp://tracker.blackunicorn.xyz:6969,udp://pow7.com:80/announce"
 	c.ListenPort = s.Port
-	c.TorrentConnectBoost = 500
-	c.ConnectionSpeed = 500
-	c.PeerConnectTimeout = 2
-	c.RequestTimeout = 2
+	c.TorrentConnectBoost = 10 * runtime.NumCPU()
+	c.ConnectionSpeed = 10 * runtime.NumCPU()
+	c.PeerConnectTimeout = 3
+	c.RequestTimeout = 3
 	c.MaxDownloadRate = s.DlRate
 	c.MaxUploadRate = s.UlRate
 	c.MinReconnectTime = 60

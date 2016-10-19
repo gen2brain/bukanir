@@ -172,7 +172,7 @@ var (
 
 	clientFast *http.Client = &http.Client{
 		Transport: &http.Transport{
-			Dial:                func(network, addr string) (net.Conn, error) { return net.DialTimeout(network, addr, 3*time.Second) },
+			Dial:                func(network, addr string) (net.Conn, error) { return net.DialTimeout(network, addr, 5*time.Second) },
 			TLSHandshakeTimeout: 5 * time.Second,
 			MaxIdleConnsPerHost: 10,
 		},
@@ -229,7 +229,7 @@ func Category(category int, limit int, force int, cacheDir string, cacheDays int
 		return "empty", err
 	}
 
-	throttle = make(chan int, 30)
+	throttle = make(chan int, 10)
 
 	if len(torrents) > 0 {
 		for _, torrent := range torrents {
@@ -317,7 +317,7 @@ func Search(query string, limit int, force int, cacheDir string, cacheDays int64
 		return "empty", err
 	}
 
-	throttle = make(chan int, 30)
+	throttle = make(chan int, 10)
 
 	if len(torrents) > 0 {
 		for _, torrent := range torrents {
@@ -660,10 +660,12 @@ func TorrentShutdown() {
 	t2http.Shutdown()
 }
 
+func TorrentStarted() bool {
+	return t2http.Started()
+}
+
 func TorrentStop() {
-	if t2http.Started() {
-		t2http.Stop()
-	}
+	t2http.Stop()
 }
 
 func TorrentStatus() (string, error) {

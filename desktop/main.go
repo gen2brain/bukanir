@@ -3,11 +3,13 @@ package main
 //go:generate goversioninfo -icon=dist/windows/bukanir.ico -o resource_windows.syso
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -16,6 +18,7 @@ import (
 	"github.com/hpcloud/tail"
 	"github.com/therecipe/qt/core"
 	"github.com/therecipe/qt/gui"
+	"github.com/therecipe/qt/network"
 	"github.com/therecipe/qt/widgets"
 
 	"github.com/gen2brain/bukanir/lib/bukanir"
@@ -23,9 +26,6 @@ import (
 
 var (
 	tabs    []Tab
-	posters map[string][]byte
-	content []map[int]bukanir.TMovie
-
 	tempDir string
 )
 
@@ -57,6 +57,8 @@ type Window struct {
 	ProgressBar *widgets.QProgressBar
 
 	Side widgets.QTabBar__ButtonPosition
+
+	Manager *network.QNetworkAccessManager
 }
 
 func NewWindow() *Window {
@@ -70,10 +72,15 @@ func NewWindow() *Window {
 		side = widgets.QTabBar__RightSide
 	}
 
-	window := &Window{w, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, side}
+	window := &Window{w, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, side, nil}
 	window.Log = NewLog(window.QWidget_PTR())
 	window.Client = NewClient()
 	window.Settings = NewSettings(window.QWidget_PTR())
+
+	window.Manager = network.NewQNetworkAccessManager(w)
+	cache := network.NewQNetworkDiskCache(w)
+	cache.SetCacheDirectory(filepath.Join(cacheDir(), "images"))
+	window.Manager.SetCache(cache)
 
 	return window
 }
@@ -199,36 +206,28 @@ func (w *Window) ConnectSignals() {
 		t := tabs[index]
 
 		if t.Query != "" {
-			w.setLoading(index, true)
-			w.Toolbar.SetEnabled(false)
+			w.setLoading(t.Widget.QWidget_PTR(), true)
 			w.LabelStatus.SetText("Downloading torrents metadata...")
 
 			t.Widget.Started = true
-			t.Widget.Initialized = false
 			go w.Client.Search(t.Widget, t.Query, w.Settings.Limit, 1, w.Settings.Days, 3, w.Settings.TPBHost, w.Settings.EZTVHost)
 		} else if t.Category != 0 {
-			w.setLoading(index, true)
-			w.Toolbar.SetEnabled(false)
+			w.setLoading(t.Widget.QWidget_PTR(), true)
 			w.LabelStatus.SetText("Downloading torrents metadata...")
 
 			t.Widget.Started = true
-			t.Widget.Initialized = false
 			go w.Client.Top(t.Widget, t.Category, w.Settings.Limit, 1, w.Settings.Days, w.Settings.TPBHost)
 		} else if t.Genre != 0 {
-			w.setLoading(index, true)
-			w.Toolbar.SetEnabled(false)
+			w.setLoading(t.Widget.QWidget_PTR(), true)
 			w.LabelStatus.SetText("Downloading torrents metadata...")
 
 			t.Widget.Started = true
-			t.Widget.Initialized = false
 			go w.Client.Genre(t.Widget, t.Genre, w.Settings.Limit, 1, w.Settings.Days, w.Settings.TPBHost)
 		} else if t.Movie.Id != 0 {
-			w.setLoading(index, true)
-			w.Toolbar.SetEnabled(false)
+			w.setLoading(t.Widget2.QWidget_PTR(), true)
 			w.LabelStatus.SetText("Downloading movie metadata...")
 
 			t.Widget2.Started = true
-			t.Widget2.Initialized = false
 			go w.Client.Summary(t.Widget2, t.Movie)
 		}
 	})
@@ -275,17 +274,6 @@ func (w *Window) ConnectSignals() {
 	})
 
 	w.TabWidget.ConnectTabCloseRequested(func(index int) {
-		for idx, tb := range tabs {
-			if idx == index {
-				continue
-			}
-			if tb.Widget2 != nil && !tb.Widget2.Initialized {
-				return
-			} else if tb.Widget != nil && !tb.Widget.Initialized {
-				return
-			}
-		}
-
 		t := tabs[index]
 		if t.Widget2 != nil {
 			t.Widget2.DisconnectFinished()
@@ -316,14 +304,9 @@ func (w *Window) ConnectSignals() {
 					bukanir.Cancel()
 				}()
 			}
-
-			if t.Widget2.Initialized {
-				content = append(content[:index], content[index+1:]...)
-			}
 		} else if t.Widget != nil {
 			t.Widget.DisconnectFinished()
 
-			w.Toolbar.SetEnabled(true)
 			w.LabelStatus.SetText("")
 			w.Toolbar.Input.SetText("")
 
@@ -331,10 +314,6 @@ func (w *Window) ConnectSignals() {
 				go func() {
 					bukanir.Cancel()
 				}()
-			}
-
-			if t.Widget.Initialized {
-				content = append(content[:index], content[index+1:]...)
 			}
 		}
 
@@ -359,30 +338,36 @@ func (w *Window) ConnectSignals() {
 
 func (w *Window) Top(title string, category int) {
 	tab := NewList(w.TabWidget)
-	index := w.TabWidget.Count()
 
 	tab.ConnectItemActivated(func(item *widgets.QListWidgetItem) {
-		tidx := w.TabWidget.CurrentIndex()
-		midx := tab.Row(item)
+		data := item.Data(int(core.Qt__UserRole)).ToString()
 
-		movie := content[tidx][midx]
+		var movie bukanir.TMovie
+		err := json.Unmarshal([]byte(data), &movie)
+		if err != nil {
+			log.Printf("ERROR: Unmarshal: %s\n", err.Error())
+			return
+		}
+
 		w.Summary(movie)
 	})
 
 	tab.ConnectFinished(func(data string) {
-		w.setLoading(index, false)
-		w.Toolbar.SetEnabled(true)
+		w.setLoading(tab.QWidget_PTR(), false)
 		w.LabelStatus.SetText("")
 
 		if data != "" && data != "empty" {
-			tab.Init(index, data)
+			if runtime.GOOS == "windows" {
+				tab.InitWin32(data)
+			} else {
+				tab.Init(w.Manager, data)
+			}
 			tab.Started = false
 		}
 	})
 
 	w.TabWidget.AddTab(tab, title)
-	w.setLoading(index, true)
-	w.Toolbar.SetEnabled(false)
+	w.setLoading(tab.QWidget_PTR(), true)
 	w.LabelStatus.SetText("Downloading torrents metadata...")
 
 	tab.Started = true
@@ -398,31 +383,37 @@ func (w *Window) Search(title, query string, pages int) {
 	}
 
 	tab := NewList(w.TabWidget)
-	index := w.TabWidget.Count()
 
 	tab.ConnectItemActivated(func(item *widgets.QListWidgetItem) {
-		tidx := w.TabWidget.CurrentIndex()
-		midx := tab.Row(item)
+		data := item.Data(int(core.Qt__UserRole)).ToString()
 
-		movie := content[tidx][midx]
+		var movie bukanir.TMovie
+		err := json.Unmarshal([]byte(data), &movie)
+		if err != nil {
+			log.Printf("ERROR: Unmarshal: %s\n", err.Error())
+			return
+		}
+
 		w.Summary(movie)
 	})
 
 	tab.ConnectFinished(func(data string) {
-		w.setLoading(index, false)
-		w.Toolbar.SetEnabled(true)
+		w.setLoading(tab.QWidget_PTR(), false)
 		w.LabelStatus.SetText("")
 		w.Toolbar.Input.SetText("")
 
 		if data != "" && data != "empty" {
-			tab.Init(index, data)
+			if runtime.GOOS == "windows" {
+				tab.InitWin32(data)
+			} else {
+				tab.Init(w.Manager, data)
+			}
 			tab.Started = false
 		}
 	})
 
 	w.TabWidget.AddTab(tab, title)
-	w.setLoading(index, true)
-	w.Toolbar.SetEnabled(false)
+	w.setLoading(tab.QWidget_PTR(), true)
 	w.LabelStatus.SetText("Downloading torrents metadata...")
 
 	tab.Started = true
@@ -433,30 +424,36 @@ func (w *Window) Search(title, query string, pages int) {
 
 func (w *Window) Genre(title string, id int) {
 	tab := NewList(w.TabWidget)
-	index := w.TabWidget.Count()
 
 	tab.ConnectItemActivated(func(item *widgets.QListWidgetItem) {
-		tidx := w.TabWidget.CurrentIndex()
-		midx := tab.Row(item)
+		data := item.Data(int(core.Qt__UserRole)).ToString()
 
-		movie := content[tidx][midx]
+		var movie bukanir.TMovie
+		err := json.Unmarshal([]byte(data), &movie)
+		if err != nil {
+			log.Printf("ERROR: Unmarshal: %s\n", err.Error())
+			return
+		}
+
 		w.Summary(movie)
 	})
 
 	tab.ConnectFinished(func(data string) {
-		w.setLoading(index, false)
-		w.Toolbar.SetEnabled(true)
+		w.setLoading(tab.QWidget_PTR(), false)
 		w.LabelStatus.SetText("")
 
 		if data != "" && data != "empty" {
-			tab.Init(index, data)
+			if runtime.GOOS == "windows" {
+				tab.InitWin32(data)
+			} else {
+				tab.Init(w.Manager, data)
+			}
 			tab.Started = false
 		}
 	})
 
 	w.TabWidget.AddTab(tab, title)
-	w.setLoading(index, true)
-	w.Toolbar.SetEnabled(false)
+	w.setLoading(tab.QWidget_PTR(), true)
 	w.LabelStatus.SetText("Downloading torrents metadata...")
 
 	tab.Started = true
@@ -469,44 +466,87 @@ func (w *Window) Summary(movie bukanir.TMovie) {
 	summary := NewSummary(w.TabWidget)
 	summary.Player = NewPlayer(w)
 
-	index := w.TabWidget.Count()
-
 	summary.ConnectFinished(func(data string) {
-		w.setLoading(index, false)
-		w.Toolbar.SetEnabled(true)
+		w.setLoading(summary.QWidget_PTR(), false)
 		w.LabelStatus.SetText("")
 
 		if data != "" && data != "empty" {
-			summary.Init(index, movie, data)
+			summary.Init(movie, data)
 			summary.Started = false
+
+			if runtime.GOOS != "windows" {
+				reply := w.Manager.Get(network.NewQNetworkRequest(core.NewQUrl3(movie.PosterXLarge, core.QUrl__TolerantMode)))
+				reply.ConnectFinished(func() {
+					if reply.IsReadable() && reply.Error() == network.QNetworkReply__NoError {
+						data := reply.ReadAll()
+						if data != "" {
+							pixmap := gui.NewQPixmap()
+							ok := pixmap.LoadFromData2(data, "JPG", core.Qt__AutoColor)
+							if ok {
+								summary.Poster.SetPixmap(pixmap)
+
+								var filterObject = core.NewQObject(summary)
+								filterObject.ConnectEventFilter(func(watched *core.QObject, event *core.QEvent) bool {
+									if event.Type() == core.QEvent__Resize {
+										summary.Poster.SetPixmap(pixmap.Scaled2(summary.Poster.Width(), summary.Poster.Height(), core.Qt__KeepAspectRatio, core.Qt__SmoothTransformation))
+										return true
+									}
+									return false
+								})
+								summary.Poster.InstallEventFilter(filterObject)
+							}
+						}
+					}
+					if reply.IsFinished() {
+						reply.DeleteLater()
+					}
+				})
+			}
 		}
 	})
 
-	summary.ConnectFinished2(func(data string) {
-		w.Client.Mutex.RLock()
-		d := string(posters[data])
-		w.Client.Mutex.RUnlock()
+	if runtime.GOOS == "windows" {
+		var image []byte
 
-		pixmap := gui.NewQPixmap()
-		ok := pixmap.LoadFromData2(d, "JPG", core.Qt__AutoColor)
-		if ok {
-			summary.Poster.SetPixmap(pixmap)
+		summary.ConnectFinished2(func(data string) {
+			pixmap := gui.NewQPixmap()
+			ok := pixmap.LoadFromData2(string(image), "JPG", core.Qt__AutoColor)
+			if ok {
+				summary.Poster.SetPixmap(pixmap)
+				var filterObject = core.NewQObject(summary)
+				filterObject.ConnectEventFilter(func(watched *core.QObject, event *core.QEvent) bool {
+					if event.Type() == core.QEvent__Resize {
+						summary.Poster.SetPixmap(pixmap.Scaled2(summary.Poster.Width(), summary.Poster.Height(), core.Qt__KeepAspectRatio, core.Qt__SmoothTransformation))
+						return true
+					}
+					return false
+				})
+				summary.Poster.InstallEventFilter(filterObject)
+			}
+		})
 
-			var filterObject = core.NewQObject(summary)
-			filterObject.ConnectEventFilter(func(watched *core.QObject, event *core.QEvent) bool {
-				if event.Type() == core.QEvent__Resize {
-					summary.Poster.SetPixmap(pixmap.Scaled2(summary.Poster.Width(), summary.Poster.Height(), core.Qt__KeepAspectRatio, core.Qt__SmoothTransformation))
-					return true
-				}
-				return false
-			})
-			summary.Poster.InstallEventFilter(filterObject)
-		}
+		go func(s *Summary, uri string) {
+			res, err := http.Get(uri)
+			if err != nil {
+				log.Printf("ERROR: Get: %s\n", err.Error())
+				summary.Finished2("")
+				return
+			}
 
-		w.Client.Mutex.Lock()
-		delete(posters, data)
-		w.Client.Mutex.Unlock()
-	})
+			data, err := ioutil.ReadAll(res.Body)
+			if err != nil {
+				log.Printf("ERROR: ReadAll: %s\n", err.Error())
+				summary.Finished2("")
+				return
+			}
+			res.Body.Close()
+
+			image = data
+
+			summary.Finished2(string(data))
+		}(summary, movie.PosterXLarge)
+
+	}
 
 	summary.Watch.ConnectClicked(func(bool) {
 		idx := w.TabWidget.CurrentIndex()
@@ -552,7 +592,9 @@ func (w *Window) Summary(movie bukanir.TMovie) {
 
 		summary.Player.ConnectShutdown(func() {
 			go func() {
-				bukanir.TorrentStop()
+				if bukanir.TorrentStarted() {
+					bukanir.TorrentStop()
+				}
 			}()
 
 			summary.Watch.SetEnabled(true)
@@ -581,7 +623,10 @@ func (w *Window) Summary(movie bukanir.TMovie) {
 		go func() {
 			if !summary.Player.IsStarted() {
 				summary.Player.Init()
-				summary.Player.Wait(movie, summary.ImdbId)
+				ok, uri := summary.Player.Wait(movie, summary.ImdbId)
+				if ok {
+					summary.Player.Play(uri, fmt.Sprintf("%s (%s)", movie.Title, movie.Year))
+				}
 			}
 		}()
 
@@ -641,8 +686,7 @@ func (w *Window) Summary(movie bukanir.TMovie) {
 	}
 
 	w.TabWidget.AddTab(summary, title)
-	w.setLoading(index, true)
-	w.Toolbar.SetEnabled(false)
+	w.setLoading(summary.QWidget_PTR(), true)
 	w.LabelStatus.SetText("Downloading movie metadata...")
 
 	summary.Started = true
@@ -682,9 +726,14 @@ func (w *Window) Init() {
 	}
 }
 
-func (w *Window) setLoading(index int, visible bool) {
-	label := w.TabWidget.TabBar().TabButton(index, w.Side)
-	label.SetVisible(visible)
+func (w *Window) setLoading(widget *widgets.QWidget, visible bool) {
+	for x := 0; x < w.TabWidget.Count(); x++ {
+		tab := w.TabWidget.Widget(x)
+		if tab.Pointer() == widget.Pointer() {
+			label := w.TabWidget.TabBar().TabButton(x, w.Side)
+			label.SetVisible(visible)
+		}
+	}
 }
 
 func main() {
@@ -705,8 +754,6 @@ func main() {
 	}
 
 	tabs = make([]Tab, 0)
-	posters = make(map[string][]byte)
-	content = make([]map[int]bukanir.TMovie, 0)
 
 	bukanir.SetVerbose(true)
 	setLocale(LC_NUMERIC, "C")

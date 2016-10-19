@@ -24,6 +24,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "bukanir\bukanir.exe"; DestDir: "{app}";
+Source: "bukanir\mpv.exe"; DestDir: "{app}";
 Source: "bukanir\AUTHORS"; DestDir: "{app}";
 Source: "bukanir\COPYING"; DestDir: "{app}";
 Source: "bukanir\ChangeLog"; DestDir: "{app}";

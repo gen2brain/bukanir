@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/therecipe/qt/core"
 	"github.com/therecipe/qt/gui"
+	"github.com/therecipe/qt/network"
 	"github.com/therecipe/qt/widgets"
 
 	"github.com/gen2brain/bukanir/lib/bukanir"
@@ -44,8 +45,7 @@ type List struct {
 	*Object
 	*widgets.QListWidget
 
-	Started     bool
-	Initialized bool
+	Started bool
 }
 
 func NewList(w *widgets.QTabWidget) *List {
@@ -97,10 +97,10 @@ func NewList(w *widgets.QTabWidget) *List {
 
 	listWidget.VerticalScrollBar().InstallEventFilter(filterObject)
 
-	return &List{NewObject(w), listWidget, false, false}
+	return &List{NewObject(w), listWidget, false}
 }
 
-func (l *List) Init(index int, data string) {
+func (l *List) Init(manager *network.QNetworkAccessManager, data string) {
 	var movies []bukanir.TMovie
 	err := json.Unmarshal([]byte(data), &movies)
 	if err != nil {
@@ -108,43 +108,78 @@ func (l *List) Init(index int, data string) {
 		return
 	}
 
-	var refresh bool = false
 	if l.Count() > 0 {
 		l.Clear()
-		refresh = true
 	}
 
-	var mcontent map[int]bukanir.TMovie
-	mcontent = make(map[int]bukanir.TMovie)
+	for idx, m := range movies {
+		item := NewListItem(l, m)
+		l.InsertItem(idx, item)
 
-	var mutex sync.RWMutex
-	var images map[string][]byte
-	images = make(map[string][]byte)
+		reply := manager.Get(network.NewQNetworkRequest(core.NewQUrl3(m.PosterLarge, core.QUrl__TolerantMode)))
+		reply.ConnectFinished(func() {
+			if reply.IsReadable() && reply.Error() == network.QNetworkReply__NoError {
+				data := reply.ReadAll()
+				if data != "" {
+					pixmap := gui.NewQPixmap()
+					ok := pixmap.LoadFromData2(data, "JPG", core.Qt__AutoColor)
+					if ok {
+						item.SetIcon(gui.NewQIcon2(pixmap))
+					}
+				}
+			}
+			if reply.IsFinished() {
+				reply.DeleteLater()
+			}
+		})
+	}
+
+	l.SetFocus2()
+	l.SetCurrentRow(0)
+}
+
+func (l *List) InitWin32(data string) {
+	var movies []bukanir.TMovie
+	err := json.Unmarshal([]byte(data), &movies)
+	if err != nil {
+		log.Printf("ERROR: Unmarshal: %s\n", err.Error())
+		return
+	}
+
+	if l.Count() > 0 {
+		l.Clear()
+	}
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			Dial:                func(network, addr string) (net.Conn, error) { return net.DialTimeout(network, addr, 5*time.Second) },
+			MaxIdleConnsPerHost: 10,
+		},
+		Timeout: 10 * time.Second,
+	}
 
 	for idx, m := range movies {
-		mcontent[idx] = m
-
 		item := NewListItem(l, m)
-		item.ConnectFinished(func(magnet string) {
-			mutex.RLock()
-			data := string(images[magnet])
-			mutex.RUnlock()
+		l.InsertItem(idx, item)
 
+		var image []byte
+
+		item.ConnectFinished(func(data string) {
 			pixmap := gui.NewQPixmap()
-			ok := pixmap.LoadFromData2(data, "JPG", core.Qt__AutoColor)
+			ok := pixmap.LoadFromData2(string(image), "JPG", core.Qt__AutoColor)
 			if ok {
 				item.SetIcon(gui.NewQIcon2(pixmap))
 			}
-
-			mutex.Lock()
-			delete(images, magnet)
-			mutex.Unlock()
 		})
 
-		l.AddItem2(item)
+		go func(item *ListItem, uri string) {
+			req, err := http.NewRequest("GET", uri, nil)
+			if err != nil {
+				log.Printf("ERROR: %s\n", err.Error())
+				return
+			}
 
-		go func(item *ListItem, movie bukanir.TMovie) {
-			res, err := http.Get(movie.PosterLarge)
+			res, err := client.Do(req)
 			if err != nil {
 				log.Printf("ERROR: %s\n", err.Error())
 				return
@@ -157,24 +192,14 @@ func (l *List) Init(index int, data string) {
 			}
 			res.Body.Close()
 
-			mutex.Lock()
-			images[movie.MagnetLink] = data
-			mutex.Unlock()
+			image = data
 
-			item.Finished(movie.MagnetLink)
-		}(item, m)
-	}
-
-	if refresh {
-		content[index] = mcontent
-	} else {
-		content = append(content, mcontent)
+			item.Finished(string(data))
+		}(item, m.PosterLarge)
 	}
 
 	l.SetFocus2()
 	l.SetCurrentRow(0)
-
-	l.Initialized = true
 }
 
 type ListItem struct {
@@ -201,6 +226,9 @@ func NewListItem(l *List, m bukanir.TMovie) *ListItem {
 	item.SetText(fmt.Sprintf("%s\n%s", m.Title, desc))
 	item.SetSizeHint(core.NewQSize2(270, 425))
 
+	movie, _ := json.Marshal(m)
+	item.SetData(int(core.Qt__UserRole), core.NewQVariant14(string(movie[:])))
+
 	return &ListItem{NewObject(l), item}
 }
 
@@ -219,7 +247,6 @@ type Summary struct {
 
 	Started        bool
 	TorrentStarted bool
-	Initialized    bool
 }
 
 func NewSummary(parent *widgets.QTabWidget) *Summary {
@@ -410,10 +437,10 @@ func NewSummary(parent *widgets.QTabWidget) *Summary {
 	buttonWatch.SetVisible(false)
 	buttonTrailer.SetVisible(false)
 
-	return &Summary{NewObject(parent), frame, labelPoster, buttonWatch, buttonTrailer, "", "", nil, false, false, false}
+	return &Summary{NewObject(parent), frame, labelPoster, buttonWatch, buttonTrailer, "", "", nil, false, false}
 }
 
-func (l *Summary) Init(index int, m bukanir.TMovie, data string) {
+func (l *Summary) Init(m bukanir.TMovie, data string) {
 	var s bukanir.TSummary
 	err := json.Unmarshal([]byte(data), &s)
 	if err != nil {
@@ -435,11 +462,6 @@ func (l *Summary) Init(index int, m bukanir.TMovie, data string) {
 	labelTitle := widgets.NewQLabelFromPointer(l.QFrame.FindChild("labelTitle", core.Qt__FindChildrenRecursively))
 	labelTmdb := widgets.NewQLabelFromPointer(l.QFrame.FindChild("labelTmdb", core.Qt__FindChildrenRecursively))
 	labelTmdbLogo := widgets.NewQLabelFromPointer(l.QFrame.FindChild("labelTmdbLogo", core.Qt__FindChildrenRecursively))
-
-	var refresh bool = false
-	if labelTitle.Text() != "" {
-		refresh = true
-	}
 
 	cast := ""
 	if len(s.Cast) >= 4 {
@@ -507,17 +529,6 @@ func (l *Summary) Init(index int, m bukanir.TMovie, data string) {
 	if l.Video == "" {
 		l.Trailer.SetVisible(false)
 	}
-
-	var mcontent map[int]bukanir.TMovie
-	mcontent = make(map[int]bukanir.TMovie)
-
-	if refresh {
-		content[index] = mcontent
-	} else {
-		content = append(content, mcontent)
-	}
-
-	l.Initialized = true
 }
 
 type Toolbar struct {
@@ -789,7 +800,7 @@ func NewLog(parent *widgets.QWidget) *Log {
 func NewAbout(parent *widgets.QWidget) *widgets.QDialog {
 	dialog := widgets.NewQDialog(parent, 0)
 	dialog.SetWindowTitle("About")
-	dialog.Resize2(450, 200)
+	dialog.Resize2(450, 250)
 
 	textBrowser := widgets.NewQTextBrowser(dialog)
 	textBrowser.SetOpenExternalLinks(true)
@@ -822,7 +833,7 @@ func NewAbout(parent *widgets.QWidget) *widgets.QDialog {
 func NewHelp(parent *widgets.QWidget) *widgets.QDialog {
 	dialog := widgets.NewQDialog(parent, 0)
 	dialog.SetWindowTitle("Shortcuts (mpv)")
-	dialog.Resize2(400, 350)
+	dialog.Resize2(400, 650)
 
 	font := gui.NewQFont()
 	font.SetFamily("Monospace")

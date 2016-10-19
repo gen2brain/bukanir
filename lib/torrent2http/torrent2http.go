@@ -272,11 +272,11 @@ func startSession() {
 	settings.SetMinReconnectTime(config.MinReconnectTime)
 	settings.SetMaxFailcount(config.MaxFailCount)
 
-	settings.SetRateLimitIpOverhead(true)
+	//settings.SetRateLimitIpOverhead(true)
 	settings.SetNoAtimeStorage(true)
 	settings.SetPrioritizePartialPieces(false)
-	settings.SetFreeTorrentHashes(true)
-	settings.SetUseParoleMode(true)
+	//settings.SetFreeTorrentHashes(true)
+	//settings.SetUseParoleMode(true)
 	settings.SetMinAnnounceInterval(60)
 	settings.SetTrackerBackoff(0)
 
@@ -291,13 +291,11 @@ func startSession() {
 	settings.SetStopTrackerTimeout(1)
 	settings.SetAutoScrapeInterval(1200)
 	settings.SetAutoScrapeMinInterval(900)
-	settings.SetIgnoreLimitsOnLocalNetwork(true)
-	settings.SetRateLimitUtp(true)
+	//settings.SetIgnoreLimitsOnLocalNetwork(true)
+	//settings.SetRateLimitUtp(true)
 	settings.SetMixedModeAlgorithm(int(lt.SessionSettingsPreferTcp))
 
-	if runtime.GOARCH == "arm" && runtime.NumCPU() == 1 {
-		settings.SetConnectionsLimit(50)
-	}
+	settings.SetConnectionsLimit(100 * runtime.NumCPU())
 
 	session.SetSettings(settings)
 
