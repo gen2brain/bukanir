@@ -3,10 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -16,31 +13,35 @@ import (
 	"github.com/therecipe/qt/network"
 	"github.com/therecipe/qt/widgets"
 
-	"github.com/gen2brain/bukanir/lib/bukanir"
+	"github.com/gen2brain/bukanir/lib"
 )
 
 //go:generate qtmoc
+
+// Object type
 type Object struct {
 	core.QObject
 
-	_ func(value string) `signal:finished`
-	_ func(value string) `signal:finished2`
-	_ func(value string) `signal:finished3`
-	_ func(value string) `signal:finished4`
+	_ func(value string) `signal:"finished"`
+	_ func(value string) `signal:"finished2"`
+	_ func(value string) `signal:"finished3"`
+	_ func(value string) `signal:"finished4"`
 }
 
-//go:generate qtmoc
+// Object2 type
 type Object2 struct {
 	core.QObject
 
-	_ func(value string) `signal:valueChanged`
+	_ func(value string) `signal:"valueChanged"`
 }
 
+// LabelStatus type
 type LabelStatus struct {
 	*Object2
 	*widgets.QLabel
 }
 
+// List type
 type List struct {
 	*Object
 	*widgets.QListWidget
@@ -48,6 +49,7 @@ type List struct {
 	Started bool
 }
 
+// NewList returns new list
 func NewList(w *widgets.QTabWidget) *List {
 	listWidget := widgets.NewQListWidget(w)
 	listWidget.SetUniformItemSizes(true)
@@ -57,6 +59,10 @@ func NewList(w *widgets.QTabWidget) *List {
 	listWidget.SetSizePolicy2(widgets.QSizePolicy__Expanding, widgets.QSizePolicy__Expanding)
 	listWidget.SetVerticalScrollMode(widgets.QAbstractItemView__ScrollPerPixel)
 	listWidget.SetDragEnabled(false)
+
+	font := gui.NewQFont()
+	font.SetPixelSize(16)
+	listWidget.SetFont(font)
 
 	listWidget.SetStyleSheet(`
 		QListWidget {
@@ -100,6 +106,7 @@ func NewList(w *widgets.QTabWidget) *List {
 	return &List{NewObject(w), listWidget, false}
 }
 
+// Init initialize list
 func (l *List) Init(manager *network.QNetworkAccessManager, data string) {
 	var movies []bukanir.TMovie
 	err := json.Unmarshal([]byte(data), &movies)
@@ -118,9 +125,11 @@ func (l *List) Init(manager *network.QNetworkAccessManager, data string) {
 
 		reply := manager.Get(network.NewQNetworkRequest(core.NewQUrl3(m.PosterLarge, core.QUrl__TolerantMode)))
 		reply.ConnectFinished(func() {
+			defer reply.DeleteLater()
+
 			if reply.IsReadable() && reply.Error() == network.QNetworkReply__NoError {
 				data := reply.ReadAll()
-				if data != "" {
+				if data.ConstData() != "" {
 					pixmap := gui.NewQPixmap()
 					ok := pixmap.LoadFromData2(data, "JPG", core.Qt__AutoColor)
 					if ok {
@@ -128,9 +137,6 @@ func (l *List) Init(manager *network.QNetworkAccessManager, data string) {
 					}
 				}
 			}
-			if reply.IsFinished() {
-				reply.DeleteLater()
-			}
 		})
 	}
 
@@ -138,75 +144,13 @@ func (l *List) Init(manager *network.QNetworkAccessManager, data string) {
 	l.SetCurrentRow(0)
 }
 
-func (l *List) InitWin32(data string) {
-	var movies []bukanir.TMovie
-	err := json.Unmarshal([]byte(data), &movies)
-	if err != nil {
-		log.Printf("ERROR: Unmarshal: %s\n", err.Error())
-		return
-	}
-
-	if l.Count() > 0 {
-		l.Clear()
-	}
-
-	client := &http.Client{
-		Transport: &http.Transport{
-			Dial:                func(network, addr string) (net.Conn, error) { return net.DialTimeout(network, addr, 5*time.Second) },
-			MaxIdleConnsPerHost: 10,
-		},
-		Timeout: 10 * time.Second,
-	}
-
-	for idx, m := range movies {
-		item := NewListItem(l, m)
-		l.InsertItem(idx, item)
-
-		var image []byte
-
-		item.ConnectFinished(func(data string) {
-			pixmap := gui.NewQPixmap()
-			ok := pixmap.LoadFromData2(string(image), "JPG", core.Qt__AutoColor)
-			if ok {
-				item.SetIcon(gui.NewQIcon2(pixmap))
-			}
-		})
-
-		go func(item *ListItem, uri string) {
-			req, err := http.NewRequest("GET", uri, nil)
-			if err != nil {
-				log.Printf("ERROR: %s\n", err.Error())
-				return
-			}
-
-			res, err := client.Do(req)
-			if err != nil {
-				log.Printf("ERROR: %s\n", err.Error())
-				return
-			}
-
-			data, err := ioutil.ReadAll(res.Body)
-			if err != nil {
-				log.Printf("ERROR: ReadAll: %s\n", err.Error())
-				return
-			}
-			res.Body.Close()
-
-			image = data
-
-			item.Finished(string(data))
-		}(item, m.PosterLarge)
-	}
-
-	l.SetFocus2()
-	l.SetCurrentRow(0)
-}
-
+// ListItem type
 type ListItem struct {
 	*Object
 	*widgets.QListWidgetItem
 }
 
+// NewListItem returns new list item
 func NewListItem(l *List, m bukanir.TMovie) *ListItem {
 	var desc string
 	if m.Category == bukanir.CategoryTV || m.Category == bukanir.CategoryHDTV {
@@ -218,13 +162,10 @@ func NewListItem(l *List, m bukanir.TMovie) *ListItem {
 		}
 	}
 
-	font := gui.NewQFont()
-	font.SetPixelSize(16)
-
 	item := widgets.NewQListWidgetItem(l, 0)
-	item.SetFont(font)
+	item.SetSizeHint(core.NewQSize2(270, 450))
+
 	item.SetText(fmt.Sprintf("%s\n%s", m.Title, desc))
-	item.SetSizeHint(core.NewQSize2(270, 425))
 
 	movie, _ := json.Marshal(m)
 	item.SetData(int(core.Qt__UserRole), core.NewQVariant14(string(movie[:])))
@@ -232,6 +173,7 @@ func NewListItem(l *List, m bukanir.TMovie) *ListItem {
 	return &ListItem{NewObject(l), item}
 }
 
+// Summary type
 type Summary struct {
 	*Object
 	*widgets.QFrame
@@ -247,8 +189,22 @@ type Summary struct {
 
 	Started        bool
 	TorrentStarted bool
+
+	labelCast        *widgets.QLabel
+	labelDirector    *widgets.QLabel
+	labelGenre       *widgets.QLabel
+	labelOverview    *widgets.QLabel
+	labelRatingYear  *widgets.QLabel
+	labelRuntimeSize *widgets.QLabel
+	labelRelease     *widgets.QLabel
+	labelTagline     *widgets.QLabel
+	labelTitle       *widgets.QLabel
+	labelTmdb        *widgets.QLabel
+	labelTmdbLogo    *widgets.QLabel
+	labelOpenSubs    *widgets.QLabel
 }
 
+// NewSummary returns new summary
 func NewSummary(parent *widgets.QTabWidget) *Summary {
 	frame := widgets.NewQFrame(parent, core.Qt__Widget)
 	widget := widgets.NewQWidget(frame, 0)
@@ -256,7 +212,6 @@ func NewSummary(parent *widgets.QTabWidget) *Summary {
 	// Labels
 	labelTitle := widgets.NewQLabel(widget, 0)
 	labelTitle.SetWordWrap(true)
-	labelTitle.SetObjectName("labelTitle")
 	labelTitle.Font().SetPointSize(20)
 	labelTitle.Font().SetBold(true)
 	labelTitle.SetMinimumWidth(475)
@@ -264,38 +219,31 @@ func NewSummary(parent *widgets.QTabWidget) *Summary {
 
 	labelRatingYear := widgets.NewQLabel(widget, 0)
 	labelRatingYear.SetWordWrap(true)
-	labelRatingYear.SetObjectName("labelRatingYear")
 	labelRatingYear.Font().SetPointSize(12)
 
 	labelGenre := widgets.NewQLabel(widget, 0)
 	labelGenre.SetWordWrap(true)
-	labelGenre.SetObjectName("labelGenre")
 	labelGenre.Font().SetPointSize(12)
 
 	labelRuntimeSize := widgets.NewQLabel(widget, 0)
 	labelRuntimeSize.SetWordWrap(true)
-	labelRuntimeSize.SetObjectName("labelRuntimeSize")
 	labelRuntimeSize.Font().SetPointSize(12)
 
 	labelRelease := widgets.NewQLabel(widget, 0)
 	labelRelease.SetWordWrap(true)
-	labelRelease.SetObjectName("labelRelease")
 	labelRelease.Font().SetPointSize(10)
 
 	labelTagline := widgets.NewQLabel(widget, 0)
 	labelTagline.SetWordWrap(true)
-	labelTagline.SetObjectName("labelTagline")
 	labelTagline.Font().SetPointSize(14)
 	labelTagline.Font().SetBold(true)
 
 	labelDirector := widgets.NewQLabel(widget, 0)
 	labelDirector.SetWordWrap(true)
-	labelDirector.SetObjectName("labelDirector")
 	labelDirector.Font().SetPointSize(12)
 
 	labelCast := widgets.NewQLabel(widget, 0)
 	labelCast.SetWordWrap(true)
-	labelCast.SetObjectName("labelCast")
 	labelCast.Font().SetPointSize(12)
 
 	// Overview scroll
@@ -309,7 +257,6 @@ func NewSummary(parent *widgets.QTabWidget) *Summary {
 
 	labelOverview := widgets.NewQLabel(widget, 0)
 	labelOverview.SetWordWrap(true)
-	labelOverview.SetObjectName("labelOverview")
 	labelOverview.Font().SetPointSize(12)
 	labelOverview.SetAlignment(core.Qt__AlignLeft | core.Qt__AlignTop)
 
@@ -341,7 +288,6 @@ func NewSummary(parent *widgets.QTabWidget) *Summary {
 	labelPoster.SetScaledContents(true)
 	labelPoster.SetMinimumSize2(300, 450)
 	labelPoster.SetMaximumSize2(700, 1050)
-	labelPoster.SetObjectName("labelPoster")
 
 	// Horizontal layout
 	hlayout := widgets.NewQHBoxLayout()
@@ -351,22 +297,24 @@ func NewSummary(parent *widgets.QTabWidget) *Summary {
 	hlayout.AddWidget(labelPoster, 0, 0)
 	hlayout.AddLayout(vlayout, 0)
 
-	// Tmdb
+	// Tmdb/OpenSubs
 	labelTmdb := widgets.NewQLabel(widget, 0)
-	labelTmdb.SetObjectName("labelTmdb")
 	labelTmdb.Font().SetPointSize(8)
 
 	labelTmdbLogo := widgets.NewQLabel(widget, 0)
-	labelTmdbLogo.SetObjectName("labelTmdbLogo")
 	labelTmdbLogo.Font().SetPointSize(8)
 
-	// Tmdb layout
+	labelOpenSubs := widgets.NewQLabel(widget, 0)
+	labelOpenSubs.Font().SetPointSize(8)
+
+	// Tmdb/OpenSubs layout
 	vlayout2 := widgets.NewQVBoxLayout()
 	vlayout2.SetSpacing(0)
 	vlayout2.SetContentsMargins(0, 0, 0, 0)
 
 	vlayout2.AddWidget(labelTmdbLogo, 0, 0)
 	vlayout2.AddWidget(labelTmdb, 0, 0)
+	vlayout2.AddWidget(labelOpenSubs, 0, 0)
 
 	// Buttons
 	stylesheet := `
@@ -395,13 +343,13 @@ func NewSummary(parent *widgets.QTabWidget) *Summary {
 	buttonWatch.SetSizePolicy2(widgets.QSizePolicy__Minimum, widgets.QSizePolicy__Fixed)
 	buttonWatch.SetStyleSheet(stylesheet)
 	buttonWatch.SetCursor(gui.NewQCursor2(core.Qt__PointingHandCursor))
-	buttonWatch.SetText("WATCH")
+	buttonWatch.SetText(tr("WATCH"))
 
 	buttonTrailer := widgets.NewQPushButton(widget)
 	buttonTrailer.SetSizePolicy2(widgets.QSizePolicy__Minimum, widgets.QSizePolicy__Fixed)
 	buttonTrailer.SetStyleSheet(stylesheet)
 	buttonTrailer.SetCursor(gui.NewQCursor2(core.Qt__PointingHandCursor))
-	buttonTrailer.SetText("TRAILER")
+	buttonTrailer.SetText(tr("TRAILER"))
 
 	// Buttons layout
 	hlayout2 := widgets.NewQHBoxLayout()
@@ -437,9 +385,14 @@ func NewSummary(parent *widgets.QTabWidget) *Summary {
 	buttonWatch.SetVisible(false)
 	buttonTrailer.SetVisible(false)
 
-	return &Summary{NewObject(parent), frame, labelPoster, buttonWatch, buttonTrailer, "", "", nil, false, false}
+	return &Summary{
+		NewObject(parent), frame, labelPoster, buttonWatch, buttonTrailer, "", "", nil, false, false,
+		labelCast, labelDirector, labelGenre, labelOverview, labelRatingYear, labelRuntimeSize,
+		labelRelease, labelTagline, labelTitle, labelTmdb, labelTmdbLogo, labelOpenSubs,
+	}
 }
 
+// Init initialize summmary
 func (l *Summary) Init(m bukanir.TMovie, data string) {
 	var s bukanir.TSummary
 	err := json.Unmarshal([]byte(data), &s)
@@ -450,18 +403,6 @@ func (l *Summary) Init(m bukanir.TMovie, data string) {
 
 	l.Video = s.Video
 	l.ImdbId = s.ImdbId
-
-	labelCast := widgets.NewQLabelFromPointer(l.QFrame.FindChild("labelCast", core.Qt__FindChildrenRecursively))
-	labelDirector := widgets.NewQLabelFromPointer(l.QFrame.FindChild("labelDirector", core.Qt__FindChildrenRecursively))
-	labelGenre := widgets.NewQLabelFromPointer(l.QFrame.FindChild("labelGenre", core.Qt__FindChildrenRecursively))
-	labelOverview := widgets.NewQLabelFromPointer(l.QFrame.FindChild("labelOverview", core.Qt__FindChildrenRecursively))
-	labelRatingYear := widgets.NewQLabelFromPointer(l.QFrame.FindChild("labelRatingYear", core.Qt__FindChildrenRecursively))
-	labelRuntimeSize := widgets.NewQLabelFromPointer(l.QFrame.FindChild("labelRuntimeSize", core.Qt__FindChildrenRecursively))
-	labelRelease := widgets.NewQLabelFromPointer(l.QFrame.FindChild("labelRelease", core.Qt__FindChildrenRecursively))
-	labelTagline := widgets.NewQLabelFromPointer(l.QFrame.FindChild("labelTagline", core.Qt__FindChildrenRecursively))
-	labelTitle := widgets.NewQLabelFromPointer(l.QFrame.FindChild("labelTitle", core.Qt__FindChildrenRecursively))
-	labelTmdb := widgets.NewQLabelFromPointer(l.QFrame.FindChild("labelTmdb", core.Qt__FindChildrenRecursively))
-	labelTmdbLogo := widgets.NewQLabelFromPointer(l.QFrame.FindChild("labelTmdbLogo", core.Qt__FindChildrenRecursively))
 
 	cast := ""
 	if len(s.Cast) >= 4 {
@@ -505,22 +446,24 @@ func (l *Summary) Init(m bukanir.TMovie, data string) {
 	}
 
 	tmdb := gui.NewQPixmap5(":/qml/images/tmdb.png", "PNG", core.Qt__AutoColor)
-	tmdbText := "This product uses the TMDb API but is not endorsed or certified by TMDb."
+	tmdbText := tr("This product uses the TMDb API but is not endorsed or certified by TMDb.")
+	openSubsText := tr("Subtitles are from opensubtitles.org, podnapisi.net and subscene.com.")
 
-	labelCast.SetText(cast)
-	labelDirector.SetText(director)
-	labelGenre.SetText(genre)
-	labelOverview.SetText(s.Overview)
-	labelRatingYear.SetText(rating + desc)
-	labelRuntimeSize.SetText(runtime + m.SizeHuman)
-	labelRelease.SetText(release)
-	labelTagline.SetText(s.TagLine)
-	labelTitle.SetText(m.Title)
-	labelTmdbLogo.SetPixmap(tmdb)
-	labelTmdb.SetText(tmdbText)
+	l.labelCast.SetText(cast)
+	l.labelDirector.SetText(director)
+	l.labelGenre.SetText(genre)
+	l.labelOverview.SetText(s.Overview)
+	l.labelRatingYear.SetText(rating + desc)
+	l.labelRuntimeSize.SetText(runtime + m.SizeHuman)
+	l.labelRelease.SetText(release)
+	l.labelTagline.SetText(s.TagLine)
+	l.labelTitle.SetText(m.Title)
+	l.labelTmdbLogo.SetPixmap(tmdb)
+	l.labelTmdb.SetText(tmdbText)
+	l.labelOpenSubs.SetText(openSubsText)
 
 	if s.TagLine == "" {
-		labelTagline.SetEnabled(false)
+		l.labelTagline.SetEnabled(false)
 	}
 
 	l.Watch.SetVisible(true)
@@ -531,6 +474,7 @@ func (l *Summary) Init(m bukanir.TMovie, data string) {
 	}
 }
 
+// Toolbar type
 type Toolbar struct {
 	*Object
 	*widgets.QWidget
@@ -549,6 +493,7 @@ type Toolbar struct {
 	Genre    *widgets.QToolButton
 }
 
+// NewToolbar returns new toolbar
 func NewToolbar(parent *widgets.QWidget) *Toolbar {
 	widget := widgets.NewQWidget(parent, 0)
 	widget.SetStyleSheet("QMenu {font-size: 11px;} QMenu::item {color: #000000;}")
@@ -556,14 +501,14 @@ func NewToolbar(parent *widgets.QWidget) *Toolbar {
 	lineInput := widgets.NewQLineEdit(widget)
 	lineInput.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
 	lineInput.SetMinimumWidth(200)
-	lineInput.SetPlaceholderText("Search")
+	lineInput.SetPlaceholderText(tr("Search"))
 
 	searchButton := widgets.NewQPushButton(widget)
 	searchButton.SetIcon(gui.NewQIcon5(":/qml/images/search.png"))
 	searchButton.SetIconSize(core.NewQSize2(20, 20))
 	searchButton.SetSizePolicy2(widgets.QSizePolicy__Minimum, widgets.QSizePolicy__Fixed)
 	searchButton.SetCursor(gui.NewQCursor2(core.Qt__PointingHandCursor))
-	searchButton.SetToolTip("Search")
+	searchButton.SetToolTip(tr("Search"))
 
 	refreshButton := widgets.NewQPushButton(widget)
 	refreshButton.SetIcon(gui.NewQIcon5(":/qml/images/refresh.png"))
@@ -577,60 +522,59 @@ func NewToolbar(parent *widgets.QWidget) *Toolbar {
 	logButton.SetIconSize(core.NewQSize2(20, 20))
 	logButton.SetSizePolicy2(widgets.QSizePolicy__Minimum, widgets.QSizePolicy__Fixed)
 	logButton.SetCursor(gui.NewQCursor2(core.Qt__PointingHandCursor))
-	logButton.SetToolTip("Log")
+	logButton.SetToolTip(tr("Log"))
 
 	settingsButton := widgets.NewQPushButton(widget)
 	settingsButton.SetIcon(gui.NewQIcon5(":/qml/images/settings.png"))
 	settingsButton.SetIconSize(core.NewQSize2(20, 20))
 	settingsButton.SetSizePolicy2(widgets.QSizePolicy__Minimum, widgets.QSizePolicy__Fixed)
 	settingsButton.SetCursor(gui.NewQCursor2(core.Qt__PointingHandCursor))
-	settingsButton.SetToolTip("Settings")
+	settingsButton.SetToolTip(tr("Settings"))
 
 	aboutButton := widgets.NewQPushButton(widget)
-	//aboutButton.SetStyleSheet("QPushButton {border: 0; outline: 0;}")
 	aboutButton.SetIcon(gui.NewQIcon5(":/qml/images/bukanir-gray.png"))
 	aboutButton.SetIconSize(core.NewQSize2(20, 20))
 	aboutButton.SetCursor(gui.NewQCursor2(core.Qt__PointingHandCursor))
-	aboutButton.SetToolTip("About")
+	aboutButton.SetToolTip(tr("About"))
 
 	topButton := widgets.NewQToolButton(widget)
 	topButton.SetPopupMode(widgets.QToolButton__InstantPopup)
 	topButton.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
 	topButton.SetMinimumSize2(45, 26)
-	topButton.SetText("Top")
+	topButton.SetText(tr("Top"))
 
 	yearButton := widgets.NewQToolButton(widget)
 	yearButton.SetPopupMode(widgets.QToolButton__InstantPopup)
 	yearButton.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
 	yearButton.SetMinimumSize2(45, 26)
-	yearButton.SetText("Year")
+	yearButton.SetText(tr("Year"))
 
 	popularButton := widgets.NewQToolButton(widget)
 	popularButton.SetPopupMode(widgets.QToolButton__InstantPopup)
 	popularButton.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
 	popularButton.SetMinimumSize2(45, 26)
-	popularButton.SetText("Popular")
+	popularButton.SetText(tr("Popular"))
 
 	topRatedButton := widgets.NewQToolButton(widget)
 	topRatedButton.SetPopupMode(widgets.QToolButton__InstantPopup)
 	topRatedButton.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
 	topRatedButton.SetMinimumSize2(45, 26)
-	topRatedButton.SetText("Top Rated")
+	topRatedButton.SetText(tr("Top Rated"))
 
 	byGenreButton := widgets.NewQToolButton(widget)
 	byGenreButton.SetPopupMode(widgets.QToolButton__InstantPopup)
 	byGenreButton.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
 	byGenreButton.SetMinimumSize2(45, 26)
-	byGenreButton.SetText("Genre")
+	byGenreButton.SetText(tr("Genre"))
 
 	topMenu := widgets.NewQMenu(widget)
-	action := topMenu.AddAction("Movies")
+	action := topMenu.AddAction(tr("Movies"))
 	action.SetData(core.NewQVariant7(bukanir.CategoryMovies))
-	action = topMenu.AddAction("HD Movies")
+	action = topMenu.AddAction(tr("HD Movies"))
 	action.SetData(core.NewQVariant7(bukanir.CategoryHDmovies))
-	action = topMenu.AddAction("TV Shows")
+	action = topMenu.AddAction(tr("TV Shows"))
 	action.SetData(core.NewQVariant7(bukanir.CategoryTV))
-	action = topMenu.AddAction("HD TV Shows")
+	action = topMenu.AddAction(tr("HD TV Shows"))
 	action.SetData(core.NewQVariant7(bukanir.CategoryHDTV))
 	topButton.SetMenu(topMenu)
 
@@ -687,14 +631,14 @@ func NewToolbar(parent *widgets.QWidget) *Toolbar {
 			return
 		}
 
-		popularMenu.AddSection(" Movies ")
+		popularMenu.AddSection(tr(" Movies "))
 		for _, p := range d {
 			if p.Title != "" && p.Year != "" {
 				text := fmt.Sprintf("%s (%s)", p.Title, p.Year)
 				a := popularMenu.AddAction(text)
 				a.SetData(core.NewQVariant14(p.Title))
 			} else {
-				popularMenu.AddSection(" TV Shows ")
+				popularMenu.AddSection(tr(" TV Shows "))
 			}
 		}
 
@@ -715,7 +659,7 @@ func NewToolbar(parent *widgets.QWidget) *Toolbar {
 				a := topRatedMenu.AddAction(text)
 				a.SetData(core.NewQVariant14(t.Title))
 			} else {
-				topRatedMenu.AddSection(" TV Shows ")
+				topRatedMenu.AddSection(tr(" TV Shows "))
 			}
 		}
 	})
@@ -739,6 +683,7 @@ func NewToolbar(parent *widgets.QWidget) *Toolbar {
 	return toolbar
 }
 
+// SetEnabled sets elements enabled property
 func (t *Toolbar) SetEnabled(enabled bool) {
 	t.Input.SetEnabled(enabled)
 	t.Search.SetEnabled(enabled)
@@ -750,6 +695,7 @@ func (t *Toolbar) SetEnabled(enabled bool) {
 	t.Genre.SetEnabled(enabled)
 }
 
+// Complete completes search queries
 func (t *Toolbar) Complete(w *Window, data string) {
 	var c []bukanir.TItem
 	err := json.Unmarshal([]byte(data), &c)
@@ -769,6 +715,7 @@ func (t *Toolbar) Complete(w *Window, data string) {
 	w.Completer.Complete(core.NewQRect())
 }
 
+// Log type
 type Log struct {
 	*Object2
 	*widgets.QDialog
@@ -776,9 +723,10 @@ type Log struct {
 	TextEdit *widgets.QPlainTextEdit
 }
 
+// NewLog returns new log
 func NewLog(parent *widgets.QWidget) *Log {
 	dialog := widgets.NewQDialog(parent, 0)
-	dialog.SetWindowTitle("Log")
+	dialog.SetWindowTitle(tr("Log"))
 	dialog.Resize2(700, 520)
 
 	textEdit := widgets.NewQPlainTextEdit(parent)
@@ -787,6 +735,8 @@ func NewLog(parent *widgets.QWidget) *Log {
 
 	buttonBox := widgets.NewQDialogButtonBox3(widgets.QDialogButtonBox__Close, dialog)
 	buttonBox.ConnectRejected(func() { dialog.Close() })
+
+	buttonBox.Button(widgets.QDialogButtonBox__Close).SetText(tr("Close"))
 
 	vlayout := widgets.NewQVBoxLayout()
 	vlayout.AddWidget(textEdit, 1, 0)
@@ -797,9 +747,10 @@ func NewLog(parent *widgets.QWidget) *Log {
 	return &Log{NewObject2(parent), dialog, textEdit}
 }
 
+// NewAbout returns new about
 func NewAbout(parent *widgets.QWidget) *widgets.QDialog {
 	dialog := widgets.NewQDialog(parent, 0)
-	dialog.SetWindowTitle("About")
+	dialog.SetWindowTitle(tr("About"))
 	dialog.Resize2(450, 250)
 
 	textBrowser := widgets.NewQTextBrowser(dialog)
@@ -817,6 +768,9 @@ func NewAbout(parent *widgets.QWidget) *widgets.QDialog {
 	buttonBox.ConnectRejected(func() { dialog.Close() })
 	buttonBox.ConnectHelpRequested(func() { NewHelp(dialog.QWidget_PTR()).Show() })
 
+	buttonBox.Button(widgets.QDialogButtonBox__Close).SetText(tr("Close"))
+	buttonBox.Button(widgets.QDialogButtonBox__Help).SetText(tr("Help"))
+
 	hlayout := widgets.NewQHBoxLayout()
 	hlayout.AddWidget(label, 0, 0)
 	hlayout.AddWidget(textBrowser, 0, 0)
@@ -830,9 +784,10 @@ func NewAbout(parent *widgets.QWidget) *widgets.QDialog {
 	return dialog
 }
 
+// NewHelp returns new help
 func NewHelp(parent *widgets.QWidget) *widgets.QDialog {
 	dialog := widgets.NewQDialog(parent, 0)
-	dialog.SetWindowTitle("Shortcuts (mpv)")
+	dialog.SetWindowTitle(tr("Shortcuts (mpv)"))
 	dialog.Resize2(400, 650)
 
 	font := gui.NewQFont()
@@ -867,6 +822,8 @@ func NewHelp(parent *widgets.QWidget) *widgets.QDialog {
 
 	buttonBox := widgets.NewQDialogButtonBox3(widgets.QDialogButtonBox__Close, dialog)
 	buttonBox.ConnectRejected(func() { dialog.Close() })
+
+	buttonBox.Button(widgets.QDialogButtonBox__Close).SetText(tr("Close"))
 
 	vlayout := widgets.NewQVBoxLayout()
 	vlayout.AddWidget(textBrowser, 0, 0)

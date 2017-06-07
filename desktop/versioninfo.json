@@ -3,13 +3,13 @@
 	{
 		"FileVersion": {
 			"Major": 2,
-			"Minor": 3,
+			"Minor": 4,
 			"Patch": 0,
 			"Build": 0
 		},
 		"ProductVersion": {
 			"Major": 2,
-			"Minor": 3,
+			"Minor": 4,
 			"Patch": 0,
 			"Build": 0
 		},
@@ -24,14 +24,14 @@
 		"Comments": "Bukanir streams movies and TV shows from bittorrent magnet links",
 		"CompanyName": "",
 		"FileDescription": "Bukanir",
-		"FileVersion": "2.3.0",
+		"FileVersion": "2.4.0",
 		"InternalName": "",
 		"LegalCopyright": "",
 		"LegalTrademarks": "",
 		"OriginalFilename": "bukanir.exe",
 		"PrivateBuild": "",
 		"ProductName": "Bukanir",
-		"ProductVersion": "2.3.0",
+		"ProductVersion": "2.4.0",
 		"SpecialBuild": ""
 	},
 	"VarFileInfo":

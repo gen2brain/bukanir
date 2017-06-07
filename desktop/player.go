@@ -1,5 +1,3 @@
-// +build !windows
-
 package main
 
 // #include <mpv/client.h>
@@ -10,9 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -21,21 +17,22 @@ import (
 	"github.com/therecipe/qt/widgets"
 	"gitlab.com/hannahxy/go-mpv"
 
-	"github.com/gen2brain/bukanir/lib/bukanir"
+	"github.com/gen2brain/bukanir/lib"
 )
 
-//go:generate qtmoc
+// Object3 type
 type Object3 struct {
 	core.QObject
 
-	_ func() `signal:paused`
-	_ func() `signal:unpaused`
-	_ func() `signal:startFile`
-	_ func() `signal:fileLoaded`
-	_ func() `signal:endFile`
-	_ func() `signal:shutdown`
+	_ func() `signal:"paused"`
+	_ func() `signal:"unpaused"`
+	_ func() `signal:"startFile"`
+	_ func() `signal:"fileLoaded"`
+	_ func() `signal:"endFile"`
+	_ func() `signal:"shutdown"`
 }
 
+// Player type
 type Player struct {
 	*Object3
 
@@ -46,10 +43,12 @@ type Player struct {
 	started bool
 }
 
+// NewPlayer returns new player
 func NewPlayer(w *Window) *Player {
 	return &Player{NewObject3(w), nil, w, false, false}
 }
 
+// Init initialize player
 func (p *Player) Init() {
 	p.Mpv = mpv.Create()
 	p.Mpv.RequestLogMessages("info")
@@ -73,7 +72,6 @@ func (p *Player) Init() {
 		p.SetOptionString("ao", "coreaudio,sdl,null")
 	}
 
-	//p.SetOptionString("no-cache", "yes")
 	p.SetOption("cache-default", mpv.FORMAT_INT64, 128)
 	p.SetOption("cache-seek-min", mpv.FORMAT_INT64, 32)
 	p.SetOption("cache-secs", mpv.FORMAT_DOUBLE, 1.0)
@@ -103,6 +101,7 @@ func (p *Player) Init() {
 	}
 }
 
+// SetOption sets option
 func (p *Player) SetOption(name string, format mpv.Format, data interface{}) {
 	err := p.Mpv.SetOption(name, format, data)
 	if err != nil {
@@ -110,6 +109,7 @@ func (p *Player) SetOption(name string, format mpv.Format, data interface{}) {
 	}
 }
 
+// SetOptionString sets string option
 func (p *Player) SetOptionString(name, value string) {
 	err := p.Mpv.SetOptionString(name, value)
 	if err != nil {
@@ -117,6 +117,7 @@ func (p *Player) SetOptionString(name, value string) {
 	}
 }
 
+// Wait waits for torrent to download enough data
 func (p *Player) Wait(movie bukanir.TMovie, imdbId string) (bool, string) {
 	if !bukanir.TorrentWaitStartup() {
 		return false, ""
@@ -126,10 +127,25 @@ func (p *Player) Wait(movie bukanir.TMovie, imdbId string) (bool, string) {
 
 	retry := 0
 	ready := false
-	subs := false
+
+	if p.Window.Settings.Subtitles {
+		var subDir string
+		if p.Window.Settings.KeepFiles && p.Window.Settings.DlPath != "" {
+			subDir = p.Window.Settings.DlPath
+		} else {
+			subDir = tempDir
+		}
+
+		_, err := os.Stat(subDir)
+		if err == nil {
+			go func() {
+				p.AddSubtitles(movie, imdbId, subDir)
+			}()
+		}
+	}
 
 	for !ready {
-		started := bukanir.TorrentStarted()
+		started := bukanir.TorrentRunning()
 		if !started {
 			if retry > 3 {
 				return false, ""
@@ -158,26 +174,6 @@ func (p *Player) Wait(movie bukanir.TMovie, imdbId string) (bool, string) {
 						continue
 					}
 
-					if !subs && p.Window.Settings.Subtitles {
-						subDir := strings.Replace(file.Url, "http://127.0.0.1:5001/files", "", -1)
-						subDir = filepath.Dir(subDir)
-						subDir, _ = url.QueryUnescape(subDir)
-
-						if p.Window.Settings.KeepFiles && p.Window.Settings.DlPath != "" {
-							subDir = filepath.Join(p.Window.Settings.DlPath, subDir)
-						} else {
-							subDir = filepath.Join(tempDir, subDir)
-						}
-
-						_, err := os.Stat(subDir)
-						if err == nil {
-							subs = true
-							go func() {
-								p.AddSubtitles(movie, imdbId, subDir)
-							}()
-						}
-					}
-
 					required := file.Size / 100
 					value := float64(status.TotalDownload) / float64(required) * 100
 					p.Window.ProgressBar.ValueChanged(int(value))
@@ -191,12 +187,14 @@ func (p *Player) Wait(movie bukanir.TMovie, imdbId string) (bool, string) {
 				}
 			}
 		}
+
 		time.Sleep(1 * time.Second)
 	}
 
 	return true, file.Url
 }
 
+// Status shows torrent status on pause
 func (p *Player) Status() {
 	for p.IsPaused() {
 		s, err := bukanir.TorrentStatus()
@@ -215,12 +213,14 @@ func (p *Player) Status() {
 				}
 			}
 		}
+
 		time.Sleep(1 * time.Second)
 	}
 
 	p.Window.LabelStatus.ValueChanged("")
 }
 
+// AddSubtitles add subtitles to player
 func (p *Player) AddSubtitles(m bukanir.TMovie, imdbId string, subDir string) {
 	str, err := bukanir.Subtitle(m.Title, m.Year, m.Release, p.Window.Settings.Language, m.Category, m.Season, m.Episode, imdbId)
 	if err != nil {
@@ -263,6 +263,7 @@ func (p *Player) AddSubtitles(m bukanir.TMovie, imdbId string, subDir string) {
 	p.SetOption("sub-file", mpv.FORMAT_NODE, node)
 }
 
+// Play plays movie
 func (p *Player) Play(url string, title string) {
 	if title != "" {
 		p.SetOptionString("force-media-title", title)
@@ -288,6 +289,7 @@ func (p *Player) Play(url string, title string) {
 	p.Shutdown()
 }
 
+// Stop stops movie
 func (p *Player) Stop() {
 	if p.IsStarted() {
 		err := p.Mpv.Command([]string{"stop"})
@@ -297,14 +299,17 @@ func (p *Player) Stop() {
 	}
 }
 
+// IsPaused checks if player is paused
 func (p *Player) IsPaused() bool {
 	return p.paused
 }
 
+// IsStarted checks if player is started
 func (p *Player) IsStarted() bool {
 	return p.started
 }
 
+// handleEvent handles player events
 func (p *Player) handleEvent(e *mpv.Event) {
 	switch e.Event_Id {
 	case mpv.EVENT_PAUSE:

@@ -11,9 +11,10 @@ import (
 	"github.com/therecipe/qt/gui"
 	"github.com/therecipe/qt/widgets"
 
-	"github.com/gen2brain/bukanir/lib/bukanir"
+	"github.com/gen2brain/bukanir/lib"
 )
 
+// Settings type
 type Settings struct {
 	*widgets.QDialog
 	*core.QSettings
@@ -29,6 +30,8 @@ type Settings struct {
 	Scale           float64
 	Color           string
 	Encryption      bool
+	Proxy           bool
+	Blocklist       bool
 	DlRate          int
 	UlRate          int
 	Port            int
@@ -36,25 +39,51 @@ type Settings struct {
 	EZTVHost        string
 	KeepFiles       bool
 	DlPath          string
+
+	comboLimit           *widgets.QComboBox
+	comboDays            *widgets.QComboBox
+	checkFullscreen      *widgets.QCheckBox
+	checkStopScreensaver *widgets.QCheckBox
+	sliderVolumeMax      *widgets.QSlider
+	groupSubtitles       *widgets.QGroupBox
+	comboLanguage        *widgets.QComboBox
+	comboCodepage        *widgets.QComboBox
+	spinScale            *widgets.QDoubleSpinBox
+	pushColor            *widgets.QPushButton
+	checkEncryption      *widgets.QCheckBox
+	checkProxy           *widgets.QCheckBox
+	checkBlocklist       *widgets.QCheckBox
+	comboDlRate          *widgets.QComboBox
+	comboUlRate          *widgets.QComboBox
+	spinPort             *widgets.QSpinBox
+	comboTPB             *widgets.QComboBox
+	comboEZTV            *widgets.QComboBox
+	checkKeepFiles       *widgets.QCheckBox
+	lineDlPath           *widgets.QLineEdit
+	pushDlPath           *widgets.QPushButton
+	labelLanguage        *widgets.QLabel
+	labelCodepage        *widgets.QLabel
+	labelScale           *widgets.QLabel
+	labelColor           *widgets.QLabel
+	buttonBox            *widgets.QDialogButtonBox
 }
 
+// NewSettings returns new settings
 func NewSettings(parent *widgets.QWidget) *Settings {
 	widget := widgets.NewQDialog(parent, 0)
 	widget.SetWindowTitle("Settings")
 	widget.Resize2(430, 645)
 
 	// General
-	groupGeneral := widgets.NewQGroupBox2("General", widget)
+	groupGeneral := widgets.NewQGroupBox2(tr("General"), widget)
 
-	labelLimit := widgets.NewQLabel2("Movies limit per tab", widget, 0)
-	labelDays := widgets.NewQLabel2("Days to keep cache", widget, 0)
+	labelLimit := widgets.NewQLabel2(tr("Movies limit per tab"), widget, 0)
+	labelDays := widgets.NewQLabel2(tr("Days to keep cache"), widget, 0)
 
 	comboLimit := widgets.NewQComboBox(widget)
-	comboLimit.SetObjectName("comboLimit")
 	comboLimit.AddItems([]string{"10", "30", "50", "70", "100"})
 
 	comboDays := widgets.NewQComboBox(widget)
-	comboDays.SetObjectName("comboDays")
 	comboDays.AddItems([]string{"3", "7", "30", "90", "180"})
 
 	generalLayout := widgets.NewQGridLayout2()
@@ -66,21 +95,18 @@ func NewSettings(parent *widgets.QWidget) *Settings {
 	groupGeneral.SetLayout(generalLayout)
 
 	// Player
-	groupPlayer := widgets.NewQGroupBox2("Player", widget)
+	groupPlayer := widgets.NewQGroupBox2(tr("Player"), widget)
 
-	checkFullscreen := widgets.NewQCheckBox2("Fullscreen", widget)
-	checkFullscreen.SetObjectName("checkFullscreen")
-	checkFullscreen.SetToolTip("Fullscreen playback")
+	checkFullscreen := widgets.NewQCheckBox2(tr("Fullscreen"), widget)
+	checkFullscreen.SetToolTip(tr("Fullscreen playback"))
 
-	checkStopScreensaver := widgets.NewQCheckBox2("Stop screensaver", widget)
-	checkStopScreensaver.SetObjectName("checkStopScreensaver")
-	checkStopScreensaver.SetToolTip("Turns off the screensaver (or screen blanker)")
+	checkStopScreensaver := widgets.NewQCheckBox2(tr("Stop screensaver"), widget)
+	checkStopScreensaver.SetToolTip(tr("Turns off the screensaver (or screen blanker)"))
 
-	labelVolumeMax := widgets.NewQLabel2("Volume maximum", widget, 0)
-	labelVolumeMax.SetToolTip("Set the maximum amplification level in percents")
+	labelVolumeMax := widgets.NewQLabel2(tr("Volume maximum"), widget, 0)
+	labelVolumeMax.SetToolTip(tr("Set the maximum amplification level in percents"))
 
 	sliderVolumeMax := widgets.NewQSlider2(core.Qt__Horizontal, widget)
-	sliderVolumeMax.SetObjectName("sliderVolumeMax")
 	sliderVolumeMax.SetTickPosition(widgets.QSlider__NoTicks)
 	sliderVolumeMax.SetMinimum(100)
 	sliderVolumeMax.SetMaximum(200)
@@ -94,35 +120,28 @@ func NewSettings(parent *widgets.QWidget) *Settings {
 	groupPlayer.SetLayout(playerLayout)
 
 	// Subtitles
-	groupSubtitles := widgets.NewQGroupBox2("Subtitles", widget)
-	groupSubtitles.SetObjectName("groupSubtitles")
+	groupSubtitles := widgets.NewQGroupBox2(tr("Subtitles"), widget)
 	groupSubtitles.SetCheckable(true)
 
-	labelLanguage := widgets.NewQLabel2("Language", widget, 0)
-	labelLanguage.SetObjectName("labelLanguage")
-	labelCodepage := widgets.NewQLabel2("Codepage", widget, 0)
-	labelCodepage.SetObjectName("labelCodepage")
-	labelScale := widgets.NewQLabel2("Scale", widget, 0)
-	labelScale.SetObjectName("labelScale")
-	labelColor := widgets.NewQLabel2("Text color", widget, 0)
-	labelColor.SetObjectName("labelColor")
+	labelLanguage := widgets.NewQLabel2(tr("Language"), widget, 0)
+	labelCodepage := widgets.NewQLabel2(tr("Codepage"), widget, 0)
+	labelScale := widgets.NewQLabel2(tr("Scale"), widget, 0)
+	labelColor := widgets.NewQLabel2(tr("Text color"), widget, 0)
 
 	comboLanguage := widgets.NewQComboBox(widget)
-	comboLanguage.SetObjectName("comboLanguage")
 	comboLanguage.AddItems(strings.Split(bukanir.Languages(), ","))
 
 	comboCodepage := widgets.NewQComboBox(widget)
-	comboCodepage.SetObjectName("comboCodepage")
-	comboCodepage.AddItems([]string{"Auto", "BIG-5", "ISO_8859-1", "ISO_8859-13", "ISO_8859-14", "ISO_8859-15", "ISO_8859-2", "ISO_8859-3", "ISO_8859-4", "ISO_8859-5", "ISO_8859-6", "ISO_8859-7", "ISO_8859-8", "ISO_8859-9", "KOI8-R", "KOI8-U", "SHIFT_JIS", "UTF-16", "UTF-8", "CP1250", "CP1251", "CP1253", "CP1256"})
+	comboCodepage.AddItems([]string{"Auto", "BIG-5", "ISO_8859-1", "ISO_8859-13", "ISO_8859-14", "ISO_8859-15",
+		"ISO_8859-2", "ISO_8859-3", "ISO_8859-4", "ISO_8859-5", "ISO_8859-6", "ISO_8859-7", "ISO_8859-8",
+		"ISO_8859-9", "KOI8-R", "KOI8-U", "SHIFT_JIS", "UTF-16", "UTF-8", "CP1250", "CP1251", "CP1253", "CP1256"})
 
 	spinScale := widgets.NewQDoubleSpinBox(widget)
-	spinScale.SetObjectName("spinScale")
-	spinScale.SetToolTip("Factor for the text subtitle font size")
+	spinScale.SetToolTip(tr("Factor for the text subtitle font size"))
 	spinScale.SetDecimals(1)
 	spinScale.SetSingleStep(0.1)
 
 	pushColor := widgets.NewQPushButton(widget)
-	pushColor.SetObjectName("pushColor")
 	pushColor.SetAutoFillBackground(true)
 	pushColor.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
 	pushColor.SetFlat(true)
@@ -140,79 +159,80 @@ func NewSettings(parent *widgets.QWidget) *Settings {
 	groupSubtitles.SetLayout(subLayout)
 
 	// Torrents
-	groupTorrents := widgets.NewQGroupBox2("Torrents", widget)
+	groupTorrents := widgets.NewQGroupBox2(tr("Torrents"), widget)
 
-	checkEncryption := widgets.NewQCheckBox2("Encryption", widget)
-	checkEncryption.SetObjectName("checkEncryption")
-	checkEncryption.SetToolTip("Protocol encryption (avoids ISP block)")
+	checkEncryption := widgets.NewQCheckBox2(tr("Encryption"), widget)
+	checkEncryption.SetToolTip(tr("Protocol encryption (avoids ISP block)"))
 
-	checkKeepFiles := widgets.NewQCheckBox2("Keep files", widget)
-	checkKeepFiles.SetObjectName("checkKeepFiles")
-	checkKeepFiles.SetToolTip("Keep files after exiting")
+	checkProxy := widgets.NewQCheckBox2(tr("Use proxy"), widget)
+	checkProxy.SetToolTip(tr("Use Tor socks5 proxy to connect to peers"))
 
-	labelDlRate := widgets.NewQLabel2("Maximum download rate (KB/s)", widget, 0)
-	labelUlRate := widgets.NewQLabel2("Maximum upload rate (KB/s)", widget, 0)
-	labelPort := widgets.NewQLabel2("Port for incoming connections", widget, 0)
-	labelTPB := widgets.NewQLabel2("TPB host", widget, 0)
-	labelEZTV := widgets.NewQLabel2("EZTV host", widget, 0)
+	checkBlocklist := widgets.NewQCheckBox2(tr("Use blocklist"), widget)
+	checkBlocklist.SetToolTip(tr("Prevents connecting to IPs that presumably belong to anti-piracy outfits"))
+
+	checkKeepFiles := widgets.NewQCheckBox2(tr("Keep files"), widget)
+	checkKeepFiles.SetToolTip(tr("Keep files after exiting"))
+
+	labelDlRate := widgets.NewQLabel2(tr("Maximum download rate (KB/s)"), widget, 0)
+	labelUlRate := widgets.NewQLabel2(tr("Maximum upload rate (KB/s)"), widget, 0)
+	labelPort := widgets.NewQLabel2(tr("Port for incoming connections"), widget, 0)
+	labelTPB := widgets.NewQLabel2(tr("TPB host"), widget, 0)
+	labelEZTV := widgets.NewQLabel2(tr("EZTV host"), widget, 0)
 
 	comboDlRate := widgets.NewQComboBox(widget)
-	comboDlRate.SetObjectName("comboDlRate")
 	comboDlRate.AddItems([]string{"-1", "1", "10", "50", "100", "500", "1000", "5000", "10000"})
 
 	comboUlRate := widgets.NewQComboBox(widget)
-	comboUlRate.SetObjectName("comboUlRate")
 	comboUlRate.AddItems([]string{"-1", "1", "10", "50", "100", "500", "1000", "5000", "10000"})
 
 	spinPort := widgets.NewQSpinBox(widget)
-	spinPort.SetObjectName("spinPort")
 	spinPort.SetMinimum(6800)
 	spinPort.SetMaximum(6999)
 
 	comboTPB := widgets.NewQComboBox(widget)
-	comboTPB.SetObjectName("comboTPB")
+
+	comboTPB.AddItems([]string{bukanir.TpbTor})
 	comboTPB.AddItems(bukanir.TpbHosts)
 	comboTPB.SetEditable(true)
 	comboTPB.SetInsertPolicy(widgets.QComboBox__NoInsert)
-	comboTPB.SetToolTip("TPB domain name, if empty it will be autodetected")
+	comboTPB.SetToolTip(tr("TPB domain name, if empty it will be autodetected"))
 
 	comboEZTV := widgets.NewQComboBox(widget)
-	comboEZTV.SetObjectName("comboEZTV")
 	comboEZTV.AddItems(bukanir.EztvHosts)
 	comboEZTV.SetEditable(true)
 	comboEZTV.SetInsertPolicy(widgets.QComboBox__NoInsert)
-	comboEZTV.SetToolTip("EZTV domain name, if empty it will be autodetected")
+	comboEZTV.SetToolTip(tr("EZTV domain name, if empty it will be autodetected"))
 
 	lineDlPath := widgets.NewQLineEdit(widget)
-	lineDlPath.SetObjectName("lineDlPath")
-	lineDlPath.SetToolTip("Download directory")
-	lineDlPath.SetPlaceholderText("Download directory")
+	lineDlPath.SetToolTip(tr("Download directory"))
+	lineDlPath.SetPlaceholderText(tr("Download directory"))
 
 	pushDlPath := widgets.NewQPushButton(widget)
-	pushDlPath.SetObjectName("pushDlPath")
-	pushDlPath.SetText("Browse...")
+	pushDlPath.SetText(tr("Browse..."))
 
 	torrentsLayout := widgets.NewQGridLayout2()
 	torrentsLayout.AddWidget(checkEncryption, 0, 0, 0)
-	torrentsLayout.AddWidget(labelDlRate, 1, 0, 0)
-	torrentsLayout.AddWidget(comboDlRate, 1, 1, 0)
-	torrentsLayout.AddWidget(labelUlRate, 2, 0, 0)
-	torrentsLayout.AddWidget(comboUlRate, 2, 1, 0)
-	torrentsLayout.AddWidget(labelPort, 3, 0, 0)
-	torrentsLayout.AddWidget(spinPort, 3, 1, 0)
-	torrentsLayout.AddWidget(labelTPB, 4, 0, 0)
-	torrentsLayout.AddWidget(comboTPB, 4, 1, 0)
-	torrentsLayout.AddWidget(labelEZTV, 5, 0, 0)
-	torrentsLayout.AddWidget(comboEZTV, 5, 1, 0)
-	torrentsLayout.AddWidget(checkKeepFiles, 6, 0, 0)
-	torrentsLayout.AddWidget(pushDlPath, 6, 1, 0)
-	torrentsLayout.AddWidget3(lineDlPath, 7, 0, 7, 2, 0)
+	torrentsLayout.AddWidget(checkProxy, 1, 0, 0)
+	torrentsLayout.AddWidget(checkBlocklist, 2, 0, 0)
+	torrentsLayout.AddWidget(labelDlRate, 3, 0, 0)
+	torrentsLayout.AddWidget(comboDlRate, 3, 1, 0)
+	torrentsLayout.AddWidget(labelUlRate, 4, 0, 0)
+	torrentsLayout.AddWidget(comboUlRate, 4, 1, 0)
+	torrentsLayout.AddWidget(labelPort, 5, 0, 0)
+	torrentsLayout.AddWidget(spinPort, 5, 1, 0)
+	torrentsLayout.AddWidget(labelTPB, 6, 0, 0)
+	torrentsLayout.AddWidget(comboTPB, 6, 1, 0)
+	torrentsLayout.AddWidget(labelEZTV, 7, 0, 0)
+	torrentsLayout.AddWidget(comboEZTV, 7, 1, 0)
+	torrentsLayout.AddWidget(checkKeepFiles, 8, 0, 0)
+	torrentsLayout.AddWidget(pushDlPath, 8, 1, 0)
+	torrentsLayout.AddWidget3(lineDlPath, 9, 0, 9, 2, 0)
 
 	groupTorrents.SetLayout(torrentsLayout)
 
 	// Close
 	buttonBox := widgets.NewQDialogButtonBox3(widgets.QDialogButtonBox__Close, widget)
-	buttonBox.SetObjectName("buttonBox")
+	buttonBox.Button(widgets.QDialogButtonBox__Close).SetText(tr("Close"))
 
 	// Layout
 	layout := widgets.NewQVBoxLayout()
@@ -224,7 +244,15 @@ func NewSettings(parent *widgets.QWidget) *Settings {
 	widget.SetLayout(layout)
 
 	qsettings := core.NewQSettings("bukanir", "bukanir", parent)
-	settings := &Settings{widget, qsettings, 0, 0, false, false, 0, false, "", "", 0, "", false, 0, 0, 0, "", "", false, ""}
+
+	settings := &Settings{
+		widget, qsettings,
+		0, 0, false, false, 0, false, "", "", 0, "", false, false, false, 0, 0, 0, "", "", false, "",
+		comboLimit, comboDays, checkFullscreen, checkStopScreensaver, sliderVolumeMax, groupSubtitles, comboLanguage, comboCodepage,
+		spinScale, pushColor, checkEncryption, checkProxy, checkBlocklist, comboDlRate, comboUlRate, spinPort, comboTPB, comboEZTV, checkKeepFiles, lineDlPath, pushDlPath,
+		labelLanguage, labelCodepage, labelScale, labelColor, buttonBox,
+	}
+
 	settings.Set()
 
 	// Show event
@@ -242,56 +270,42 @@ func NewSettings(parent *widgets.QWidget) *Settings {
 	return settings
 }
 
+// ConnectSignals connects signals
 func (s *Settings) ConnectSignals() {
-	sliderVolumeMax := widgets.NewQSliderFromPointer(s.QWidget.FindChild("sliderVolumeMax", core.Qt__FindChildrenRecursively))
-	groupSubtitles := widgets.NewQGroupBoxFromPointer(s.QWidget.FindChild("groupSubtitles", core.Qt__FindChildrenRecursively))
-	comboLanguage := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboLanguage", core.Qt__FindChildrenRecursively))
-	comboCodepage := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboCodepage", core.Qt__FindChildrenRecursively))
-	labelLanguage := widgets.NewQLabelFromPointer(s.QWidget.FindChild("labelLanguage", core.Qt__FindChildrenRecursively))
-	labelCodepage := widgets.NewQLabelFromPointer(s.QWidget.FindChild("labelCodepage", core.Qt__FindChildrenRecursively))
-	labelScale := widgets.NewQLabelFromPointer(s.QWidget.FindChild("labelScale", core.Qt__FindChildrenRecursively))
-	spinScale := widgets.NewQDoubleSpinBoxFromPointer(s.QWidget.FindChild("spinScale", core.Qt__FindChildrenRecursively))
-	labelColor := widgets.NewQLabelFromPointer(s.QWidget.FindChild("labelColor", core.Qt__FindChildrenRecursively))
-	pushColor := widgets.NewQPushButtonFromPointer(s.QWidget.FindChild("pushColor", core.Qt__FindChildrenRecursively))
-	buttonBox := widgets.NewQDialogButtonBoxFromPointer(s.QWidget.FindChild("buttonBox", core.Qt__FindChildrenRecursively))
-	checkKeepFiles := widgets.NewQCheckBoxFromPointer(s.QWidget.FindChild("checkKeepFiles", core.Qt__FindChildrenRecursively))
-	lineDlPath := widgets.NewQLineEditFromPointer(s.QWidget.FindChild("lineDlPath", core.Qt__FindChildrenRecursively))
-	pushDlPath := widgets.NewQPushButtonFromPointer(s.QWidget.FindChild("pushDlPath", core.Qt__FindChildrenRecursively))
-
-	sliderVolumeMax.ConnectValueChanged(func(value int) {
-		sliderVolumeMax.SetToolTip(strconv.Itoa(value) + "%")
+	s.sliderVolumeMax.ConnectValueChanged(func(value int) {
+		s.sliderVolumeMax.SetToolTip(strconv.Itoa(value) + "%")
 	})
 
-	groupSubtitles.ConnectClicked(func(checked bool) {
-		comboLanguage.SetEnabled(checked)
-		comboCodepage.SetEnabled(checked)
-		labelCodepage.SetEnabled(checked)
-		labelLanguage.SetEnabled(checked)
-		labelScale.SetEnabled(checked)
-		spinScale.SetEnabled(checked)
-		labelColor.SetEnabled(checked)
-		pushColor.SetEnabled(checked)
+	s.groupSubtitles.ConnectClicked(func(checked bool) {
+		s.comboLanguage.SetEnabled(checked)
+		s.comboCodepage.SetEnabled(checked)
+		s.labelCodepage.SetEnabled(checked)
+		s.labelLanguage.SetEnabled(checked)
+		s.labelScale.SetEnabled(checked)
+		s.spinScale.SetEnabled(checked)
+		s.labelColor.SetEnabled(checked)
+		s.pushColor.SetEnabled(checked)
 	})
 
-	pushColor.ConnectClicked(func(checked bool) {
+	s.pushColor.ConnectClicked(func(checked bool) {
 		dialog := widgets.NewQColorDialog(s.QDialog)
-		dialog.SetCurrentColor(pushColor.Palette().Color2(gui.QPalette__Button))
+		dialog.SetCurrentColor(s.pushColor.Palette().Color2(gui.QPalette__Button))
 
 		dialog.ConnectColorSelected(func(color *gui.QColor) {
-			pushColor.Palette().SetColor2(gui.QPalette__Button, color)
+			s.pushColor.Palette().SetColor2(gui.QPalette__Button, color)
 		})
 
 		dialog.Show()
 	})
 
-	checkKeepFiles.ConnectClicked(func(checked bool) {
-		lineDlPath.SetEnabled(checked)
-		pushDlPath.SetEnabled(checked)
+	s.checkKeepFiles.ConnectClicked(func(checked bool) {
+		s.lineDlPath.SetEnabled(checked)
+		s.pushDlPath.SetEnabled(checked)
 	})
 
-	pushDlPath.ConnectClicked(func(checked bool) {
+	s.pushDlPath.ConnectClicked(func(checked bool) {
 		dialog := widgets.NewQFileDialog(s.QDialog, core.Qt__Dialog)
-		dialog.SetWindowTitle("Download path")
+		dialog.SetWindowTitle(tr("Download path"))
 		dialog.SetFileMode(widgets.QFileDialog__Directory)
 		dialog.SetOption(widgets.QFileDialog__ShowDirsOnly, true)
 
@@ -300,39 +314,21 @@ func (s *Settings) ConnectSignals() {
 			if len(files) > 0 {
 				path := files[0]
 				if path != "" {
-					lineDlPath.SetText(path)
+					s.lineDlPath.SetText(path)
 				}
 			}
 		}
 	})
 
-	buttonBox.ConnectRejected(func() {
+	s.buttonBox.ConnectRejected(func() {
 		s.Save()
 		s.Sync()
 		s.QDialog.Close()
 	})
 }
 
+// Set sets values
 func (s *Settings) Set() {
-	comboLimit := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboLimit", core.Qt__FindChildrenRecursively))
-	comboDays := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboDays", core.Qt__FindChildrenRecursively))
-	checkFullscreen := widgets.NewQCheckBoxFromPointer(s.QWidget.FindChild("checkFullscreen", core.Qt__FindChildrenRecursively))
-	checkStopScreensaver := widgets.NewQCheckBoxFromPointer(s.QWidget.FindChild("checkStopScreensaver", core.Qt__FindChildrenRecursively))
-	sliderVolumeMax := widgets.NewQSliderFromPointer(s.QWidget.FindChild("sliderVolumeMax", core.Qt__FindChildrenRecursively))
-	groupSubtitles := widgets.NewQGroupBoxFromPointer(s.QWidget.FindChild("groupSubtitles", core.Qt__FindChildrenRecursively))
-	comboLanguage := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboLanguage", core.Qt__FindChildrenRecursively))
-	comboCodepage := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboCodepage", core.Qt__FindChildrenRecursively))
-	spinScale := widgets.NewQDoubleSpinBoxFromPointer(s.QWidget.FindChild("spinScale", core.Qt__FindChildrenRecursively))
-	pushColor := widgets.NewQPushButtonFromPointer(s.QWidget.FindChild("pushColor", core.Qt__FindChildrenRecursively))
-	checkEncryption := widgets.NewQCheckBoxFromPointer(s.QWidget.FindChild("checkEncryption", core.Qt__FindChildrenRecursively))
-	comboDlRate := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboDlRate", core.Qt__FindChildrenRecursively))
-	comboUlRate := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboUlRate", core.Qt__FindChildrenRecursively))
-	spinPort := widgets.NewQSpinBoxFromPointer(s.QWidget.FindChild("spinPort", core.Qt__FindChildrenRecursively))
-	comboTPB := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboTPB", core.Qt__FindChildrenRecursively))
-	comboEZTV := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboEZTV", core.Qt__FindChildrenRecursively))
-	checkKeepFiles := widgets.NewQCheckBoxFromPointer(s.QWidget.FindChild("checkKeepFiles", core.Qt__FindChildrenRecursively))
-	lineDlPath := widgets.NewQLineEditFromPointer(s.QWidget.FindChild("lineDlPath", core.Qt__FindChildrenRecursively))
-	pushDlPath := widgets.NewQPushButtonFromPointer(s.QWidget.FindChild("pushDlPath", core.Qt__FindChildrenRecursively))
 
 	limit := s.Value("limit", core.NewQVariant7(30))
 	days := s.Value("days", core.NewQVariant7(90))
@@ -345,6 +341,20 @@ func (s *Settings) Set() {
 	subscale := s.Value("subscale", core.NewQVariant12(1.0))
 	subcolor := s.Value("subcolor", core.NewQVariant14("#FFFF00"))
 	encryption := s.Value("encryption", core.NewQVariant7(1))
+
+	var proxy *core.QVariant
+	if !bukanir.TorRunning() {
+		s.checkProxy.SetChecked(false)
+		s.checkProxy.SetEnabled(false)
+
+		s.SetValue("proxy", core.NewQVariant11(false))
+		proxy = s.Value("proxy", core.NewQVariant7(0))
+	} else {
+		proxy = s.Value("proxy", core.NewQVariant7(1))
+	}
+
+	blocklist := s.Value("blocklist", core.NewQVariant7(0))
+
 	dlrate := s.Value("dlrate", core.NewQVariant7(-1))
 	ulrate := s.Value("ulrate", core.NewQVariant7(-1))
 	port := s.Value("port", core.NewQVariant7(6881))
@@ -353,28 +363,30 @@ func (s *Settings) Set() {
 	keep := s.Value("keep", core.NewQVariant7(0))
 	dlpath := s.Value("dlpath", core.NewQVariant14(""))
 
-	comboLimit.SetCurrentText(limit.ToString())
-	comboDays.SetCurrentText(days.ToString())
-	checkFullscreen.SetChecked(fullscreen.ToBool())
-	checkStopScreensaver.SetChecked(stopscreensaver.ToBool())
-	sliderVolumeMax.SetValue(volumemax.ToInt(false))
-	sliderVolumeMax.SetToolTip(strconv.Itoa(volumemax.ToInt(false)) + "%")
-	groupSubtitles.SetChecked(subtitles.ToBool())
-	comboLanguage.SetCurrentText(language.ToString())
-	comboCodepage.SetCurrentText(codepage.ToString())
-	spinScale.SetValue(float64(subscale.ToFloat(false)))
-	pushColor.Palette().SetColor2(gui.QPalette__Button, gui.NewQColor6(subcolor.ToString()))
-	checkEncryption.SetChecked(encryption.ToBool())
-	comboDlRate.SetCurrentText(dlrate.ToString())
-	comboUlRate.SetCurrentText(ulrate.ToString())
-	spinPort.SetValue(port.ToInt(false))
-	comboTPB.SetCurrentText(tpbHost.ToString())
-	comboEZTV.SetCurrentText(eztvHost.ToString())
-	checkKeepFiles.SetChecked(keep.ToBool())
-	lineDlPath.SetText(dlpath.ToString())
+	s.comboLimit.SetCurrentText(limit.ToString())
+	s.comboDays.SetCurrentText(days.ToString())
+	s.checkFullscreen.SetChecked(fullscreen.ToBool())
+	s.checkStopScreensaver.SetChecked(stopscreensaver.ToBool())
+	s.sliderVolumeMax.SetValue(volumemax.ToInt(false))
+	s.sliderVolumeMax.SetToolTip(strconv.Itoa(volumemax.ToInt(false)) + "%")
+	s.groupSubtitles.SetChecked(subtitles.ToBool())
+	s.comboLanguage.SetCurrentText(language.ToString())
+	s.comboCodepage.SetCurrentText(codepage.ToString())
+	s.spinScale.SetValue(float64(subscale.ToFloat(false)))
+	s.pushColor.Palette().SetColor2(gui.QPalette__Button, gui.NewQColor6(subcolor.ToString()))
+	s.checkEncryption.SetChecked(encryption.ToBool())
+	s.checkProxy.SetChecked(proxy.ToBool())
+	s.checkBlocklist.SetChecked(blocklist.ToBool())
+	s.comboDlRate.SetCurrentText(dlrate.ToString())
+	s.comboUlRate.SetCurrentText(ulrate.ToString())
+	s.spinPort.SetValue(port.ToInt(false))
+	s.comboTPB.SetCurrentText(tpbHost.ToString())
+	s.comboEZTV.SetCurrentText(eztvHost.ToString())
+	s.checkKeepFiles.SetChecked(keep.ToBool())
+	s.lineDlPath.SetText(dlpath.ToString())
 
-	lineDlPath.SetEnabled(keep.ToBool())
-	pushDlPath.SetEnabled(keep.ToBool())
+	s.lineDlPath.SetEnabled(keep.ToBool())
+	s.pushDlPath.SetEnabled(keep.ToBool())
 
 	s.Limit = limit.ToInt(false)
 	s.Days = days.ToInt(false)
@@ -387,6 +399,8 @@ func (s *Settings) Set() {
 	s.Scale = float64(subscale.ToFloat(false))
 	s.Color = subcolor.ToString()
 	s.Encryption = encryption.ToBool()
+	s.Proxy = proxy.ToBool()
+	s.Blocklist = blocklist.ToBool()
 	s.DlRate = dlrate.ToInt(false)
 	s.UlRate = ulrate.ToInt(false)
 	s.Port = port.ToInt(false)
@@ -396,44 +410,28 @@ func (s *Settings) Set() {
 	s.DlPath = dlpath.ToString()
 }
 
+// Save saves values
 func (s *Settings) Save() {
-	comboLimit := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboLimit", core.Qt__FindChildrenRecursively))
-	comboDays := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboDays", core.Qt__FindChildrenRecursively))
-	checkFullscreen := widgets.NewQCheckBoxFromPointer(s.QWidget.FindChild("checkFullscreen", core.Qt__FindChildrenRecursively))
-	checkStopScreensaver := widgets.NewQCheckBoxFromPointer(s.QWidget.FindChild("checkStopScreensaver", core.Qt__FindChildrenRecursively))
-	sliderVolumeMax := widgets.NewQSliderFromPointer(s.QWidget.FindChild("sliderVolumeMax", core.Qt__FindChildrenRecursively))
-	groupSubtitles := widgets.NewQGroupBoxFromPointer(s.QWidget.FindChild("groupSubtitles", core.Qt__FindChildrenRecursively))
-	comboLanguage := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboLanguage", core.Qt__FindChildrenRecursively))
-	comboCodepage := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboCodepage", core.Qt__FindChildrenRecursively))
-	spinScale := widgets.NewQDoubleSpinBoxFromPointer(s.QWidget.FindChild("spinScale", core.Qt__FindChildrenRecursively))
-	pushColor := widgets.NewQPushButtonFromPointer(s.QWidget.FindChild("pushColor", core.Qt__FindChildrenRecursively))
-	checkEncryption := widgets.NewQCheckBoxFromPointer(s.QWidget.FindChild("checkEncryption", core.Qt__FindChildrenRecursively))
-	comboDlRate := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboDlRate", core.Qt__FindChildrenRecursively))
-	comboUlRate := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboUlRate", core.Qt__FindChildrenRecursively))
-	spinPort := widgets.NewQSpinBoxFromPointer(s.QWidget.FindChild("spinPort", core.Qt__FindChildrenRecursively))
-	comboTPB := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboTPB", core.Qt__FindChildrenRecursively))
-	comboEZTV := widgets.NewQComboBoxFromPointer(s.QWidget.FindChild("comboEZTV", core.Qt__FindChildrenRecursively))
-	checkKeepFiles := widgets.NewQCheckBoxFromPointer(s.QWidget.FindChild("checkKeepFiles", core.Qt__FindChildrenRecursively))
-	lineDlPath := widgets.NewQLineEditFromPointer(s.QWidget.FindChild("lineDlPath", core.Qt__FindChildrenRecursively))
-
-	limit := comboLimit.CurrentText()
-	days := comboDays.CurrentText()
-	fullscreen := checkFullscreen.IsChecked()
-	stopscreensaver := checkStopScreensaver.IsChecked()
-	volumemax := sliderVolumeMax.Value()
-	subtitles := groupSubtitles.IsChecked()
-	subcolor := pushColor.Palette().Color2(gui.QPalette__Button).Name()
-	language := comboLanguage.CurrentText()
-	codepage := comboCodepage.CurrentText()
-	subscale := spinScale.Value()
-	encryption := checkEncryption.IsChecked()
-	dlrate := comboDlRate.CurrentText()
-	ulrate := comboUlRate.CurrentText()
-	port := spinPort.Value()
-	tpbHost := comboTPB.CurrentText()
-	eztvHost := comboEZTV.CurrentText()
-	keep := checkKeepFiles.IsChecked()
-	dlpath := lineDlPath.Text()
+	limit := s.comboLimit.CurrentText()
+	days := s.comboDays.CurrentText()
+	fullscreen := s.checkFullscreen.IsChecked()
+	stopscreensaver := s.checkStopScreensaver.IsChecked()
+	volumemax := s.sliderVolumeMax.Value()
+	subtitles := s.groupSubtitles.IsChecked()
+	subcolor := s.pushColor.Palette().Color2(gui.QPalette__Button).Name()
+	language := s.comboLanguage.CurrentText()
+	codepage := s.comboCodepage.CurrentText()
+	subscale := s.spinScale.Value()
+	encryption := s.checkEncryption.IsChecked()
+	proxy := s.checkProxy.IsChecked()
+	blocklist := s.checkBlocklist.IsChecked()
+	dlrate := s.comboDlRate.CurrentText()
+	ulrate := s.comboUlRate.CurrentText()
+	port := s.spinPort.Value()
+	tpbHost := s.comboTPB.CurrentText()
+	eztvHost := s.comboEZTV.CurrentText()
+	keep := s.checkKeepFiles.IsChecked()
+	dlpath := s.lineDlPath.Text()
 
 	s.SetValue("limit", core.NewQVariant14(limit))
 	s.SetValue("days", core.NewQVariant14(days))
@@ -446,6 +444,8 @@ func (s *Settings) Save() {
 	s.SetValue("codepage", core.NewQVariant14(codepage))
 	s.SetValue("subscale", core.NewQVariant12(subscale))
 	s.SetValue("encryption", core.NewQVariant11(encryption))
+	s.SetValue("proxy", core.NewQVariant11(proxy))
+	s.SetValue("blocklist", core.NewQVariant11(blocklist))
 	s.SetValue("dlrate", core.NewQVariant14(dlrate))
 	s.SetValue("ulrate", core.NewQVariant14(ulrate))
 	s.SetValue("port", core.NewQVariant7(port))
@@ -465,6 +465,8 @@ func (s *Settings) Save() {
 	s.Scale = float64(core.NewQVariant12(subscale).ToFloat(false))
 	s.Color = core.NewQVariant14(subcolor).ToString()
 	s.Encryption = core.NewQVariant11(encryption).ToBool()
+	s.Proxy = core.NewQVariant11(proxy).ToBool()
+	s.Blocklist = core.NewQVariant11(blocklist).ToBool()
 	s.DlRate = core.NewQVariant14(dlrate).ToInt(false)
 	s.UlRate = core.NewQVariant14(ulrate).ToInt(false)
 	s.Port = core.NewQVariant7(port).ToInt(false)
@@ -474,6 +476,7 @@ func (s *Settings) Save() {
 	s.DlPath = core.NewQVariant14(dlpath).ToString()
 }
 
+// TorrentConfig returns torrent config
 func (s *Settings) TorrentConfig(url string) string {
 	c := &bukanir.TConfig{}
 	c.Uri = url
@@ -492,6 +495,10 @@ func (s *Settings) TorrentConfig(url string) string {
 	c.MaxUploadRate = s.UlRate
 	c.MinReconnectTime = 60
 	c.MaxFailCount = 3
+	c.Proxy = s.Proxy
+	c.ProxyHost = "127.0.0.1"
+	c.ProxyPort = 9250
+	c.Blocklist = s.Blocklist
 	c.Verbose = true
 
 	if s.KeepFiles && s.DlPath != "" {
