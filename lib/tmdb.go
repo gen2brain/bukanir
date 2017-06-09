@@ -91,6 +91,7 @@ type tmdbCredits struct {
 
 // tmdbCast type
 type tmdbCast struct {
+	Id           int
 	Character    string
 	Name         string
 	Profile_path string
@@ -98,6 +99,7 @@ type tmdbCast struct {
 
 // tmdbCrew type
 type tmdbCrew struct {
+	Id           int
 	Department   string
 	Name         string
 	Job          string
@@ -440,6 +442,44 @@ func (t *tmdb) Genres() (tmdbGenres, error) {
 func (t *tmdb) Genre(id, page int) (tmdbResponse, error) {
 	var resp tmdbResponse
 	uri := fmt.Sprintf("%s/discover/movie?api_key=%s&sort_by=popularity.desc&with_genres=%d&page=%d", tmdbApiUrl, t.Api_key, id, page)
+
+	if verbose {
+		log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s&", t.Api_key), "?", -1))
+	}
+
+	body, err := getBody(uri)
+	if err != nil {
+		return resp, err
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return resp, err
+	}
+	return resp, nil
+}
+
+// MoviesWithCast returns movies for cast response
+func (t *tmdb) MoviesWithCast(id, page int) (tmdbResponse, error) {
+	var resp tmdbResponse
+	uri := fmt.Sprintf("%s/discover/movie?api_key=%s&sort_by=popularity.desc&with_cast=%d&page=%d", tmdbApiUrl, t.Api_key, id, page)
+
+	if verbose {
+		log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s&", t.Api_key), "?", -1))
+	}
+
+	body, err := getBody(uri)
+	if err != nil {
+		return resp, err
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return resp, err
+	}
+	return resp, nil
+}
+
+// MoviesWithCrew returns movies for crew response
+func (t *tmdb) MoviesWithCrew(id, page int) (tmdbResponse, error) {
+	var resp tmdbResponse
+	uri := fmt.Sprintf("%s/discover/movie?api_key=%s&sort_by=popularity.desc&with_crew=%d&page=%d", tmdbApiUrl, t.Api_key, id, page)
 
 	if verbose {
 		log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s&", t.Api_key), "?", -1))

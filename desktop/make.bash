@@ -31,26 +31,23 @@ CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -tags 'static minimal' -o build/b
 
 
 # windows/386
-#MINGW="/usr/i686-w64-mingw32"
-#INCPATH="$MINGW/usr/include"
-#PLUGPATH="$MINGW/usr/plugins"
-#export CC="i686-w64-mingw32-gcc" CXX="i686-w64-mingw32-g++"
-#export PKG_CONFIG="/usr/bin/i686-w64-mingw32-pkg-config"
-#export PKG_CONFIG_PATH="$MINGW/usr/lib/pkgconfig:$MINGW/usr/lib/pkgconfig"
-#export PKG_CONFIG_LIBDIR="$MINGW/usr/lib/pkgconfig:$MINGW/usr/lib/pkgconfig"
+MINGW="/usr/i686-w64-mingw32"
+INCPATH="$MINGW/usr/include"
+PLUGPATH="$MINGW/usr/plugins"
+export CC="i686-w64-mingw32-gcc" CXX="i686-w64-mingw32-g++"
+export PKG_CONFIG="/usr/bin/i686-w64-mingw32-pkg-config"
+export PKG_CONFIG_PATH="$MINGW/usr/lib/pkgconfig:$MINGW/usr/lib/pkgconfig"
+export PKG_CONFIG_LIBDIR="$MINGW/usr/lib/pkgconfig:$MINGW/usr/lib/pkgconfig"
 
-##CGO_LDFLAGS="$CGO_LDFLAGS -lmpv -lopengl32 -lSDL2 -ljpeg -lass -lharfbuzz -luchardet -lavformat -lswscale -lavdevice -llua -lversion -lgdi32 -lopengl32 -lshlwapi -lvfw32 -lwinmm -lstrmiids -lole32 -loleaut32" \
-##CGO_LDFLAGS="$CGO_LDFLAGS -lavfilter -lavcodec -lavutil -lswresample -lavresample -lpostproc -lavrt -lsecur32 -lcomctl32 -liconv -luuid -ladvapi32 -lole32 -loleaut32 -lshell32 -lws2_32 -ldwmapi -lz" \
-##CGO_LDFLAGS="$CGO_LDFLAGS -lvpx -lvorbisenc -lvorbis -logg -ltheoraenc -ltheoradec -logg -lmp3lame -lfdk-aac -lx264" \
-#CGO_CFLAGS="-Wno-unused-parameter -Wno-unused-variable" \
-#CGO_CXXFLAGS="-I$INCPATH -I$INCPATH/QtCore -I$INCPATH/QtGui -I$INCPATH/QtWidgets -I$INCPATH/QtNetwork -I$INCPATH/libtorrent -Wno-unused-parameter -Wno-unused-variable" \
-#CGO_CXXFLAGS="$CGO_CXXFLAGS -pipe -O2 -std=gnu++11 -Wall -W -D_REENTRANT -DQT_NO_DEBUG -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -DQT_NETWORK_LIB" \
-#CGO_LDFLAGS="-L$MINGW/usr/lib -L$MINGW/lib -L$PLUGPATH/platforms -L$PLUGPATH/generic" \
-#CGO_LDFLAGS="$CGO_LDFLAGS -lQt5Core -lz -lpcre16 -ldouble-conversion -lole32 -luuid -lws2_32 -ladvapi32 -lshell32 -luser32 -lkernel32 -lmpr" \
-#CGO_LDFLAGS="$CGO_LDFLAGS -ljpeg -lQt5Network -lQt5Widgets -lQt5Gui -lws2_32 -lpng -lharfbuzz -lz -lopengl32 -lcomdlg32 -loleaut32 -limm32 -lwinmm -lglu32 -lopengl32 -liphlpapi -ldnsapi" \
-#CGO_LDFLAGS="$CGO_LDFLAGS -lgdi32 -lole32 -luuid -lws2_32 -ladvapi32 -lshell32 -luser32 -lkernel32 -lmpr  -ldouble-conversion -lqtpcre -lqtharfbuzzng" \
-#CGO_LDFLAGS="$CGO_LDFLAGS -lQt5Network -lQt5Widgets -lQt5Gui -lQt5Core -lfontconfig -lexpat -lfreetype -lbz2 -lpng16 -lgdi32" \
-#CGO_LDFLAGS="$CGO_LDFLAGS -ltorrent-rasterbar -lssl -lcrypto -lgdi32 -lcrypt32 -lboost_system -lws2_32 -lmswsock -lgdi32" \
-#CGO_LDFLAGS="$CGO_LDFLAGS -lqwindows  -lgdi32 -limm32 -loleaut32 -lwinmm -lQt5PlatformSupport -lfontconfig -lfreetype -lQt5Gui -lole32 -ljpeg -lpng -lharfbuzz -lz -lbz2 -lopengl32 -lQt5Core -lopengl32 -ldouble-conversion -lole32 -lgdi32" \
-#CC_FOR_TARGET="i686-w64-mingw32-gcc" CXX_FOR_TARGET="i686-w64-mingw32-g++" \
-#CGO_ENABLED=1 GOOS=windows GOARCH=386 go build -tags 'static minimal' -o build/bukanir.exe -v -x -ldflags "-H=windowsgui -linkmode external -s -w"
+CGO_CFLAGS="-Wno-unused-parameter -Wno-unused-variable -Wno-return-type" \
+CGO_CXXFLAGS="-I$INCPATH -I$INCPATH/QtCore -I$INCPATH/QtGui -I$INCPATH/QtWidgets -I$INCPATH/QtNetwork -I$INCPATH/libtorrent -Wno-unused-parameter -Wno-unused-variable -Wno-return-type" \
+CGO_CXXFLAGS="$CGO_CXXFLAGS -pipe -O2 -std=gnu++11 -Wall -W -D_REENTRANT -DQT_NO_DEBUG -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -DQT_NETWORK_LIB" \
+CGO_LDFLAGS="-L$MINGW/usr/lib -L$MINGW/lib -L$PLUGPATH/platforms -L$PLUGPATH/generic -L$PLUGPATH/imageformats" \
+CGO_LDFLAGS="$CGO_LDFLAGS -lQt5Core -lz -lpcre16 -ldouble-conversion -lole32 -luuid -lws2_32 -ladvapi32 -lshell32 -luser32 -lkernel32 -lmpr" \
+CGO_LDFLAGS="$CGO_LDFLAGS -ljpeg -lQt5Network -lQt5Widgets -lQt5Gui -lws2_32 -lpng -lharfbuzz -lz -lopengl32 -lcomdlg32 -loleaut32 -limm32 -lwinmm -lglu32 -lopengl32 -liphlpapi -ldnsapi" \
+CGO_LDFLAGS="$CGO_LDFLAGS -lgdi32 -lole32 -luuid -lws2_32 -ladvapi32 -lshell32 -luser32 -lkernel32 -lmpr  -ldouble-conversion -lqtpcre -lqtharfbuzzng" \
+CGO_LDFLAGS="$CGO_LDFLAGS -lQt5Network -lQt5Widgets -lQt5Gui -lQt5Core -lfontconfig -lexpat -lfreetype -lbz2 -lpng16 -lgdi32" \
+CGO_LDFLAGS="$CGO_LDFLAGS -ltorrent-rasterbar -lssl -lcrypto -lgdi32 -lcrypt32 -lboost_system -lws2_32 -lmswsock -lgdi32" \
+CGO_LDFLAGS="$CGO_LDFLAGS -lqwindows -lqgif -lqjpeg -lgdi32 -limm32 -loleaut32 -lwinmm -luxtheme -ldwmapi -lQt5EventDispatcherSupport -lQt5ThemeSupport -lQt5DeviceDiscoverySupport -lQt5FontDatabaseSupport -lfontconfig -lfreetype -lQt5Gui -lole32 -ljpeg -lpng -lharfbuzz -lz -lbz2 -lopengl32 -lQt5Core -lopengl32 -ldouble-conversion -lole32 -lgdi32" \
+CC_FOR_TARGET="i686-w64-mingw32-gcc" CXX_FOR_TARGET="i686-w64-mingw32-g++" \
+CGO_ENABLED=1 GOOS=windows GOARCH=386 go build -tags 'static minimal' -o build/bukanir.exe -v -x -ldflags "-H=windowsgui -linkmode external -s -w '-extldflags=-static-libstdc++ -static-libgcc'"

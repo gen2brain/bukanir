@@ -36,10 +36,11 @@ type Window struct {
 	Model     *core.QStringListModel
 	Completer *widgets.QCompleter
 
-	Movie       *gui.QMovie
-	LabelStatus *LabelStatus
-	StatusBar   *widgets.QStatusBar
-	ProgressBar *widgets.QProgressBar
+	Movie          *gui.QMovie
+	LabelStatus    *LabelStatus
+	LabelStatusTor *widgets.QLabel
+	StatusBar      *widgets.QStatusBar
+	ProgressBar    *widgets.QProgressBar
 
 	Side widgets.QTabBar__ButtonPosition
 
@@ -58,7 +59,7 @@ func NewWindow() *Window {
 		side = widgets.QTabBar__RightSide
 	}
 
-	window := &Window{w, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, side, nil}
+	window := &Window{w, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, side, nil}
 	window.Log = NewLog(window.QWidget_PTR())
 	window.Client = NewClient()
 	window.Settings = NewSettings(window.QWidget_PTR())
@@ -109,6 +110,11 @@ func (w *Window) AddWidgets() {
 	w.LabelStatus = &LabelStatus{NewObject2(w), widgets.NewQLabel(w.StatusBar, 0)}
 	w.LabelStatus.SetIndent(3)
 
+	w.LabelStatusTor = widgets.NewQLabel(w, 0)
+	w.LabelStatusTor.SetPixmap(gui.NewQPixmap5(":/qml/images/tor-off.png", "PNG", core.Qt__AutoColor))
+	w.LabelStatusTor.SetToolTip("Tor is not running. Anonymous network is not available.")
+	w.LabelStatusTor.SetIndent(3)
+
 	w.Movie = gui.NewQMovie3(":/qml/images/loading.gif", core.NewQByteArray2("GIF", 3), w)
 	w.Movie.Start()
 
@@ -120,6 +126,7 @@ func (w *Window) AddWidgets() {
 
 	w.StatusBar.AddWidget(w.LabelStatus, 1)
 	w.StatusBar.AddPermanentWidget(w.ProgressBar, 1)
+	w.StatusBar.AddPermanentWidget(w.LabelStatusTor, 0)
 	w.StatusBar.Layout().SetSpacing(5)
 
 	layout := widgets.NewQVBoxLayout()
@@ -198,8 +205,15 @@ func (w *Window) ConnectSignals() {
 			w.setLoading(t.Widget.QWidget_PTR(), true)
 			w.LabelStatus.SetText(textMeta)
 
+			var sortBy string
+			for _, a := range w.Toolbar.SortBy.Menu().Actions() {
+				if a.IsChecked() {
+					sortBy = strings.ToLower(a.Text())
+				}
+			}
+
 			t.Widget.Started = true
-			go w.Client.Search(t.Widget, t.Query, w.Settings.Limit, 1, w.Settings.Days, 3, w.Settings.TPBHost, w.Settings.EZTVHost)
+			go w.Client.Search(t.Widget, t.Query, w.Settings.Limit, 1, w.Settings.Days, 3, w.Settings.TPBHost, w.Settings.EZTVHost, sortBy)
 		} else if t.Category != 0 {
 			w.setLoading(t.Widget.QWidget_PTR(), true)
 			w.LabelStatus.SetText(textMeta)
@@ -218,6 +232,16 @@ func (w *Window) ConnectSignals() {
 
 			t.Widget2.Started = true
 			go w.Client.Summary(t.Widget2, t.Movie)
+		}
+	})
+
+	w.Toolbar.SortBy.Menu().ConnectTriggered(func(action *widgets.QAction) {
+		index := w.TabWidget.CurrentIndex()
+		t := tabs[index]
+
+		if t.Query != "" {
+			sortBy := strings.ToLower(action.Text())
+			go w.Client.Search(t.Widget, t.Query, w.Settings.Limit, 0, w.Settings.Days, 3, w.Settings.TPBHost, w.Settings.EZTVHost, sortBy)
 		}
 	})
 
@@ -402,7 +426,14 @@ func (w *Window) Search(title, query string, pages int) {
 	tab.Started = true
 	tabs = append(tabs, Tab{query, 0, 0, bukanir.TMovie{}, tab, nil})
 
-	go w.Client.Search(tab, query, w.Settings.Limit, 0, w.Settings.Days, pages, w.Settings.TPBHost, w.Settings.EZTVHost)
+	var sortBy string
+	for _, a := range w.Toolbar.SortBy.Menu().Actions() {
+		if a.IsChecked() {
+			sortBy = strings.ToLower(a.Text())
+		}
+	}
+
+	go w.Client.Search(tab, query, w.Settings.Limit, 0, w.Settings.Days, pages, w.Settings.TPBHost, w.Settings.EZTVHost, sortBy)
 }
 
 // Genre search movies by genre
@@ -442,6 +473,80 @@ func (w *Window) Genre(title string, id int) {
 	go w.Client.Genre(tab, id, w.Settings.Limit, 0, w.Settings.Days, w.Settings.TPBHost)
 }
 
+// Cast search movies by cast
+func (w *Window) Cast(title string, id int) {
+	tab := NewList(w.TabWidget)
+
+	tab.ConnectItemActivated(func(item *widgets.QListWidgetItem) {
+		data := item.Data(int(core.Qt__UserRole)).ToString()
+
+		var movie bukanir.TMovie
+		err := json.Unmarshal([]byte(data), &movie)
+		if err != nil {
+			log.Printf("ERROR: Unmarshal: %s\n", err.Error())
+			return
+		}
+
+		w.Summary(movie)
+	})
+
+	tab.ConnectFinished(func(data string) {
+		w.setLoading(tab.QWidget_PTR(), false)
+		w.LabelStatus.SetText("")
+
+		if data != "" && data != "empty" {
+			tab.Init(w.Manager, data)
+			tab.Started = false
+		}
+	})
+
+	w.TabWidget.AddTab(tab, title)
+	w.setLoading(tab.QWidget_PTR(), true)
+	w.LabelStatus.SetText(tr("Downloading torrents metadata..."))
+
+	tab.Started = true
+	tabs = append(tabs, Tab{"", 0, id, bukanir.TMovie{}, tab, nil})
+
+	go w.Client.Cast(tab, id, w.Settings.Limit, 0, w.Settings.Days, w.Settings.TPBHost)
+}
+
+// Crew search movies by crew
+func (w *Window) Crew(title string, id int) {
+	tab := NewList(w.TabWidget)
+
+	tab.ConnectItemActivated(func(item *widgets.QListWidgetItem) {
+		data := item.Data(int(core.Qt__UserRole)).ToString()
+
+		var movie bukanir.TMovie
+		err := json.Unmarshal([]byte(data), &movie)
+		if err != nil {
+			log.Printf("ERROR: Unmarshal: %s\n", err.Error())
+			return
+		}
+
+		w.Summary(movie)
+	})
+
+	tab.ConnectFinished(func(data string) {
+		w.setLoading(tab.QWidget_PTR(), false)
+		w.LabelStatus.SetText("")
+
+		if data != "" && data != "empty" {
+			tab.Init(w.Manager, data)
+			tab.Started = false
+		}
+	})
+
+	w.TabWidget.AddTab(tab, title)
+	w.setLoading(tab.QWidget_PTR(), true)
+	w.LabelStatus.SetText(tr("Downloading torrents metadata..."))
+
+	tab.Started = true
+	tabs = append(tabs, Tab{"", 0, id, bukanir.TMovie{}, tab, nil})
+
+	go w.Client.Crew(tab, id, w.Settings.Limit, 0, w.Settings.Days, w.Settings.TPBHost)
+}
+
 // Summary shows movie summary
 func (w *Window) Summary(movie bukanir.TMovie) {
 	summary := NewSummary(w.TabWidget)
@@ -454,6 +559,21 @@ func (w *Window) Summary(movie bukanir.TMovie) {
 		if data != "" && data != "empty" {
 			summary.Init(movie, data)
 			summary.Started = false
+
+			summary.Director.ConnectClicked(func(bool) {
+				w.Crew(summary.Director.Text(), summary.Director.Property("id").ToInt(false))
+			})
+
+			summary.Cast.ConnectButtonClicked2(func(id int) {
+				var s bukanir.TSummary
+				err := json.Unmarshal([]byte(data), &s)
+				if err != nil {
+					log.Printf("ERROR: Unmarshal: %s\n", err.Error())
+					return
+				}
+
+				w.Cast(s.Cast[id], s.CastIds[id])
+			})
 
 			reply := w.Manager.Get(network.NewQNetworkRequest(core.NewQUrl3(movie.PosterXLarge, core.QUrl__TolerantMode)))
 			reply.ConnectFinished(func() {
@@ -652,6 +772,16 @@ func (w *Window) TailLog() {
 // Init initialize window
 func (w *Window) Init() {
 	go w.TailLog()
+
+	go func() {
+		running := bukanir.TorRunning()
+		if running && w.Settings.Proxy {
+			w.LabelStatusTor.SetPixmap(gui.NewQPixmap5(":/qml/images/tor.png", "PNG", core.Qt__AutoColor))
+			w.LabelStatusTor.SetToolTip("Tor is enabled and is running.")
+		} else if running && !w.Settings.Proxy {
+			w.LabelStatusTor.SetToolTip("Tor is not enabled. Anonymous network is not available.")
+		}
+	}()
 
 	w.Top("Top Movies", bukanir.CategoryMovies)
 

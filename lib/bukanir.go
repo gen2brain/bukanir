@@ -45,16 +45,18 @@ type TMovie struct {
 
 // TSummary type
 type TSummary struct {
-	Id       int      `json:"id"`
-	Cast     []string `json:"cast"`
-	Genre    []string `json:"genre"`
-	Video    string   `json:"video"`
-	Director string   `json:"director"`
-	Rating   float64  `json:"rating"`
-	TagLine  string   `json:"tagline"`
-	Overview string   `json:"overview"`
-	Runtime  int      `json:"runtime"`
-	ImdbId   string   `json:"imdbId"`
+	Id         int      `json:"id"`
+	Cast       []string `json:"cast"`
+	CastIds    []int    `json:"castIds"`
+	Genre      []string `json:"genre"`
+	Video      string   `json:"video"`
+	Director   string   `json:"director"`
+	DirectorId int      `json:"directorId"`
+	Rating     float64  `json:"rating"`
+	TagLine    string   `json:"tagline"`
+	Overview   string   `json:"overview"`
+	Runtime    int      `json:"runtime"`
+	ImdbId     string   `json:"imdbId"`
 }
 
 // TSubtitle type
@@ -234,6 +236,8 @@ var (
 	toprated      []TItem
 	genres        []TGenre
 	bygenre       []TMovie
+	bycast        []TMovie
+	bycrew        []TMovie
 	torrents      []TTorrent
 	details       TSummary
 
@@ -359,12 +363,30 @@ func Category(category int, limit int, force int, cacheDir string, cacheDays int
 }
 
 // Search returns movies by search query
-func Search(query string, limit int, force int, cacheDir string, cacheDays int64, pages int, tpbHost string, eztvHost string) (string, error) {
+func Search(query string, limit int, force int, cacheDir string, cacheDays int64, pages int, tpbHost, eztvHost, sortBy string) (string, error) {
 	query = strings.TrimSpace(query)
 	if force != 1 {
 		cache := getCache(query, cacheDir, cacheDays)
 		if cache != nil {
-			return string(cache[:]), nil
+			var movs []TMovie
+			err := json.Unmarshal(cache, &movs)
+			if err != nil {
+				return "empty", err
+			}
+
+			if sortBy == "seeders" || sortBy == "" {
+				sort.Sort(BySeeders(movs))
+			} else if sortBy == "episodes" {
+				s := BySeasonEpisode{}
+				s.Sort(movs)
+			}
+
+			js, err := json.MarshalIndent(movs, "", "    ")
+			if err != nil {
+				return "empty", err
+			}
+
+			return string(js[:]), nil
 		}
 	}
 
@@ -435,7 +457,12 @@ func Search(query string, limit int, force int, cacheDir string, cacheDays int64
 		log.Printf("BUK: Total movies: %d\n", len(movies))
 	}
 
-	sort.Sort(BySeeders(movies))
+	if sortBy == "seeders" || sortBy == "" {
+		sort.Sort(BySeeders(movies))
+	} else if sortBy == "episodes" {
+		s := BySeasonEpisode{}
+		s.Sort(movies)
+	}
 
 	js, err := json.MarshalIndent(movies, "", "    ")
 	if err != nil {
@@ -678,6 +705,90 @@ func Genre(id int, limit int, force int, cacheDir string, cacheDays int64, tpbHo
 
 	if len(bygenre) > 0 {
 		saveCache("genre"+strconv.Itoa(id), js, cacheDir)
+	}
+
+	return string(js[:]), nil
+}
+
+// Cast returns movies by cast
+func Cast(id int, limit int, force int, cacheDir string, cacheDays int64, tpbHost string) (string, error) {
+	if force != 1 {
+		cache := getCache("cast"+strconv.Itoa(id), cacheDir, cacheDays)
+		if cache != nil {
+			return string(cache[:]), nil
+		}
+	}
+
+	cancelchan = make(chan bool)
+	ctx, cancel = context.WithCancel(context.TODO())
+	bycast = make([]TMovie, 0)
+
+	if tpbHost == "" {
+		tpbHost = getTpbHost()
+	} else {
+		if verbose {
+			log.Printf("TPB: Using host %s\n", tpbHost)
+		}
+	}
+
+	wg.Add(1)
+	go tmdbWithCast(id, limit, tpbHost)
+	wg.Wait()
+
+	if verbose {
+		log.Printf("BUK: Total movies: %d\n", len(bycast))
+	}
+
+	sort.Sort(BySeeders(bycast))
+	js, err := json.MarshalIndent(bycast, "", "    ")
+	if err != nil {
+		return "empty", err
+	}
+
+	if len(bycast) > 0 {
+		saveCache("cast"+strconv.Itoa(id), js, cacheDir)
+	}
+
+	return string(js[:]), nil
+}
+
+// Crew returns movies by crew
+func Crew(id int, limit int, force int, cacheDir string, cacheDays int64, tpbHost string) (string, error) {
+	if force != 1 {
+		cache := getCache("crew"+strconv.Itoa(id), cacheDir, cacheDays)
+		if cache != nil {
+			return string(cache[:]), nil
+		}
+	}
+
+	cancelchan = make(chan bool)
+	ctx, cancel = context.WithCancel(context.TODO())
+	bycrew = make([]TMovie, 0)
+
+	if tpbHost == "" {
+		tpbHost = getTpbHost()
+	} else {
+		if verbose {
+			log.Printf("TPB: Using host %s\n", tpbHost)
+		}
+	}
+
+	wg.Add(1)
+	go tmdbWithCrew(id, limit, tpbHost)
+	wg.Wait()
+
+	if verbose {
+		log.Printf("BUK: Total movies: %d\n", len(bycrew))
+	}
+
+	sort.Sort(BySeeders(bycrew))
+	js, err := json.MarshalIndent(bycrew, "", "    ")
+	if err != nil {
+		return "empty", err
+	}
+
+	if len(bycrew) > 0 {
+		saveCache("crew"+strconv.Itoa(id), js, cacheDir)
 	}
 
 	return string(js[:]), nil

@@ -2,6 +2,7 @@ package bukanir
 
 import (
 	"log"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -229,6 +230,7 @@ func tmdbSummary(id int, category int, season int, episode int) {
 	var tagline string = res.Tagline
 	var overview string = res.Overview
 	var director string = getDirector(res.Credits.Crew)
+	var directorId int = getDirectorId(res.Credits.Crew)
 	var video = getVideo(res.Videos.Results)
 	var casts []tmdbCast = res.Credits.Cast
 	var genres []tmdbGenre = res.Genres
@@ -277,9 +279,11 @@ func tmdbSummary(id int, category int, season int, episode int) {
 	details = TSummary{
 		id,
 		getCast(casts),
+		getCastIds(casts),
 		getGenre(genres),
 		video,
 		director,
+		directorId,
 		res.Vote_average,
 		tagline,
 		overview,
@@ -495,7 +499,7 @@ func tmdbByGenre(id int, limit int, tpbHost string) {
 		m = m[0:limit]
 	}
 
-	var th = make(chan int, 10)
+	var th = make(chan int, 3*runtime.NumCPU())
 
 	searchTorrents := func(r tmdbResult) {
 		defer wgt.Done()
@@ -559,6 +563,232 @@ func tmdbByGenre(id int, limit int, tpbHost string) {
 			getQuality(t.Title),
 		}
 		bygenre = append(bygenre, movie)
+	}
+
+	for _, res := range m {
+		th <- 1
+		wgt.Add(1)
+		go searchTorrents(res)
+	}
+	wgt.Wait()
+}
+
+// tmdbWithCast TMDB movies by cast
+func tmdbWithCast(id int, limit int, tpbHost string) {
+	defer func() {
+		wg.Done()
+		if r := recover(); r != nil {
+			log.Print("TMDB: Recovered in tmdbByGenre")
+		}
+	}()
+
+	md := NewTmdb(tmdbApiKey)
+	config, err := md.GetConfig()
+	if err != nil {
+		log.Printf("ERROR: TMDB GetConfig: %s\n", err.Error())
+		return
+	}
+
+	var m []tmdbResult
+	for n := 1; n < 6; n++ {
+		mp, err := md.MoviesWithCast(id, n)
+		if err != nil {
+			log.Printf("ERROR: MoviesWithCast: %v\n", err.Error())
+			return
+		}
+		m = append(m, mp.Results...)
+	}
+
+	if len(m) == 0 {
+		return
+	}
+
+	pb := NewTpb(tpbHost)
+
+	if limit > 0 {
+		if limit > len(m) {
+			limit = len(m)
+		}
+		m = m[0:limit]
+	}
+
+	var th = make(chan int, 3*runtime.NumCPU())
+
+	searchTorrents := func(r tmdbResult) {
+		defer wgt.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Print("TMDB: Recovered in searchTorrents")
+			}
+		}()
+
+		defer func() {
+			<-th
+		}()
+
+		if r.Id == 0 {
+			return
+		}
+
+		results, err := pb.Search(r.Title, 0, "201,207")
+		if err != nil {
+			return
+		}
+
+		if len(results) == 0 {
+			return
+		}
+
+		sort.Sort(ByTSeeders(results))
+
+		var t TTorrent
+		for _, rt := range results {
+			if r.Release_date != "" && rt.Year != "" {
+				tmdbYear, _ := strconv.Atoi(getYear(r.Release_date))
+				torrentYear, _ := strconv.Atoi(rt.Year)
+				if tmdbYear == torrentYear || tmdbYear == torrentYear-1 || tmdbYear == torrentYear+1 {
+					t = rt
+					break
+				}
+			}
+		}
+
+		if t.Title == "" {
+			return
+		}
+
+		movie := TMovie{
+			r.Id,
+			r.Title,
+			getYear(r.Release_date),
+			config.Images.Base_url + config.Images.Poster_sizes[0] + r.Poster_path,
+			config.Images.Base_url + config.Images.Poster_sizes[1] + r.Poster_path,
+			config.Images.Base_url + config.Images.Poster_sizes[3] + r.Poster_path,
+			config.Images.Base_url + config.Images.Poster_sizes[4] + r.Poster_path,
+			int64(t.Size),
+			t.SizeHuman,
+			t.Seeders,
+			t.MagnetLink,
+			t.Title,
+			t.Category,
+			t.Season,
+			t.Episode,
+			getQuality(t.Title),
+		}
+		bycast = append(bycast, movie)
+	}
+
+	for _, res := range m {
+		th <- 1
+		wgt.Add(1)
+		go searchTorrents(res)
+	}
+	wgt.Wait()
+}
+
+// tmdbWithCrew TMDB movies by crew
+func tmdbWithCrew(id int, limit int, tpbHost string) {
+	defer func() {
+		wg.Done()
+		if r := recover(); r != nil {
+			log.Print("TMDB: Recovered in tmdbByGenre")
+		}
+	}()
+
+	md := NewTmdb(tmdbApiKey)
+	config, err := md.GetConfig()
+	if err != nil {
+		log.Printf("ERROR: TMDB GetConfig: %s\n", err.Error())
+		return
+	}
+
+	var m []tmdbResult
+	for n := 1; n < 6; n++ {
+		mp, err := md.MoviesWithCrew(id, n)
+		if err != nil {
+			log.Printf("ERROR: MoviesWithCast: %v\n", err.Error())
+			return
+		}
+		m = append(m, mp.Results...)
+	}
+
+	if len(m) == 0 {
+		return
+	}
+
+	pb := NewTpb(tpbHost)
+
+	if limit > 0 {
+		if limit > len(m) {
+			limit = len(m)
+		}
+		m = m[0:limit]
+	}
+
+	var th = make(chan int, 3*runtime.NumCPU())
+
+	searchTorrents := func(r tmdbResult) {
+		defer wgt.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Print("TMDB: Recovered in searchTorrents")
+			}
+		}()
+
+		defer func() {
+			<-th
+		}()
+
+		if r.Id == 0 {
+			return
+		}
+
+		results, err := pb.Search(r.Title, 0, "201,207")
+		if err != nil {
+			return
+		}
+
+		if len(results) == 0 {
+			return
+		}
+
+		sort.Sort(ByTSeeders(results))
+
+		var t TTorrent
+		for _, rt := range results {
+			if r.Release_date != "" && rt.Year != "" {
+				tmdbYear, _ := strconv.Atoi(getYear(r.Release_date))
+				torrentYear, _ := strconv.Atoi(rt.Year)
+				if tmdbYear == torrentYear || tmdbYear == torrentYear-1 || tmdbYear == torrentYear+1 {
+					t = rt
+					break
+				}
+			}
+		}
+
+		if t.Title == "" {
+			return
+		}
+
+		movie := TMovie{
+			r.Id,
+			r.Title,
+			getYear(r.Release_date),
+			config.Images.Base_url + config.Images.Poster_sizes[0] + r.Poster_path,
+			config.Images.Base_url + config.Images.Poster_sizes[1] + r.Poster_path,
+			config.Images.Base_url + config.Images.Poster_sizes[3] + r.Poster_path,
+			config.Images.Base_url + config.Images.Poster_sizes[4] + r.Poster_path,
+			int64(t.Size),
+			t.SizeHuman,
+			t.Seeders,
+			t.MagnetLink,
+			t.Title,
+			t.Category,
+			t.Season,
+			t.Episode,
+			getQuality(t.Title),
+		}
+		bycrew = append(bycrew, movie)
 	}
 
 	for _, res := range m {

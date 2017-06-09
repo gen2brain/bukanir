@@ -3,6 +3,7 @@ v2.4  :
     * Added support for tor socks5 proxy and .onion links
     * Added torrent blocklist, disabled by default
     * Desktop app now supports translations for UI
+    * Added search by cast or director
 
 v2.3  Oct 20, 2016:
 

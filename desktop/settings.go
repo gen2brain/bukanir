@@ -81,7 +81,7 @@ func NewSettings(parent *widgets.QWidget) *Settings {
 	labelDays := widgets.NewQLabel2(tr("Days to keep cache"), widget, 0)
 
 	comboLimit := widgets.NewQComboBox(widget)
-	comboLimit.AddItems([]string{"10", "30", "50", "70", "100"})
+	comboLimit.AddItems([]string{"10", "30", "50", "70", "100", "150"})
 
 	comboDays := widgets.NewQComboBox(widget)
 	comboDays.AddItems([]string{"3", "7", "30", "90", "180"})

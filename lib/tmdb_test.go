@@ -108,3 +108,29 @@ func TestGenre(t *testing.T) {
 		t.Error("no results")
 	}
 }
+
+func TestCast(t *testing.T) {
+	md := NewTmdb(tmdbApiKey)
+
+	results, err := md.MoviesWithCast(85, 1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(results.Results) == 0 {
+		t.Error("no results")
+	}
+}
+
+func TestCrew(t *testing.T) {
+	md := NewTmdb(tmdbApiKey)
+
+	results, err := md.MoviesWithCrew(578, 1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(results.Results) == 0 {
+		t.Error("no results")
+	}
+}

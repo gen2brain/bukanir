@@ -182,6 +182,9 @@ type Summary struct {
 	Watch   *widgets.QPushButton
 	Trailer *widgets.QPushButton
 
+	Cast     *widgets.QButtonGroup
+	Director *widgets.QPushButton
+
 	Video  string
 	ImdbId string
 
@@ -190,6 +193,7 @@ type Summary struct {
 	Started        bool
 	TorrentStarted bool
 
+	layoutCast       *widgets.QHBoxLayout
 	labelCast        *widgets.QLabel
 	labelDirector    *widgets.QLabel
 	labelGenre       *widgets.QLabel
@@ -278,8 +282,15 @@ func NewSummary(parent *widgets.QTabWidget) *Summary {
 	vlayout.AddWidget(labelRuntimeSize, 0, 0)
 	vlayout.AddWidget(labelRelease, 0, 0)
 	vlayout.AddWidget(labelTagline, 0, 0)
-	vlayout.AddWidget(labelDirector, 0, 0)
-	vlayout.AddWidget(labelCast, 0, 0)
+
+	layoutDirector := widgets.NewQHBoxLayout()
+	layoutDirector.AddWidget(labelDirector, 0, 0)
+	vlayout.AddLayout(layoutDirector, 0)
+
+	layoutCast := widgets.NewQHBoxLayout()
+	layoutCast.AddWidget(labelCast, 0, 0)
+	vlayout.AddLayout(layoutCast, 0)
+
 	vlayout.AddWidget(scrollArea, 0, 0)
 
 	// Poster
@@ -351,6 +362,14 @@ func NewSummary(parent *widgets.QTabWidget) *Summary {
 	buttonTrailer.SetCursor(gui.NewQCursor2(core.Qt__PointingHandCursor))
 	buttonTrailer.SetText(tr("TRAILER"))
 
+	buttonGroup := widgets.NewQButtonGroup(widget)
+
+	buttonDirector := widgets.NewQPushButton(widget)
+	buttonDirector.SetSizePolicy2(widgets.QSizePolicy__Minimum, widgets.QSizePolicy__Fixed)
+	buttonDirector.SetCursor(gui.NewQCursor2(core.Qt__PointingHandCursor))
+	layoutDirector.AddWidget(buttonDirector, 0, core.Qt__AlignLeft)
+	layoutDirector.AddSpacerItem(widgets.NewQSpacerItem(20, 20, widgets.QSizePolicy__MinimumExpanding, widgets.QSizePolicy__Preferred))
+
 	// Buttons layout
 	hlayout2 := widgets.NewQHBoxLayout()
 	hlayout2.SetSpacing(6)
@@ -386,14 +405,29 @@ func NewSummary(parent *widgets.QTabWidget) *Summary {
 	buttonTrailer.SetVisible(false)
 
 	return &Summary{
-		NewObject(parent), frame, labelPoster, buttonWatch, buttonTrailer, "", "", nil, false, false,
-		labelCast, labelDirector, labelGenre, labelOverview, labelRatingYear, labelRuntimeSize,
+		NewObject(parent), frame, labelPoster, buttonWatch, buttonTrailer, buttonGroup, buttonDirector, "", "", nil, false, false,
+		layoutCast, labelCast, labelDirector, labelGenre, labelOverview, labelRatingYear, labelRuntimeSize,
 		labelRelease, labelTagline, labelTitle, labelTmdb, labelTmdbLogo, labelOpenSubs,
 	}
 }
 
 // Init initialize summmary
 func (l *Summary) Init(m bukanir.TMovie, data string) {
+	stylesheet := `
+		QPushButton {
+			min-width: 5em;
+			padding: 6px;
+		}
+
+		QPushButton:pressed {
+			border-style: inset;
+		}
+
+		QPushButton:disabled {
+			background-color: gray;
+		}
+	`
+
 	var s bukanir.TSummary
 	err := json.Unmarshal([]byte(data), &s)
 	if err != nil {
@@ -404,16 +438,23 @@ func (l *Summary) Init(m bukanir.TMovie, data string) {
 	l.Video = s.Video
 	l.ImdbId = s.ImdbId
 
-	cast := ""
-	if len(s.Cast) >= 4 {
-		cast = "<em>Cast:</em> " + strings.Join(s.Cast[:4], ", ") + "..."
-	} else if len(s.Cast) != 0 {
-		cast = "<em>Cast:</em> " + strings.Join(s.Cast[:len(s.Cast)], ", ")
+	for n, _ := range s.CastIds[:4] {
+		b := widgets.NewQPushButton2(s.Cast[n], l)
+		b.SetStyleSheet(stylesheet)
+		b.SetCursor(gui.NewQCursor2(core.Qt__PointingHandCursor))
+		l.Cast.AddButton(b, n)
+		l.layoutCast.AddWidget(b, 0, core.Qt__AlignLeft)
 	}
+
+	l.layoutCast.AddSpacerItem(widgets.NewQSpacerItem(20, 20, widgets.QSizePolicy__MinimumExpanding, widgets.QSizePolicy__Preferred))
+
+	l.Director.SetText(s.Director)
+	l.Director.SetProperty("id", core.NewQVariant7(s.DirectorId))
+	l.Director.SetStyleSheet(stylesheet)
 
 	director := ""
 	if s.Director != "" {
-		director = "<em>Director:</em> " + s.Director
+		director = "<em>Director:</em> "
 	}
 
 	genre := ""
@@ -449,7 +490,7 @@ func (l *Summary) Init(m bukanir.TMovie, data string) {
 	tmdbText := tr("This product uses the TMDb API but is not endorsed or certified by TMDb.")
 	openSubsText := tr("Subtitles are from opensubtitles.org, podnapisi.net and subscene.com.")
 
-	l.labelCast.SetText(cast)
+	l.labelCast.SetText("<em>Cast:</em> ")
 	l.labelDirector.SetText(director)
 	l.labelGenre.SetText(genre)
 	l.labelOverview.SetText(s.Overview)
@@ -486,6 +527,7 @@ type Toolbar struct {
 	About    *widgets.QPushButton
 
 	Input    *widgets.QLineEdit
+	SortBy   *widgets.QToolButton
 	Top      *widgets.QToolButton
 	Year     *widgets.QToolButton
 	Popular  *widgets.QToolButton
@@ -537,6 +579,12 @@ func NewToolbar(parent *widgets.QWidget) *Toolbar {
 	aboutButton.SetCursor(gui.NewQCursor2(core.Qt__PointingHandCursor))
 	aboutButton.SetToolTip(tr("About"))
 
+	sortByButton := widgets.NewQToolButton(widget)
+	sortByButton.SetPopupMode(widgets.QToolButton__InstantPopup)
+	sortByButton.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
+	sortByButton.SetMinimumSize2(45, 26)
+	sortByButton.SetText(tr("Sort By"))
+
 	topButton := widgets.NewQToolButton(widget)
 	topButton.SetPopupMode(widgets.QToolButton__InstantPopup)
 	topButton.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
@@ -566,6 +614,22 @@ func NewToolbar(parent *widgets.QWidget) *Toolbar {
 	byGenreButton.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
 	byGenreButton.SetMinimumSize2(45, 26)
 	byGenreButton.SetText(tr("Genre"))
+
+	sortByMenu := widgets.NewQMenu(widget)
+	sortByActionGroup := widgets.NewQActionGroup(widget)
+
+	act1 := widgets.NewQAction2(tr("Seeders"), widget)
+	act1.SetCheckable(true)
+	act1.SetChecked(true)
+
+	act2 := widgets.NewQAction2(tr("Episodes"), widget)
+	act2.SetCheckable(true)
+
+	sortByActionGroup.AddAction(act1)
+	sortByActionGroup.AddAction(act2)
+
+	sortByMenu.AddActions([]*widgets.QAction{act1, act2})
+	sortByButton.SetMenu(sortByMenu)
 
 	topMenu := widgets.NewQMenu(widget)
 	action := topMenu.AddAction(tr("Movies"))
@@ -603,6 +667,8 @@ func NewToolbar(parent *widgets.QWidget) *Toolbar {
 	hlayout.AddWidget(lineInput, 0, 0)
 	hlayout.AddWidget(searchButton, 0, 0)
 	hlayout.AddWidget(refreshButton, 0, 0)
+	hlayout.AddWidget(sortByButton, 0, 0)
+	hlayout.AddSpacerItem(widgets.NewQSpacerItem(40, 20, widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Preferred))
 	hlayout.AddWidget(topButton, 0, 0)
 	hlayout.AddWidget(yearButton, 0, 0)
 	hlayout.AddWidget(popularButton, 0, 0)
@@ -621,7 +687,7 @@ func NewToolbar(parent *widgets.QWidget) *Toolbar {
 	widget.SetLayout(layout)
 
 	toolbar := &Toolbar{NewObject(parent), widget, searchButton, refreshButton, logButton, settingsButton, aboutButton,
-		lineInput, topButton, yearButton, popularButton, topRatedButton, byGenreButton}
+		lineInput, sortByButton, topButton, yearButton, popularButton, topRatedButton, byGenreButton}
 
 	toolbar.ConnectFinished2(func(data string) {
 		var d []bukanir.TItem
@@ -688,6 +754,7 @@ func (t *Toolbar) SetEnabled(enabled bool) {
 	t.Input.SetEnabled(enabled)
 	t.Search.SetEnabled(enabled)
 	t.Refresh.SetEnabled(enabled)
+	t.SortBy.SetEnabled(enabled)
 	t.Top.SetEnabled(enabled)
 	t.Year.SetEnabled(enabled)
 	t.Popular.SetEnabled(enabled)

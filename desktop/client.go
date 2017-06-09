@@ -29,8 +29,8 @@ func (c *Client) Top(widget *List, category, limit, force, cacheDays int, tpbHos
 }
 
 // Search movies
-func (c *Client) Search(widget *List, query string, limit, force, cacheDays int, pages int, tpbHost string, eztvHost string) {
-	data, err := bukanir.Search(query, limit, force, c.CacheDir, int64(cacheDays), pages, tpbHost, eztvHost)
+func (c *Client) Search(widget *List, query string, limit, force, cacheDays, pages int, tpbHost, eztvHost, sortBy string) {
+	data, err := bukanir.Search(query, limit, force, c.CacheDir, int64(cacheDays), pages, tpbHost, eztvHost, sortBy)
 	if err != nil {
 		log.Printf("ERROR: Search: %s\n", err.Error())
 		widget.Finished("")
@@ -104,6 +104,30 @@ func (c *Client) Genres(widget *Toolbar) {
 // Genre movies
 func (c *Client) Genre(widget *List, id int, limit int, force int, cacheDays int, tpbHost string) {
 	data, err := bukanir.Genre(id, limit, force, c.CacheDir, int64(cacheDays), tpbHost)
+	if err != nil {
+		log.Printf("ERROR: Genre: %s\n", err.Error())
+		widget.Finished("")
+		return
+	}
+
+	widget.Finished(data)
+}
+
+// Cast movies
+func (c *Client) Cast(widget *List, id int, limit int, force int, cacheDays int, tpbHost string) {
+	data, err := bukanir.Cast(id, limit, force, c.CacheDir, int64(cacheDays), tpbHost)
+	if err != nil {
+		log.Printf("ERROR: Genre: %s\n", err.Error())
+		widget.Finished("")
+		return
+	}
+
+	widget.Finished(data)
+}
+
+// Crew movies
+func (c *Client) Crew(widget *List, id int, limit int, force int, cacheDays int, tpbHost string) {
+	data, err := bukanir.Crew(id, limit, force, c.CacheDir, int64(cacheDays), tpbHost)
 	if err != nil {
 		log.Printf("ERROR: Genre: %s\n", err.Error())
 		widget.Finished("")

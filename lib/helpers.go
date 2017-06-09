@@ -328,6 +328,16 @@ func getCast(res []tmdbCast) []string {
 	return cast
 }
 
+// getCastIds returns cast ids from []tmdbCast
+func getCastIds(res []tmdbCast) []int {
+	var cast []int
+	for _, c := range res {
+		cast = append(cast, c.Id)
+	}
+
+	return cast
+}
+
 // getVideo returns youtube trailer from tmdb []tmdbVideo
 func getVideo(res []tmdbVideo) (video string) {
 	for _, c := range res {
@@ -356,6 +366,18 @@ func getDirector(res []tmdbCrew) string {
 	for _, c := range res {
 		if strings.ToLower(c.Job) == "director" {
 			return c.Name
+		}
+	}
+
+	return director
+}
+
+// getDirectorId returns cast ids from []tmdbCast
+func getDirectorId(res []tmdbCrew) int {
+	var director int
+	for _, c := range res {
+		if strings.ToLower(c.Job) == "director" {
+			return c.Id
 		}
 	}
 
