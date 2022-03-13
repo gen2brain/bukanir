@@ -1,6 +1,6 @@
 v2.5  Mar 13, 2022:
 
-    * Tor is embedded in binary
+    * Tor is embedded in the binary
     * Bug fixes
 
 v2.4  Mar 9, 2018:
@@ -24,7 +24,7 @@ v2.2  Jun 22, 2016:
 v2.1  Jun 6, 2016:
 
     * Torrent2http is now bundled inside bukanir lib
-    * fixed crash on arm64
+    * Fixed crash on arm64
 
 v2.0  Oct 13, 2015:
 
