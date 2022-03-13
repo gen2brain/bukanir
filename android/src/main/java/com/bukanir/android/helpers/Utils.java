@@ -4,7 +4,7 @@ import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.Context;
 
-import com.bukanir.android.services.Torrent2HttpService;
+import com.bukanir.android.services.TorrentService;
 import com.google.android.gms.analytics.GoogleAnalytics;
 import com.google.android.gms.analytics.Tracker;
 
@@ -15,7 +15,7 @@ public class Utils {
     public static boolean isTorrentServiceRunning(Context context) {
         ActivityManager manager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
         for(ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
-            if(Torrent2HttpService.class.getName().equals(service.service.getClassName())) {
+            if(TorrentService.class.getName().equals(service.service.getClassName())) {
                 return true;
             }
         }

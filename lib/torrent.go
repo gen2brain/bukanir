@@ -4,9 +4,6 @@ package bukanir
 // Based on https://github.com/steeve/torrent2http with added modifications from https://github.com/anteo/torrent2http
 
 import (
-	"bufio"
-	"bytes"
-	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -80,7 +77,6 @@ type Config struct {
 	Proxy               bool   `json:"proxy"`
 	ProxyHost           string `json:"proxy_host"`
 	ProxyPort           int    `json:"proxy_port"`
-	Blocklist           bool   `json:"blocklist"`
 	Verbose             bool   `json:"verbose"`
 }
 
@@ -361,16 +357,6 @@ func (t *torrent) startSession() {
 		settings.SetForceProxy(false)
 	}
 
-	if t.config.Blocklist {
-		if t.config.Verbose {
-			log.Println("T2HTTP: Setting blocklist ip filter")
-		}
-
-		t.setIpFilter()
-
-		settings.SetApplyIpFilterToTrackers(false)
-	}
-
 	t.session.SetSettings(settings)
 
 	if t.config.DhtRouters != "" {
@@ -413,30 +399,6 @@ func (t *torrent) startSession() {
 	encryptionSettings.SetPreferRc4(true)
 
 	t.session.SetPeSettings(encryptionSettings)
-}
-
-func (t *torrent) setIpFilter() {
-	file := bytes.NewReader(ipFilterDecode())
-
-	gz, err := gzip.NewReader(file)
-	if err != nil {
-		log.Printf("ERROR: setIpFilter %v", err)
-		return
-	}
-
-	defer gz.Close()
-
-	filter := lt.NewIpFilter()
-
-	scanner := bufio.NewScanner(gz)
-	for scanner.Scan() {
-		line := strings.Split(scanner.Text(), "-")
-		if len(line) == 2 {
-			filter.AddRule(lt.AddressFromString(line[0]), lt.AddressFromString(line[1]), int(lt.IpFilterBlocked))
-		}
-	}
-
-	t.session.SetIpFilter(filter)
 }
 
 func (t *torrent) startServices() {
@@ -500,9 +462,6 @@ func (t *torrent) startHTTP() {
 
 	handler := http.Handler(mux)
 
-	if t.config.Verbose {
-		log.Printf("T2HTTP: Listening HTTP on %s...\n", t.config.BindAddress)
-	}
 	s := &http.Server{
 		Addr:    t.config.BindAddress,
 		Handler: handler,
@@ -514,6 +473,9 @@ func (t *torrent) startHTTP() {
 		log.Printf("ERROR: startHTTP: %v", err)
 	} else {
 		go s.Serve(t.httpListener)
+		if t.config.Verbose {
+			log.Printf("T2HTTP: Listening HTTP on %s...\n", t.config.BindAddress)
+		}
 	}
 }
 

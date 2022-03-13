@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -20,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gen2brain/vidextr"
+	"github.com/kkdai/youtube"
 )
 
 // TMovie type
@@ -181,18 +182,6 @@ func (a *BySeasonEpisode) Less(i, j int) bool {
 	return episode(p, q)
 }
 
-// Constants
-const (
-	Version = "2.4"
-
-	tmdbApiUrl = "http://api.themoviedb.org/3"
-	tmdbApiKey = "YOUR_API_KEY"
-
-	opensubsUser      = ""
-	opensubsPassword  = ""
-	opensubsUserAgent = "OSTestUserAgent"
-)
-
 // Movies categories
 const (
 	CategoryMovies   = 201
@@ -210,17 +199,16 @@ var Categories = []int{
 }
 
 // TPB onion url
-var TpbTor string = "uj3wazyk5u4hnvtk.onion"
+var TpbTor string = "piratebayo3klnzokct3wt5yyxb2vpebbuyjl7m623iaxmqhsd52coid.onion"
 
 // TPB hosts
 var TpbHosts = []string{
-	"thepiratebay.org",
-	"thepiratebay.mk",
-	"thepiratebay.lv",
+	"apibay.org",
 }
 
 // EZTV hosts
 var EztvHosts = []string{
+	"eztv.re",
 	"eztv.ag",
 	"eztv.wf",
 	"eztv.tf",
@@ -274,15 +262,20 @@ func init() {
 			return
 		}
 
-		ttor = NewTor(usr.Name, "9250", "9251", tmpDir)
-		ttor.SetDataDir()
-
-		err = ttor.Start()
-		if err != nil {
-			log.Printf("ERROR: %s\n", err.Error())
+		ttor = NewTor(usr.Username, "9250", "9251", tmpDir)
+		if runtime.GOOS == "linux" {
+			err = ttor.SetDataDir()
+			if err != nil {
+				log.Printf("ERROR: %s\n", err.Error())
+			}
 		}
 
-		time.Sleep(100 * time.Millisecond)
+		go func() {
+			err = ttor.Start()
+			if err != nil {
+				log.Printf("ERROR: %s\n", err.Error())
+			}
+		}()
 	}
 }
 
@@ -363,7 +356,7 @@ func Category(category int, limit int, force int, cacheDir string, cacheDays int
 }
 
 // Search returns movies by search query
-func Search(query string, limit int, force int, cacheDir string, cacheDays int64, pages int, tpbHost, eztvHost, sortBy string) (string, error) {
+func Search(query string, limit int, force int, cacheDir string, cacheDays int64, pages int, tpbHost, eztvHost, sortBy, media string) (string, error) {
 	query = strings.TrimSpace(query)
 	if force != 1 {
 		cache := getCache(query, cacheDir, cacheDays)
@@ -410,18 +403,23 @@ func Search(query string, limit int, force int, cacheDir string, cacheDays int64
 		}
 	}
 
-	wgt.Add(pages + 1)
-	for n := 0; n < pages; n++ {
-		go tpbSearch(query, n, tpbHost)
-	}
-	go eztvSearch(query, eztvHost)
-	wgt.Wait()
-
-	if limit > 0 {
-		if limit > len(torrents) {
-			limit = len(torrents)
+	if media == "all" {
+		wgt.Add(pages + 1)
+		for n := 0; n < pages; n++ {
+			go tpbSearch(query, n, tpbHost, media)
 		}
-		torrents = torrents[0:limit]
+		go eztvSearch(query, eztvHost)
+		wgt.Wait()
+	} else if media == "movies" {
+		wgt.Add(pages)
+		for n := 0; n < pages; n++ {
+			go tpbSearch(query, n, tpbHost, media)
+		}
+		wgt.Wait()
+	} else if media == "episodes" {
+		wgt.Add(1)
+		go eztvSearch(query, eztvHost)
+		wgt.Wait()
 	}
 
 	if verbose {
@@ -569,18 +567,19 @@ func UnzipSubtitle(url string, dest string) (string, error) {
 				if err != nil {
 					return "empty", err
 				}
-				defer dst.Close()
 
 				src, err := f.Open()
 				if err != nil {
 					return "empty", err
 				}
-				defer src.Close()
 
 				_, err = io.Copy(dst, src)
 				if err != nil {
 					return "empty", err
 				}
+
+				_ = dst.Close()
+				_ = src.Close()
 
 				return filepath.Join(dest, f.Name), nil
 			}
@@ -796,14 +795,27 @@ func Crew(id int, limit int, force int, cacheDir string, cacheDays int64, tpbHos
 
 // Trailer returns extracted video url
 func Trailer(videoId string) (string, error) {
-	uri, err := vidextr.YouTube(videoId)
+	client := youtube.Client{}
 
+	video, err := client.GetVideo(videoId)
 	if err != nil {
 		return "empty", err
 	}
 
-	if uri == "" {
-		return "empty", nil
+	if len(video.Formats) == 0 {
+		return "empty", fmt.Errorf("no formats found")
+	}
+
+	var uri string
+	format := video.Formats.WithAudioChannels().FindByQuality("360p")
+	if format == nil {
+		uri = video.Formats.WithAudioChannels()[0].URL
+	} else {
+		uri = format.URL
+	}
+
+	if verbose {
+		//log.Printf("BUK: Trailer url: %s\n", uri)
 	}
 
 	return uri, nil
@@ -832,6 +844,8 @@ func IsValidCategory(category int) bool {
 
 // TorrentWaitStartup waits for torrent to start
 func TorrentWaitStartup() bool {
+	time.Sleep(100 * time.Millisecond)
+
 	start := time.Now()
 	for time.Since(start).Seconds() < 10 {
 		s, err := TorrentStatus()

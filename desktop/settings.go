@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -19,7 +20,6 @@ type Settings struct {
 	*widgets.QDialog
 	*core.QSettings
 
-	Limit           int
 	Days            int
 	Fullscreen      bool
 	StopScreensaver bool
@@ -31,7 +31,6 @@ type Settings struct {
 	Color           string
 	Encryption      bool
 	Proxy           bool
-	Blocklist       bool
 	DlRate          int
 	UlRate          int
 	Port            int
@@ -40,7 +39,6 @@ type Settings struct {
 	KeepFiles       bool
 	DlPath          string
 
-	comboLimit           *widgets.QComboBox
 	comboDays            *widgets.QComboBox
 	checkFullscreen      *widgets.QCheckBox
 	checkStopScreensaver *widgets.QCheckBox
@@ -52,7 +50,6 @@ type Settings struct {
 	pushColor            *widgets.QPushButton
 	checkEncryption      *widgets.QCheckBox
 	checkProxy           *widgets.QCheckBox
-	checkBlocklist       *widgets.QCheckBox
 	comboDlRate          *widgets.QComboBox
 	comboUlRate          *widgets.QComboBox
 	spinPort             *widgets.QSpinBox
@@ -77,18 +74,12 @@ func NewSettings(parent *widgets.QWidget) *Settings {
 	// General
 	groupGeneral := widgets.NewQGroupBox2(tr("General"), widget)
 
-	labelLimit := widgets.NewQLabel2(tr("Movies limit per tab"), widget, 0)
 	labelDays := widgets.NewQLabel2(tr("Days to keep cache"), widget, 0)
-
-	comboLimit := widgets.NewQComboBox(widget)
-	comboLimit.AddItems([]string{"10", "30", "50", "70", "100", "150"})
 
 	comboDays := widgets.NewQComboBox(widget)
 	comboDays.AddItems([]string{"3", "7", "30", "90", "180"})
 
 	generalLayout := widgets.NewQGridLayout2()
-	generalLayout.AddWidget(labelLimit, 0, 0, 0)
-	generalLayout.AddWidget(comboLimit, 0, 1, 0)
 	generalLayout.AddWidget(labelDays, 1, 0, 0)
 	generalLayout.AddWidget(comboDays, 1, 1, 0)
 
@@ -167,9 +158,6 @@ func NewSettings(parent *widgets.QWidget) *Settings {
 	checkProxy := widgets.NewQCheckBox2(tr("Use proxy"), widget)
 	checkProxy.SetToolTip(tr("Use Tor socks5 proxy to connect to peers"))
 
-	checkBlocklist := widgets.NewQCheckBox2(tr("Use blocklist"), widget)
-	checkBlocklist.SetToolTip(tr("Prevents connecting to IPs that presumably belong to anti-piracy outfits"))
-
 	checkKeepFiles := widgets.NewQCheckBox2(tr("Keep files"), widget)
 	checkKeepFiles.SetToolTip(tr("Keep files after exiting"))
 
@@ -213,20 +201,19 @@ func NewSettings(parent *widgets.QWidget) *Settings {
 	torrentsLayout := widgets.NewQGridLayout2()
 	torrentsLayout.AddWidget(checkEncryption, 0, 0, 0)
 	torrentsLayout.AddWidget(checkProxy, 1, 0, 0)
-	torrentsLayout.AddWidget(checkBlocklist, 2, 0, 0)
-	torrentsLayout.AddWidget(labelDlRate, 3, 0, 0)
-	torrentsLayout.AddWidget(comboDlRate, 3, 1, 0)
-	torrentsLayout.AddWidget(labelUlRate, 4, 0, 0)
-	torrentsLayout.AddWidget(comboUlRate, 4, 1, 0)
-	torrentsLayout.AddWidget(labelPort, 5, 0, 0)
-	torrentsLayout.AddWidget(spinPort, 5, 1, 0)
-	torrentsLayout.AddWidget(labelTPB, 6, 0, 0)
-	torrentsLayout.AddWidget(comboTPB, 6, 1, 0)
-	torrentsLayout.AddWidget(labelEZTV, 7, 0, 0)
-	torrentsLayout.AddWidget(comboEZTV, 7, 1, 0)
-	torrentsLayout.AddWidget(checkKeepFiles, 8, 0, 0)
-	torrentsLayout.AddWidget(pushDlPath, 8, 1, 0)
-	torrentsLayout.AddWidget3(lineDlPath, 9, 0, 9, 2, 0)
+	torrentsLayout.AddWidget(labelDlRate, 2, 0, 0)
+	torrentsLayout.AddWidget(comboDlRate, 2, 1, 0)
+	torrentsLayout.AddWidget(labelUlRate, 3, 0, 0)
+	torrentsLayout.AddWidget(comboUlRate, 3, 1, 0)
+	torrentsLayout.AddWidget(labelPort, 4, 0, 0)
+	torrentsLayout.AddWidget(spinPort, 4, 1, 0)
+	torrentsLayout.AddWidget(labelTPB, 5, 0, 0)
+	torrentsLayout.AddWidget(comboTPB, 5, 1, 0)
+	torrentsLayout.AddWidget(labelEZTV, 6, 0, 0)
+	torrentsLayout.AddWidget(comboEZTV, 6, 1, 0)
+	torrentsLayout.AddWidget(checkKeepFiles, 7, 0, 0)
+	torrentsLayout.AddWidget(pushDlPath, 7, 1, 0)
+	torrentsLayout.AddWidget3(lineDlPath, 8, 0, 9, 2, 0)
 
 	groupTorrents.SetLayout(torrentsLayout)
 
@@ -243,14 +230,14 @@ func NewSettings(parent *widgets.QWidget) *Settings {
 	layout.AddWidget(buttonBox, 0, 0)
 	widget.SetLayout(layout)
 
-	qsettings := core.NewQSettings("bukanir", "bukanir", parent)
+	qsettings := core.NewQSettings4(filepath.Join(configDir(), "bukanir.conf"), core.QSettings__IniFormat, parent)
 
 	settings := &Settings{
 		widget, qsettings,
-		0, 0, false, false, 0, false, "", "", 0, "", false, false, false, 0, 0, 0, "", "", false, "",
-		comboLimit, comboDays, checkFullscreen, checkStopScreensaver, sliderVolumeMax, groupSubtitles, comboLanguage, comboCodepage,
-		spinScale, pushColor, checkEncryption, checkProxy, checkBlocklist, comboDlRate, comboUlRate, spinPort, comboTPB, comboEZTV, checkKeepFiles, lineDlPath, pushDlPath,
-		labelLanguage, labelCodepage, labelScale, labelColor, buttonBox,
+		0, false, false, 0, false, "", "", 0, "", false, false, 0, 0, 0, "", "", false, "",
+		comboDays, checkFullscreen, checkStopScreensaver, sliderVolumeMax, groupSubtitles, comboLanguage, comboCodepage,
+		spinScale, pushColor, checkEncryption, checkProxy, comboDlRate, comboUlRate, spinPort, comboTPB, comboEZTV, checkKeepFiles,
+		lineDlPath, pushDlPath, labelLanguage, labelCodepage, labelScale, labelColor, buttonBox,
 	}
 
 	settings.Set()
@@ -330,11 +317,10 @@ func (s *Settings) ConnectSignals() {
 // Set sets values
 func (s *Settings) Set() {
 
-	limit := s.Value("limit", core.NewQVariant7(30))
-	days := s.Value("days", core.NewQVariant7(90))
+	days := s.Value("days", core.NewQVariant7(7))
 	fullscreen := s.Value("fullscreen", core.NewQVariant7(0))
 	stopscreensaver := s.Value("stopscreensaver", core.NewQVariant7(1))
-	volumemax := s.Value("volumemax", core.NewQVariant7(130))
+	volumemax := s.Value("volumemax", core.NewQVariant7(150))
 	subtitles := s.Value("subtitles", core.NewQVariant7(1))
 	language := s.Value("language", core.NewQVariant14("English"))
 	codepage := s.Value("codepage", core.NewQVariant14("auto"))
@@ -353,33 +339,31 @@ func (s *Settings) Set() {
 		proxy = s.Value("proxy", core.NewQVariant7(1))
 	}
 
-	blocklist := s.Value("blocklist", core.NewQVariant7(0))
-
 	dlrate := s.Value("dlrate", core.NewQVariant7(-1))
 	ulrate := s.Value("ulrate", core.NewQVariant7(-1))
 	port := s.Value("port", core.NewQVariant7(6881))
-	tpbHost := s.Value("tpbhost", core.NewQVariant14("thepiratebay.org"))
-	eztvHost := s.Value("eztvhost", core.NewQVariant14("eztv.ag"))
+	tpbHost := s.Value("tpbhost", core.NewQVariant14("apibay.org"))
+	eztvHost := s.Value("eztvhost", core.NewQVariant14("eztv.re"))
 	keep := s.Value("keep", core.NewQVariant7(0))
 	dlpath := s.Value("dlpath", core.NewQVariant14(""))
 
-	s.comboLimit.SetCurrentText(limit.ToString())
+	boolean := false
+
 	s.comboDays.SetCurrentText(days.ToString())
 	s.checkFullscreen.SetChecked(fullscreen.ToBool())
 	s.checkStopScreensaver.SetChecked(stopscreensaver.ToBool())
-	s.sliderVolumeMax.SetValue(volumemax.ToInt(false))
-	s.sliderVolumeMax.SetToolTip(strconv.Itoa(volumemax.ToInt(false)) + "%")
+	s.sliderVolumeMax.SetValue(volumemax.ToInt(&boolean))
+	s.sliderVolumeMax.SetToolTip(strconv.Itoa(volumemax.ToInt(&boolean)) + "%")
 	s.groupSubtitles.SetChecked(subtitles.ToBool())
 	s.comboLanguage.SetCurrentText(language.ToString())
 	s.comboCodepage.SetCurrentText(codepage.ToString())
-	s.spinScale.SetValue(float64(subscale.ToFloat(false)))
+	s.spinScale.SetValue(float64(subscale.ToFloat(&boolean)))
 	s.pushColor.Palette().SetColor2(gui.QPalette__Button, gui.NewQColor6(subcolor.ToString()))
 	s.checkEncryption.SetChecked(encryption.ToBool())
 	s.checkProxy.SetChecked(proxy.ToBool())
-	s.checkBlocklist.SetChecked(blocklist.ToBool())
 	s.comboDlRate.SetCurrentText(dlrate.ToString())
 	s.comboUlRate.SetCurrentText(ulrate.ToString())
-	s.spinPort.SetValue(port.ToInt(false))
+	s.spinPort.SetValue(port.ToInt(&boolean))
 	s.comboTPB.SetCurrentText(tpbHost.ToString())
 	s.comboEZTV.SetCurrentText(eztvHost.ToString())
 	s.checkKeepFiles.SetChecked(keep.ToBool())
@@ -388,22 +372,20 @@ func (s *Settings) Set() {
 	s.lineDlPath.SetEnabled(keep.ToBool())
 	s.pushDlPath.SetEnabled(keep.ToBool())
 
-	s.Limit = limit.ToInt(false)
-	s.Days = days.ToInt(false)
+	s.Days = days.ToInt(&boolean)
 	s.Fullscreen = fullscreen.ToBool()
 	s.StopScreensaver = stopscreensaver.ToBool()
-	s.VolumeMax = volumemax.ToInt(false)
+	s.VolumeMax = volumemax.ToInt(&boolean)
 	s.Subtitles = subtitles.ToBool()
 	s.Language = language.ToString()
 	s.Codepage = strings.ToLower(codepage.ToString())
-	s.Scale = float64(subscale.ToFloat(false))
+	s.Scale = float64(subscale.ToFloat(&boolean))
 	s.Color = subcolor.ToString()
 	s.Encryption = encryption.ToBool()
 	s.Proxy = proxy.ToBool()
-	s.Blocklist = blocklist.ToBool()
-	s.DlRate = dlrate.ToInt(false)
-	s.UlRate = ulrate.ToInt(false)
-	s.Port = port.ToInt(false)
+	s.DlRate = dlrate.ToInt(&boolean)
+	s.UlRate = ulrate.ToInt(&boolean)
+	s.Port = port.ToInt(&boolean)
 	s.TPBHost = tpbHost.ToString()
 	s.EZTVHost = eztvHost.ToString()
 	s.KeepFiles = keep.ToBool()
@@ -412,7 +394,6 @@ func (s *Settings) Set() {
 
 // Save saves values
 func (s *Settings) Save() {
-	limit := s.comboLimit.CurrentText()
 	days := s.comboDays.CurrentText()
 	fullscreen := s.checkFullscreen.IsChecked()
 	stopscreensaver := s.checkStopScreensaver.IsChecked()
@@ -424,7 +405,6 @@ func (s *Settings) Save() {
 	subscale := s.spinScale.Value()
 	encryption := s.checkEncryption.IsChecked()
 	proxy := s.checkProxy.IsChecked()
-	blocklist := s.checkBlocklist.IsChecked()
 	dlrate := s.comboDlRate.CurrentText()
 	ulrate := s.comboUlRate.CurrentText()
 	port := s.spinPort.Value()
@@ -433,7 +413,6 @@ func (s *Settings) Save() {
 	keep := s.checkKeepFiles.IsChecked()
 	dlpath := s.lineDlPath.Text()
 
-	s.SetValue("limit", core.NewQVariant14(limit))
 	s.SetValue("days", core.NewQVariant14(days))
 	s.SetValue("fullscreen", core.NewQVariant11(fullscreen))
 	s.SetValue("stopscreensaver", core.NewQVariant11(stopscreensaver))
@@ -445,7 +424,6 @@ func (s *Settings) Save() {
 	s.SetValue("subscale", core.NewQVariant12(subscale))
 	s.SetValue("encryption", core.NewQVariant11(encryption))
 	s.SetValue("proxy", core.NewQVariant11(proxy))
-	s.SetValue("blocklist", core.NewQVariant11(blocklist))
 	s.SetValue("dlrate", core.NewQVariant14(dlrate))
 	s.SetValue("ulrate", core.NewQVariant14(ulrate))
 	s.SetValue("port", core.NewQVariant7(port))
@@ -454,22 +432,22 @@ func (s *Settings) Save() {
 	s.SetValue("keep", core.NewQVariant11(keep))
 	s.SetValue("dlpath", core.NewQVariant14(dlpath))
 
-	s.Limit = core.NewQVariant14(limit).ToInt(false)
-	s.Days = core.NewQVariant14(days).ToInt(false)
+	boolean := false
+
+	s.Days = core.NewQVariant14(days).ToInt(&boolean)
 	s.Fullscreen = core.NewQVariant11(fullscreen).ToBool()
 	s.StopScreensaver = core.NewQVariant11(stopscreensaver).ToBool()
-	s.VolumeMax = core.NewQVariant7(volumemax).ToInt(false)
+	s.VolumeMax = core.NewQVariant7(volumemax).ToInt(&boolean)
 	s.Subtitles = core.NewQVariant11(subtitles).ToBool()
 	s.Language = core.NewQVariant14(language).ToString()
 	s.Codepage = strings.ToLower(core.NewQVariant14(codepage).ToString())
-	s.Scale = float64(core.NewQVariant12(subscale).ToFloat(false))
+	s.Scale = float64(core.NewQVariant12(subscale).ToFloat(&boolean))
 	s.Color = core.NewQVariant14(subcolor).ToString()
 	s.Encryption = core.NewQVariant11(encryption).ToBool()
 	s.Proxy = core.NewQVariant11(proxy).ToBool()
-	s.Blocklist = core.NewQVariant11(blocklist).ToBool()
-	s.DlRate = core.NewQVariant14(dlrate).ToInt(false)
-	s.UlRate = core.NewQVariant14(ulrate).ToInt(false)
-	s.Port = core.NewQVariant7(port).ToInt(false)
+	s.DlRate = core.NewQVariant14(dlrate).ToInt(&boolean)
+	s.UlRate = core.NewQVariant14(ulrate).ToInt(&boolean)
+	s.Port = core.NewQVariant7(port).ToInt(&boolean)
 	s.TPBHost = core.NewQVariant14(tpbHost).ToString()
 	s.EZTVHost = core.NewQVariant14(eztvHost).ToString()
 	s.KeepFiles = core.NewQVariant11(keep).ToBool()
@@ -489,8 +467,8 @@ func (s *Settings) TorrentConfig(url string) string {
 	c.ListenPort = s.Port
 	c.TorrentConnectBoost = 10 * runtime.NumCPU()
 	c.ConnectionSpeed = 10 * runtime.NumCPU()
-	c.PeerConnectTimeout = 3
-	c.RequestTimeout = 3
+	c.PeerConnectTimeout = 5
+	c.RequestTimeout = 5
 	c.MaxDownloadRate = s.DlRate
 	c.MaxUploadRate = s.UlRate
 	c.MinReconnectTime = 60
@@ -498,7 +476,6 @@ func (s *Settings) TorrentConfig(url string) string {
 	c.Proxy = s.Proxy
 	c.ProxyHost = "127.0.0.1"
 	c.ProxyPort = 9250
-	c.Blocklist = s.Blocklist
 	c.Verbose = true
 
 	if s.KeepFiles && s.DlPath != "" {

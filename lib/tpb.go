@@ -1,21 +1,29 @@
 package bukanir
 
 import (
-	"errors"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/url"
 	"strconv"
-	"strings"
-	"sync"
 
-	"github.com/PuerkitoBio/goquery"
 	"github.com/dustin/go-humanize"
 )
 
 // tpb type
 type tpb struct {
 	Host string
+}
+
+// tpbTorrent type
+type tpbTorrent struct {
+	ID       json.Number `json:"id",type:"integer"`
+	InfoHash string      `json:"info_hash"`
+	Category json.Number `json:"category",type:"integer"`
+	Name     string      `json:"name"`
+	Size     json.Number `json:"size",type:"integer"`
+	Seeders  json.Number `json:"seeders",type:"integer"`
+	Leechers json.Number `json:"leechers",type:"integer"`
 }
 
 // NewTpb returns new tpb
@@ -26,22 +34,20 @@ func NewTpb(host string) *tpb {
 // Top returns top torrents for category
 func (t *tpb) Top(category int) ([]TTorrent, error) {
 	var results []TTorrent
-	uri := fmt.Sprintf("http://%s/top/%d", t.Host, category)
+	uri := fmt.Sprintf("http://%s/precompiled/data_top100_%d.json", t.Host, category)
 
 	if verbose {
 		log.Printf("TPB: GET %s\n", uri)
 	}
 
-	doc, err := getDocument(uri)
+	body, err := getBody(uri)
 	if err != nil {
 		return nil, err
 	}
 
-	if doc != nil {
-		results, err = t.getTorrents(doc, -1)
-		if err != nil {
-			return nil, err
-		}
+	results, err = t.getTorrents(body)
+	if err != nil {
+		return nil, err
 	}
 
 	return results, nil
@@ -50,86 +56,71 @@ func (t *tpb) Top(category int) ([]TTorrent, error) {
 // Search returns torrents for query
 func (t *tpb) Search(query string, page int, cats string) ([]TTorrent, error) {
 	var results []TTorrent
-	uri := fmt.Sprintf("http://%s/search/%s/%d/7/%s", t.Host, url.QueryEscape(query), page, cats)
+	uri := fmt.Sprintf("http://%s/q.php?q=%s&cat=%s", t.Host, url.QueryEscape(query), cats)
 
 	if verbose {
 		log.Printf("TPB: GET %s\n", uri)
 	}
 
-	doc, err := getDocument(uri)
+	body, err := getBody(uri)
 	if err != nil {
 		return nil, err
 	}
 
-	if doc != nil {
-		results, err = t.getTorrents(doc, page)
-		if err != nil {
-			return nil, err
-		}
+	results, err = t.getTorrents(body)
+	if err != nil {
+		return nil, err
 	}
 
 	return results, nil
 }
 
 // getTorrents returns torrents from html page
-func (t *tpb) getTorrents(doc *goquery.Document, page int) ([]TTorrent, error) {
+func (t *tpb) getTorrents(body []byte) ([]TTorrent, error) {
 	var results []TTorrent
-	divs := doc.Find(`div.detName`)
+	var torrents []tpbTorrent
 
-	if divs.Length() == 0 {
-		return nil, errors.New(fmt.Sprintf("No results on page %d", page))
+	err := json.Unmarshal(body, &torrents)
+	if err != nil {
+		return nil, err
 	}
 
-	var w sync.WaitGroup
+	for _, torrent := range torrents {
+		category, _ := torrent.Category.Int64()
+		seeders, _ := torrent.Seeders.Int64()
+		size, _ := torrent.Size.Int64()
 
-	parseHTML := func(i int, s *goquery.Selection) {
-		defer w.Done()
-
-		parent := s.Parent()
-		prev := parent.Prev().First()
-
-		title := s.Find(`a.detLink`).Text()
-		magnet, _ := parent.Find(`a[title="Download this torrent using magnet"]`).Attr(`href`)
-		desc := parent.Find(`font.detDesc`).Text()
-		seeders, _ := strconv.Atoi(parent.Next().Text())
-
-		c, _ := prev.Find(`a[title="More from this category"]`).Last().Attr(`href`)
-		category, _ := strconv.Atoi(strings.Replace(c, "/browse/", "", -1))
-
-		if seeders == 0 || getTitle(title) == "" || !strings.HasPrefix(magnet, "magnet:?") {
-			return
+		if getTitle(torrent.Name) == "" {
+			continue
 		}
 
-		var size uint64
-		var sizeHuman string
-		parts := strings.Split(desc, ", ")
-		if len(parts) > 1 {
-			size, _ = humanize.ParseBytes(strings.Split(parts[1], " ")[1])
-			sizeHuman = humanize.IBytes(size)
+		if seeders == 0 {
+			continue
 		}
 
 		if size > 5120*1024*1024 {
-			return
+			continue
 		}
 
-		season, _ := strconv.Atoi(getSeason(title))
-		episode, _ := strconv.Atoi(getEpisode(title))
+		season, _ := strconv.Atoi(getSeason(torrent.Name))
+		episode, _ := strconv.Atoi(getEpisode(torrent.Name))
+		magnet := fmt.Sprintf("magnet:?xt=urn:btih:%s&dn=%s%s", torrent.InfoHash, url.QueryEscape(torrent.Name), getTrackers())
 
 		if category == CategoryTV || category == CategoryHDTV {
 			if season == 0 && episode == 0 {
-				return
+				continue
 			}
 		}
 
 		t := TTorrent{
-			title,
-			getTitle(title),
+			torrent.Name,
+			getTitle(torrent.Name),
 			magnet,
-			getYear(title),
-			int64(size),
-			sizeHuman,
-			seeders,
-			category,
+			getYear(torrent.Name),
+			size,
+			humanize.IBytes(uint64(size)),
+			int(seeders),
+			int(category),
 			season,
 			episode,
 		}
@@ -137,11 +128,19 @@ func (t *tpb) getTorrents(doc *goquery.Document, page int) ([]TTorrent, error) {
 		results = append(results, t)
 	}
 
-	w.Add(divs.Length())
-	divs.Each(func(i int, s *goquery.Selection) {
-		go parseHTML(i, s)
-	})
-	w.Wait()
-
 	return results, nil
+}
+
+func getTrackers() string {
+	tr := "&tr=" + url.QueryEscape("udp://tracker.coppersurfer.tk:6969/announce")
+	tr += "&tr=" + url.QueryEscape("udp://tracker.openbittorrent.com:6969/announce")
+	tr += "&tr=" + url.QueryEscape("udp://9.rarbg.me:2780/announce")
+	tr += "&tr=" + url.QueryEscape("udp://9.rarbg.to:2710/announce")
+	tr += "&tr=" + url.QueryEscape("udp://tracker.opentrackr.org:1337/announce")
+	tr += "&tr=" + url.QueryEscape("udp://tracker.torrent.eu.org:451/announce")
+	tr += "&tr=" + url.QueryEscape("udp://tracker.tiny-vps.com:6969/announce")
+	tr += "&tr=" + url.QueryEscape("udp://open.stealth.si:80/announce")
+	tr += "&tr=" + url.QueryEscape("udp://bt1.archive.org:6969/announce")
+	tr += "&tr=" + url.QueryEscape("udp://tracker.skynetcloud.site:6969/announce")
+	return tr
 }

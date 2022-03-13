@@ -1,15 +1,17 @@
 package main
 
-//go:generate goversioninfo -icon=dist/windows/bukanir.ico -o resource_windows.syso
+//go:generate goversioninfo -icon=dist/windows/bukanir.ico -o resource_windows_386.syso
+//go:generate goversioninfo -64 -icon=dist/windows/bukanir.ico -o resource_windows_amd64.syso
 
 import (
-	"flag"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 
+	"github.com/postfinance/single"
 	"github.com/therecipe/qt/core"
 	"github.com/therecipe/qt/widgets"
 
@@ -17,23 +19,40 @@ import (
 )
 
 var (
-	tabs    []Tab
 	tempDir string
-
-	tr func(string) string
+	tr      func(string) string
 )
 
-// Tab type
-type Tab struct {
-	Query    string
-	Category int
-	Genre    int
-	Movie    bukanir.TMovie
-	Widget   *List
-	Widget2  *Summary
+func init() {
+	setLocale(LcNumeric, "C")
+	os.Setenv("SDL_RENDER_DRIVER", "software")
+
+	switch runtime.GOOS {
+	case "linux":
+		os.Setenv("QT_QPA_PLATFORM", "xcb")
+		//if os.Getenv("WAYLAND_DISPLAY") != "" {
+		//	os.Setenv("QT_QPA_PLATFORM", "wayland-egl")
+		//} else {
+		//	os.Setenv("QT_QPA_PLATFORM", "xcb")
+		//}
+	case "windows":
+		os.Setenv("QT_QPA_PLATFORM", "windows")
+	case "darwin":
+		os.Setenv("QT_QPA_PLATFORM", "cocoa")
+	}
 }
 
 func main() {
+	one, err := single.New("bukanir", single.WithLockPath(os.TempDir()))
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = one.Lock()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer one.Unlock()
+
 	tempDir, _ = ioutil.TempDir(os.TempDir(), "bukanir")
 	defer os.RemoveAll(tempDir)
 
@@ -42,37 +61,34 @@ func main() {
 
 	app := widgets.NewQApplication(len(os.Args), os.Args)
 
-	v := flag.Bool("verbose", false, "Show verbose output")
-	flag.Parse()
-	if *v {
+	var v bool
+	if inSlice("-verbose", os.Args[1:]) || inSlice("--verbose", os.Args[1:]) {
+		v = true
+	}
+	if v {
 		log.SetOutput(io.MultiWriter(os.Stderr, logFile))
 	} else {
 		log.SetOutput(logFile)
 	}
-
-	tabs = make([]Tab, 0)
 
 	bukanir.SetVerbose(true)
 	defer bukanir.TorStop()
 
 	locale := core.NewQLocale().System().Name()
 	translator := core.NewQTranslator(app)
-	if translator.Load(":qml/i18n/bukanir."+locale, ":/qml/i18n", "", "") {
-		app.InstallTranslator(translator)
-	}
+	translator.Load(":qml/i18n/bukanir."+locale+".qm", ":/qml/i18n", "", "")
+	app.InstallTranslator(translator)
 
 	tr = func(source string) string {
 		return translator.Translate("global", source, "", -1)
 	}
 
-	setLocale(LC_NUMERIC, "C")
-
 	window := NewWindow()
 	window.Center()
 	window.AddWidgets()
 	window.ConnectSignals()
-	window.Show()
 	window.Init()
+	window.Show()
 
 	app.Exec()
 }

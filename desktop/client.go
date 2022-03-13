@@ -29,8 +29,8 @@ func (c *Client) Top(widget *List, category, limit, force, cacheDays int, tpbHos
 }
 
 // Search movies
-func (c *Client) Search(widget *List, query string, limit, force, cacheDays, pages int, tpbHost, eztvHost, sortBy string) {
-	data, err := bukanir.Search(query, limit, force, c.CacheDir, int64(cacheDays), pages, tpbHost, eztvHost, sortBy)
+func (c *Client) Search(widget *List, query string, limit, force, cacheDays, pages int, tpbHost, eztvHost, sortBy, media string) {
+	data, err := bukanir.Search(query, limit, force, c.CacheDir, int64(cacheDays), pages, tpbHost, eztvHost, sortBy, media)
 	if err != nil {
 		log.Printf("ERROR: Search: %s\n", err.Error())
 		widget.Finished("")

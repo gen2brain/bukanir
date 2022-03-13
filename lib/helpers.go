@@ -2,7 +2,9 @@ package bukanir
 
 import (
 	"compress/gzip"
+	"context"
 	"crypto/md5"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -106,7 +108,7 @@ func getDocument(uri string) (*goquery.Document, error) {
 		return nil, errors.New("http.Response is nil")
 	}
 
-	doc, err := goquery.NewDocumentFromResponse(res)
+	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
 		log.Printf("ERROR: NewDocumentFromResponse %s: %s\n", uri, err.Error())
 		return nil, err
@@ -121,8 +123,6 @@ func getDocument(uri string) (*goquery.Document, error) {
 
 // getClient returns http client
 func getClient(torProxy bool) (*http.Client, error) {
-	var dial func(network, addr string) (net.Conn, error)
-
 	if torProxy && ttor.Running() {
 		proxyURL, err := url.Parse("socks5://127.0.0.1:" + ttor.Port)
 		if err != nil {
@@ -134,22 +134,31 @@ func getClient(torProxy bool) (*http.Client, error) {
 			return nil, fmt.Errorf("Failed to obtain proxy dialer: %v\n", err)
 		}
 
-		dial = dialer.Dial
-	} else {
-		dial = func(network, addr string) (net.Conn, error) {
-			return net.DialTimeout(network, addr, 30*time.Second)
-		}
-	}
+		dc := dialer.(interface {
+			DialContext(ctx context.Context, network, addr string) (net.Conn, error)
+		})
 
-	return &http.Client{
-		Transport: &http.Transport{
-			Dial:                  dial,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ResponseHeaderTimeout: 10 * time.Second,
-			MaxIdleConnsPerHost:   100,
-		},
-		Timeout: 30 * time.Second,
-	}, nil
+		return &http.Client{
+			Transport: &http.Transport{
+				DialContext:     dc.DialContext,
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+			Timeout: 30 * time.Second,
+		}, nil
+	} else {
+		baseDialer := &net.Dialer{
+			Timeout: 30 * time.Second,
+		}
+		dialContext := (baseDialer).DialContext
+
+		return &http.Client{
+			Transport: &http.Transport{
+				DialContext:     dialContext,
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+			Timeout: 30 * time.Second,
+		}, nil
+	}
 }
 
 // getResponse returns http response
@@ -248,8 +257,10 @@ func getBody(uri string) ([]byte, error) {
 // getTitle returns title from torrent title
 func getTitle(torrentTitle string) string {
 	title := strings.ToLower(torrentTitle)
+	title = strings.TrimSuffix(title, "\n")
 	title = strings.Replace(title, ".", " ", -1)
 	title = strings.Replace(title, "-", " ", -1)
+	title = strings.Replace(title, ":", "", -1)
 
 	reEp := reSeason.FindAllStringSubmatch(title, -1)
 	if len(reEp) > 1 {
@@ -437,38 +448,4 @@ func getEztvHost() string {
 	}
 
 	return EztvHosts[0]
-}
-
-// which search for an executable in the directories listed in the PATH environment variable
-func which(path string) (prog string) {
-	isExe := func(p string) bool {
-		info, err := os.Stat(p)
-		if err != nil {
-			return false
-		}
-
-		if !info.IsDir() && info.Mode()&0111 != 0 {
-			return true
-		}
-
-		return false
-	}
-
-	dir, _ := filepath.Split(path)
-	if dir != "" {
-		if isExe(path) {
-			prog = path
-			return
-		}
-	} else {
-		for _, p := range strings.Split(os.Getenv("PATH"), string(os.PathListSeparator)) {
-			fname := filepath.Join(p, path)
-			if isExe(fname) {
-				prog = fname
-				return
-			}
-		}
-	}
-
-	return
 }

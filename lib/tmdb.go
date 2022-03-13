@@ -173,7 +173,7 @@ func (t *tmdb) GetConfig() (*tmdbConfig, error) {
 	uri := fmt.Sprintf("%s/configuration?api_key=%s", tmdbApiUrl, t.Api_key)
 
 	if verbose {
-		log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s", t.Api_key), "", -1))
+		log.Printf("TMDB: GET %s\n", t.safeUri(uri, false))
 	}
 
 	body, err := getBody(uri)
@@ -192,7 +192,7 @@ func (t *tmdb) SearchMovie(query string) (tmdbResponse, error) {
 	uri := fmt.Sprintf("%s/search/movie?api_key=%s&query=%s", tmdbApiUrl, t.Api_key, url.QueryEscape(query))
 
 	if verbose {
-		//log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s&", t.Api_key), "?", -1))
+		//log.Printf("TMDB: GET %s\n", t.safeUri(uri, true))
 	}
 
 	body, err := getBody(uri)
@@ -211,7 +211,7 @@ func (t *tmdb) SearchTv(query string) (tmdbResponse, error) {
 	uri := fmt.Sprintf("%s/search/tv?api_key=%s&query=%s", tmdbApiUrl, t.Api_key, url.QueryEscape(query))
 
 	if verbose {
-		//log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s&", t.Api_key), "?", -1))
+		//log.Printf("TMDB: GET %s\n", t.safeUri(uri, true))
 	}
 
 	body, err := getBody(uri)
@@ -230,7 +230,7 @@ func (t *tmdb) AutoCompleteMovie(query string) (tmdbResponse, error) {
 	uri := fmt.Sprintf("%s/search/movie?api_key=%s&search_type=ngram&language=en&query=%s", tmdbApiUrl, t.Api_key, url.QueryEscape(query))
 
 	if verbose {
-		//log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s&", t.Api_key), "?", -1))
+		//log.Printf("TMDB: GET %s\n", t.safeUri(uri, true))
 	}
 
 	body, err := getBody(uri)
@@ -249,7 +249,7 @@ func (t *tmdb) AutoCompleteTv(query string) (tmdbResponse, error) {
 	uri := fmt.Sprintf("%s/search/tv?api_key=%s&search_type=ngram&language=en&query=%s", tmdbApiUrl, t.Api_key, url.QueryEscape(query))
 
 	if verbose {
-		//log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s&", t.Api_key), "?", -1))
+		//log.Printf("TMDB: GET %s\n", t.safeUri(uri, true))
 	}
 
 	body, err := getBody(uri)
@@ -268,7 +268,7 @@ func (t *tmdb) GetMovieDetails(id string) (tmdbMovie, error) {
 	uri := fmt.Sprintf("%s/movie/%s?api_key=%s&append_to_response=credits,videos", tmdbApiUrl, id, t.Api_key)
 
 	if verbose {
-		log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s&", t.Api_key), "?", -1))
+		log.Printf("TMDB: GET %s\n", t.safeUri(uri, true))
 	}
 
 	body, err := getBody(uri)
@@ -292,7 +292,7 @@ func (t *tmdb) GetTvDetails(id string, season int) (tmdbMovie, error) {
 	}
 
 	if verbose {
-		log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s&", t.Api_key), "?", -1))
+		log.Printf("TMDB: GET %s\n", t.safeUri(uri, true))
 	}
 
 	body, err := getBody(uri)
@@ -311,7 +311,7 @@ func (t *tmdb) GetTvImages(id string, season int) (tmdbPoster, error) {
 	uri := fmt.Sprintf("%s/tv/%s/season/%d/images?api_key=%s", tmdbApiUrl, id, season, t.Api_key)
 
 	if verbose {
-		//log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s", t.Api_key), "", -1))
+		//log.Printf("TMDB: GET %s\n", t.safeUri(uri, false))
 	}
 
 	body, err := getBody(uri)
@@ -330,7 +330,7 @@ func (t *tmdb) GetTvExternals(id string) (tmdbExternals, error) {
 	uri := fmt.Sprintf("%s/tv/%s/external_ids?api_key=%s", tmdbApiUrl, id, t.Api_key)
 
 	if verbose {
-		log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s", t.Api_key), "", -1))
+		log.Printf("TMDB: GET %s\n", t.safeUri(uri, false))
 	}
 
 	body, err := getBody(uri)
@@ -349,7 +349,7 @@ func (t *tmdb) PopularMovies() (tmdbResponse, error) {
 	uri := fmt.Sprintf("%s/movie/popular?api_key=%s", tmdbApiUrl, t.Api_key)
 
 	if verbose {
-		log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s", t.Api_key), "", -1))
+		log.Printf("TMDB: GET %s\n", t.safeUri(uri, false))
 	}
 
 	body, err := getBody(uri)
@@ -368,7 +368,7 @@ func (t *tmdb) PopularTv() (tmdbResponse, error) {
 	uri := fmt.Sprintf("%s/tv/popular?api_key=%s", tmdbApiUrl, t.Api_key)
 
 	if verbose {
-		log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s", t.Api_key), "", -1))
+		log.Printf("TMDB: GET %s\n", t.safeUri(uri, false))
 	}
 
 	body, err := getBody(uri)
@@ -387,7 +387,7 @@ func (t *tmdb) TopRatedMovies() (tmdbResponse, error) {
 	uri := fmt.Sprintf("%s/movie/top_rated?api_key=%s", tmdbApiUrl, t.Api_key)
 
 	if verbose {
-		log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s", t.Api_key), "", -1))
+		log.Printf("TMDB: GET %s\n", t.safeUri(uri, false))
 	}
 
 	body, err := getBody(uri)
@@ -406,7 +406,7 @@ func (t *tmdb) TopRatedTv() (tmdbResponse, error) {
 	uri := fmt.Sprintf("%s/tv/top_rated?api_key=%s", tmdbApiUrl, t.Api_key)
 
 	if verbose {
-		log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s", t.Api_key), "", -1))
+		log.Printf("TMDB: GET %s\n", t.safeUri(uri, false))
 	}
 
 	body, err := getBody(uri)
@@ -425,7 +425,7 @@ func (t *tmdb) Genres() (tmdbGenres, error) {
 	uri := fmt.Sprintf("%s/genre/movie/list?api_key=%s", tmdbApiUrl, t.Api_key)
 
 	if verbose {
-		log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s", t.Api_key), "", -1))
+		log.Printf("TMDB: GET %s\n", t.safeUri(uri, false))
 	}
 
 	body, err := getBody(uri)
@@ -444,7 +444,7 @@ func (t *tmdb) Genre(id, page int) (tmdbResponse, error) {
 	uri := fmt.Sprintf("%s/discover/movie?api_key=%s&sort_by=popularity.desc&with_genres=%d&page=%d", tmdbApiUrl, t.Api_key, id, page)
 
 	if verbose {
-		log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s&", t.Api_key), "?", -1))
+		log.Printf("TMDB: GET %s\n", t.safeUri(uri, true))
 	}
 
 	body, err := getBody(uri)
@@ -463,7 +463,7 @@ func (t *tmdb) MoviesWithCast(id, page int) (tmdbResponse, error) {
 	uri := fmt.Sprintf("%s/discover/movie?api_key=%s&sort_by=popularity.desc&with_cast=%d&page=%d", tmdbApiUrl, t.Api_key, id, page)
 
 	if verbose {
-		log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s&", t.Api_key), "?", -1))
+		log.Printf("TMDB: GET %s\n", t.safeUri(uri, true))
 	}
 
 	body, err := getBody(uri)
@@ -482,7 +482,7 @@ func (t *tmdb) MoviesWithCrew(id, page int) (tmdbResponse, error) {
 	uri := fmt.Sprintf("%s/discover/movie?api_key=%s&sort_by=popularity.desc&with_crew=%d&page=%d", tmdbApiUrl, t.Api_key, id, page)
 
 	if verbose {
-		log.Printf("TMDB: GET %s\n", strings.Replace(uri, fmt.Sprintf("?api_key=%s&", t.Api_key), "?", -1))
+		log.Printf("TMDB: GET %s\n", t.safeUri(uri, true))
 	}
 
 	body, err := getBody(uri)
@@ -493,4 +493,12 @@ func (t *tmdb) MoviesWithCrew(id, page int) (tmdbResponse, error) {
 		return resp, err
 	}
 	return resp, nil
+}
+
+func (t *tmdb) safeUri(uri string, b bool) string {
+	if b {
+		return strings.Replace(uri, fmt.Sprintf("?api_key=%s&", t.Api_key), "?", -1)
+	} else {
+		return strings.Replace(uri, fmt.Sprintf("?api_key=%s", t.Api_key), "", -1)
+	}
 }

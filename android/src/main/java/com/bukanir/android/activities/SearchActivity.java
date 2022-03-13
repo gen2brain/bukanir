@@ -5,7 +5,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v4.view.MenuItemCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -199,11 +198,7 @@ public class SearchActivity extends AppCompatActivity {
         }
 
         searchTask = new SearchTask();
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-            searchTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, query, force);
-        } else {
-            searchTask.execute(query, force);
-        }
+        searchTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, query, force);
     }
 
     public void cancelSearchTask() {

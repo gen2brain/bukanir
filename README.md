@@ -7,6 +7,7 @@ Features
 --------
 
 * Watch movies and TV shows on your Desktop or Android devices
+* Embedded Tor for privacy
 * Many languages to choose for subtitles
 * Ads free and free as in Freedom
 

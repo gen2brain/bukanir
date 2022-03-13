@@ -154,8 +154,7 @@ public class PlayerActivity extends AppCompatActivity implements SurfaceHolder.C
         } else {
             wifiLockMode = WifiManager.WIFI_MODE_FULL;
         }
-        wifiLock = ((WifiManager) this.getSystemService(Context.WIFI_SERVICE))
-                .createWifiLock(wifiLockMode, "lock");
+        wifiLock = ((WifiManager) this.getApplicationContext().getSystemService(Context.WIFI_SERVICE)).createWifiLock(wifiLockMode, "lock");
     }
 
     @Override

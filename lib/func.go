@@ -28,7 +28,7 @@ func tpbTop(category int, host string) {
 }
 
 // tpbSearch TPB search
-func tpbSearch(query string, page int, host string) {
+func tpbSearch(query string, page int, host string, media string) {
 	defer func() {
 		wgt.Done()
 		if r := recover(); r != nil {
@@ -36,8 +36,17 @@ func tpbSearch(query string, page int, host string) {
 		}
 	}()
 
+	var cats string
+	if media == "all" {
+		cats = "201,207,205,208"
+	} else if media == "movies" {
+		cats = "201,207"
+	} else if media == "episodes" {
+		cats = "205,208"
+	}
+
 	pb := NewTpb(host)
-	results, err := pb.Search(query, page, "201,207,205,208")
+	results, err := pb.Search(query, page, cats)
 	if err != nil {
 		log.Printf("ERROR: TPB Search: %s\n", err.Error())
 		return
@@ -534,8 +543,10 @@ func tmdbByGenre(id int, limit int, tpbHost string) {
 				tmdbYear, _ := strconv.Atoi(getYear(r.Release_date))
 				torrentYear, _ := strconv.Atoi(rt.Year)
 				if tmdbYear == torrentYear || tmdbYear == torrentYear-1 || tmdbYear == torrentYear+1 {
-					t = rt
-					break
+					if getTitle(r.Title) == rt.FormattedTitle || getTitle(r.Original_title) == rt.FormattedTitle {
+						t = rt
+						break
+					}
 				}
 			}
 		}
@@ -647,8 +658,10 @@ func tmdbWithCast(id int, limit int, tpbHost string) {
 				tmdbYear, _ := strconv.Atoi(getYear(r.Release_date))
 				torrentYear, _ := strconv.Atoi(rt.Year)
 				if tmdbYear == torrentYear || tmdbYear == torrentYear-1 || tmdbYear == torrentYear+1 {
-					t = rt
-					break
+					if getTitle(r.Title) == rt.FormattedTitle || getTitle(r.Original_title) == rt.FormattedTitle {
+						t = rt
+						break
+					}
 				}
 			}
 		}
@@ -760,8 +773,10 @@ func tmdbWithCrew(id int, limit int, tpbHost string) {
 				tmdbYear, _ := strconv.Atoi(getYear(r.Release_date))
 				torrentYear, _ := strconv.Atoi(rt.Year)
 				if tmdbYear == torrentYear || tmdbYear == torrentYear-1 || tmdbYear == torrentYear+1 {
-					t = rt
-					break
+					if getTitle(r.Title) == rt.FormattedTitle || getTitle(r.Original_title) == rt.FormattedTitle {
+						t = rt
+						break
+					}
 				}
 			}
 		}

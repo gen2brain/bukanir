@@ -44,7 +44,7 @@ public class BukanirClient {
     public static ArrayList<Movie> getSearchResults(String query, int limit, int refresh, String cacheDir, int cacheDays, int pages, String tpbHost, String eztvHost) {
         String result = null;
         try {
-            result = Bukanir.search(query, limit, refresh, cacheDir, cacheDays, pages, tpbHost, eztvHost);
+            result = Bukanir.search(query, limit, refresh, cacheDir, cacheDays, pages, tpbHost, eztvHost, "all");
         } catch(Exception e) {
             e.printStackTrace();
         }

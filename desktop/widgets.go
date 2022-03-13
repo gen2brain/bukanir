@@ -17,6 +17,7 @@ import (
 )
 
 //go:generate qtmoc
+//go:generate qtrcc
 
 // Object type
 type Object struct {
@@ -60,14 +61,11 @@ func NewList(w *widgets.QTabWidget) *List {
 	listWidget.SetVerticalScrollMode(widgets.QAbstractItemView__ScrollPerPixel)
 	listWidget.SetDragEnabled(false)
 
-	font := gui.NewQFont()
-	font.SetPixelSize(16)
-	listWidget.SetFont(font)
-
 	listWidget.SetStyleSheet(`
 		QListWidget {
 			border: 0;
 			background-color: black;
+			font: 16px;
 		}
 
 		QListWidget::item {
@@ -129,12 +127,14 @@ func (l *List) Init(manager *network.QNetworkAccessManager, data string) {
 
 			if reply.IsReadable() && reply.Error() == network.QNetworkReply__NoError {
 				data := reply.ReadAll()
-				if data.ConstData() != "" {
-					pixmap := gui.NewQPixmap()
-					ok := pixmap.LoadFromData2(data, "JPG", core.Qt__AutoColor)
+				if data != nil && data.ConstData() != "" {
+					image := gui.NewQImage()
+					ok := image.LoadFromData2(data, "JPG")
 					if ok {
-						item.SetIcon(gui.NewQIcon2(pixmap))
+						//item.SetIcon(gui.NewQIcon2(pixmap.Scaled2(300, 450, core.Qt__KeepAspectRatio, core.Qt__SmoothTransformation)))
+						item.SetIcon(gui.NewQIcon2(gui.QPixmap_FromImage(image, core.Qt__AutoColor)))
 					}
+					image.DestroyQImage()
 				}
 			}
 		})
@@ -216,39 +216,37 @@ func NewSummary(parent *widgets.QTabWidget) *Summary {
 	// Labels
 	labelTitle := widgets.NewQLabel(widget, 0)
 	labelTitle.SetWordWrap(true)
-	labelTitle.Font().SetPointSize(20)
-	labelTitle.Font().SetBold(true)
+	labelTitle.SetStyleSheet("font: 20pt; font-weight: bold")
 	labelTitle.SetMinimumWidth(475)
 	labelTitle.SetSizePolicy2(widgets.QSizePolicy__MinimumExpanding, widgets.QSizePolicy__Preferred)
 
 	labelRatingYear := widgets.NewQLabel(widget, 0)
 	labelRatingYear.SetWordWrap(true)
-	labelRatingYear.Font().SetPointSize(12)
+	labelRatingYear.SetStyleSheet("font: 12pt")
 
 	labelGenre := widgets.NewQLabel(widget, 0)
 	labelGenre.SetWordWrap(true)
-	labelGenre.Font().SetPointSize(12)
+	labelGenre.SetStyleSheet("font: 12pt")
 
 	labelRuntimeSize := widgets.NewQLabel(widget, 0)
 	labelRuntimeSize.SetWordWrap(true)
-	labelRuntimeSize.Font().SetPointSize(12)
+	labelRuntimeSize.SetStyleSheet("font: 12pt")
 
 	labelRelease := widgets.NewQLabel(widget, 0)
 	labelRelease.SetWordWrap(true)
-	labelRelease.Font().SetPointSize(10)
+	labelRelease.SetStyleSheet("font: 10pt")
 
 	labelTagline := widgets.NewQLabel(widget, 0)
 	labelTagline.SetWordWrap(true)
-	labelTagline.Font().SetPointSize(14)
-	labelTagline.Font().SetBold(true)
+	labelTagline.SetStyleSheet("font: 14pt; font-weight: bold")
 
 	labelDirector := widgets.NewQLabel(widget, 0)
 	labelDirector.SetWordWrap(true)
-	labelDirector.Font().SetPointSize(12)
+	labelDirector.SetStyleSheet("font: 12pt")
 
 	labelCast := widgets.NewQLabel(widget, 0)
 	labelCast.SetWordWrap(true)
-	labelCast.Font().SetPointSize(12)
+	labelCast.SetStyleSheet("font: 12pt")
 
 	// Overview scroll
 	scrollArea := widgets.NewQScrollArea(widget)
@@ -261,7 +259,7 @@ func NewSummary(parent *widgets.QTabWidget) *Summary {
 
 	labelOverview := widgets.NewQLabel(widget, 0)
 	labelOverview.SetWordWrap(true)
-	labelOverview.Font().SetPointSize(12)
+	labelOverview.SetStyleSheet("font: 12pt")
 	labelOverview.SetAlignment(core.Qt__AlignLeft | core.Qt__AlignTop)
 
 	slayout := widgets.NewQVBoxLayout()
@@ -310,13 +308,13 @@ func NewSummary(parent *widgets.QTabWidget) *Summary {
 
 	// Tmdb/OpenSubs
 	labelTmdb := widgets.NewQLabel(widget, 0)
-	labelTmdb.Font().SetPointSize(8)
+	labelTmdb.SetStyleSheet("font: 8pt")
 
 	labelTmdbLogo := widgets.NewQLabel(widget, 0)
-	labelTmdbLogo.Font().SetPointSize(8)
+	labelTmdbLogo.SetStyleSheet("font: 8pt")
 
 	labelOpenSubs := widgets.NewQLabel(widget, 0)
-	labelOpenSubs.Font().SetPointSize(8)
+	labelOpenSubs.SetStyleSheet("font: 8pt")
 
 	// Tmdb/OpenSubs layout
 	vlayout2 := widgets.NewQVBoxLayout()
@@ -353,12 +351,14 @@ func NewSummary(parent *widgets.QTabWidget) *Summary {
 	buttonWatch := widgets.NewQPushButton(widget)
 	buttonWatch.SetSizePolicy2(widgets.QSizePolicy__Minimum, widgets.QSizePolicy__Fixed)
 	buttonWatch.SetStyleSheet(stylesheet)
+	buttonWatch.SetFocusPolicy(core.Qt__StrongFocus)
 	buttonWatch.SetCursor(gui.NewQCursor2(core.Qt__PointingHandCursor))
 	buttonWatch.SetText(tr("WATCH"))
 
 	buttonTrailer := widgets.NewQPushButton(widget)
 	buttonTrailer.SetSizePolicy2(widgets.QSizePolicy__Minimum, widgets.QSizePolicy__Fixed)
 	buttonTrailer.SetStyleSheet(stylesheet)
+	buttonTrailer.SetFocusPolicy(core.Qt__StrongFocus)
 	buttonTrailer.SetCursor(gui.NewQCursor2(core.Qt__PointingHandCursor))
 	buttonTrailer.SetText(tr("TRAILER"))
 
@@ -403,6 +403,7 @@ func NewSummary(parent *widgets.QTabWidget) *Summary {
 
 	buttonWatch.SetVisible(false)
 	buttonTrailer.SetVisible(false)
+	buttonDirector.SetVisible(false)
 
 	return &Summary{
 		NewObject(parent), frame, labelPoster, buttonWatch, buttonTrailer, buttonGroup, buttonDirector, "", "", nil, false, false,
@@ -411,7 +412,7 @@ func NewSummary(parent *widgets.QTabWidget) *Summary {
 	}
 }
 
-// Init initialize summmary
+// Init initialize summary
 func (l *Summary) Init(m bukanir.TMovie, data string) {
 	stylesheet := `
 		QPushButton {
@@ -438,7 +439,18 @@ func (l *Summary) Init(m bukanir.TMovie, data string) {
 	l.Video = s.Video
 	l.ImdbId = s.ImdbId
 
-	for n, _ := range s.CastIds[:4] {
+	if len(s.CastIds) > 4 {
+		s.CastIds = s.CastIds[0:4]
+	}
+
+	for n := 0; n <= 4; n++ {
+		item := l.layoutCast.TakeAt(1).Widget()
+		if item != nil {
+			item.DeleteLater()
+		}
+	}
+
+	for n, _ := range s.CastIds {
 		b := widgets.NewQPushButton2(s.Cast[n], l)
 		b.SetStyleSheet(stylesheet)
 		b.SetCursor(gui.NewQCursor2(core.Qt__PointingHandCursor))
@@ -507,6 +519,10 @@ func (l *Summary) Init(m bukanir.TMovie, data string) {
 		l.labelTagline.SetEnabled(false)
 	}
 
+	if s.Director != "" {
+		l.Director.SetVisible(true)
+	}
+
 	l.Watch.SetVisible(true)
 	l.Trailer.SetVisible(true)
 
@@ -520,13 +536,14 @@ type Toolbar struct {
 	*Object
 	*widgets.QWidget
 
-	Search   *widgets.QPushButton
-	Refresh  *widgets.QPushButton
-	Log      *widgets.QPushButton
-	Settings *widgets.QPushButton
-	About    *widgets.QPushButton
+	Search   *widgets.QToolButton
+	Refresh  *widgets.QToolButton
+	Log      *widgets.QToolButton
+	Settings *widgets.QToolButton
+	About    *widgets.QToolButton
 
 	Input    *widgets.QLineEdit
+	Media    *widgets.QToolButton
 	SortBy   *widgets.QToolButton
 	Top      *widgets.QToolButton
 	Year     *widgets.QToolButton
@@ -545,84 +562,110 @@ func NewToolbar(parent *widgets.QWidget) *Toolbar {
 	lineInput.SetMinimumWidth(200)
 	lineInput.SetPlaceholderText(tr("Search"))
 
-	searchButton := widgets.NewQPushButton(widget)
+	searchButton := widgets.NewQToolButton(widget)
 	searchButton.SetIcon(gui.NewQIcon5(":/qml/images/search.png"))
 	searchButton.SetIconSize(core.NewQSize2(20, 20))
-	searchButton.SetSizePolicy2(widgets.QSizePolicy__Minimum, widgets.QSizePolicy__Fixed)
-	searchButton.SetCursor(gui.NewQCursor2(core.Qt__PointingHandCursor))
+	searchButton.SetMinimumSize2(25, 25)
+	searchButton.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
 	searchButton.SetToolTip(tr("Search"))
 
-	refreshButton := widgets.NewQPushButton(widget)
+	refreshButton := widgets.NewQToolButton(widget)
 	refreshButton.SetIcon(gui.NewQIcon5(":/qml/images/refresh.png"))
 	refreshButton.SetIconSize(core.NewQSize2(20, 20))
-	refreshButton.SetSizePolicy2(widgets.QSizePolicy__Minimum, widgets.QSizePolicy__Fixed)
-	refreshButton.SetCursor(gui.NewQCursor2(core.Qt__PointingHandCursor))
+	refreshButton.SetMinimumSize2(25, 25)
+	refreshButton.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
 	refreshButton.SetToolTip("Refresh")
 
-	logButton := widgets.NewQPushButton(widget)
+	logButton := widgets.NewQToolButton(widget)
 	logButton.SetIcon(gui.NewQIcon5(":/qml/images/log.png"))
 	logButton.SetIconSize(core.NewQSize2(20, 20))
-	logButton.SetSizePolicy2(widgets.QSizePolicy__Minimum, widgets.QSizePolicy__Fixed)
-	logButton.SetCursor(gui.NewQCursor2(core.Qt__PointingHandCursor))
+	logButton.SetMinimumSize2(25, 25)
+	logButton.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
 	logButton.SetToolTip(tr("Log"))
 
-	settingsButton := widgets.NewQPushButton(widget)
+	settingsButton := widgets.NewQToolButton(widget)
 	settingsButton.SetIcon(gui.NewQIcon5(":/qml/images/settings.png"))
 	settingsButton.SetIconSize(core.NewQSize2(20, 20))
-	settingsButton.SetSizePolicy2(widgets.QSizePolicy__Minimum, widgets.QSizePolicy__Fixed)
-	settingsButton.SetCursor(gui.NewQCursor2(core.Qt__PointingHandCursor))
+	settingsButton.SetMinimumSize2(25, 25)
+	settingsButton.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
 	settingsButton.SetToolTip(tr("Settings"))
 
-	aboutButton := widgets.NewQPushButton(widget)
+	aboutButton := widgets.NewQToolButton(widget)
 	aboutButton.SetIcon(gui.NewQIcon5(":/qml/images/bukanir-gray.png"))
 	aboutButton.SetIconSize(core.NewQSize2(20, 20))
-	aboutButton.SetCursor(gui.NewQCursor2(core.Qt__PointingHandCursor))
+	aboutButton.SetMinimumSize2(25, 25)
 	aboutButton.SetToolTip(tr("About"))
+
+	mediaButton := widgets.NewQToolButton(widget)
+	mediaButton.SetPopupMode(widgets.QToolButton__InstantPopup)
+	mediaButton.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
+	mediaButton.SetMinimumSize2(47, 27)
+	mediaButton.SetText(tr("Media"))
 
 	sortByButton := widgets.NewQToolButton(widget)
 	sortByButton.SetPopupMode(widgets.QToolButton__InstantPopup)
 	sortByButton.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
-	sortByButton.SetMinimumSize2(45, 26)
+	sortByButton.SetMinimumSize2(47, 27)
 	sortByButton.SetText(tr("Sort By"))
 
 	topButton := widgets.NewQToolButton(widget)
 	topButton.SetPopupMode(widgets.QToolButton__InstantPopup)
 	topButton.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
-	topButton.SetMinimumSize2(45, 26)
+	topButton.SetMinimumSize2(47, 27)
 	topButton.SetText(tr("Top"))
 
 	yearButton := widgets.NewQToolButton(widget)
 	yearButton.SetPopupMode(widgets.QToolButton__InstantPopup)
 	yearButton.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
-	yearButton.SetMinimumSize2(45, 26)
+	yearButton.SetMinimumSize2(47, 27)
 	yearButton.SetText(tr("Year"))
 
 	popularButton := widgets.NewQToolButton(widget)
 	popularButton.SetPopupMode(widgets.QToolButton__InstantPopup)
 	popularButton.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
-	popularButton.SetMinimumSize2(45, 26)
+	popularButton.SetMinimumSize2(47, 27)
 	popularButton.SetText(tr("Popular"))
 
 	topRatedButton := widgets.NewQToolButton(widget)
 	topRatedButton.SetPopupMode(widgets.QToolButton__InstantPopup)
 	topRatedButton.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
-	topRatedButton.SetMinimumSize2(45, 26)
+	topRatedButton.SetMinimumSize2(47, 27)
 	topRatedButton.SetText(tr("Top Rated"))
 
 	byGenreButton := widgets.NewQToolButton(widget)
 	byGenreButton.SetPopupMode(widgets.QToolButton__InstantPopup)
 	byGenreButton.SetSizePolicy2(widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Fixed)
-	byGenreButton.SetMinimumSize2(45, 26)
+	byGenreButton.SetMinimumSize2(47, 27)
 	byGenreButton.SetText(tr("Genre"))
+
+	mediaMenu := widgets.NewQMenu(widget)
+	mediaActionGroup := widgets.NewQActionGroup(widget)
+
+	act1 := widgets.NewQAction2(tr("All"), widget)
+	act1.SetCheckable(true)
+	act1.SetChecked(true)
+
+	act2 := widgets.NewQAction2(tr("Movies"), widget)
+	act2.SetCheckable(true)
+
+	act3 := widgets.NewQAction2(tr("Episodes"), widget)
+	act3.SetCheckable(true)
+
+	mediaActionGroup.AddAction(act1)
+	mediaActionGroup.AddAction(act2)
+	mediaActionGroup.AddAction(act3)
+
+	mediaMenu.AddActions([]*widgets.QAction{act1, act2, act3})
+	mediaButton.SetMenu(mediaMenu)
 
 	sortByMenu := widgets.NewQMenu(widget)
 	sortByActionGroup := widgets.NewQActionGroup(widget)
 
-	act1 := widgets.NewQAction2(tr("Seeders"), widget)
+	act1 = widgets.NewQAction2(tr("Seeders"), widget)
 	act1.SetCheckable(true)
 	act1.SetChecked(true)
 
-	act2 := widgets.NewQAction2(tr("Episodes"), widget)
+	act2 = widgets.NewQAction2(tr("Episodes"), widget)
 	act2.SetCheckable(true)
 
 	sortByActionGroup.AddAction(act1)
@@ -667,27 +710,28 @@ func NewToolbar(parent *widgets.QWidget) *Toolbar {
 	hlayout.AddWidget(lineInput, 0, 0)
 	hlayout.AddWidget(searchButton, 0, 0)
 	hlayout.AddWidget(refreshButton, 0, 0)
+	hlayout.AddWidget(mediaButton, 0, 0)
 	hlayout.AddWidget(sortByButton, 0, 0)
-	hlayout.AddSpacerItem(widgets.NewQSpacerItem(40, 20, widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Preferred))
+	hlayout.AddSpacerItem(widgets.NewQSpacerItem(30, 20, widgets.QSizePolicy__Fixed, widgets.QSizePolicy__Preferred))
 	hlayout.AddWidget(topButton, 0, 0)
 	hlayout.AddWidget(yearButton, 0, 0)
 	hlayout.AddWidget(popularButton, 0, 0)
 	hlayout.AddWidget(topRatedButton, 0, 0)
 	hlayout.AddWidget(byGenreButton, 0, 0)
-	hlayout.AddSpacerItem(widgets.NewQSpacerItem(40, 20, widgets.QSizePolicy__Expanding, widgets.QSizePolicy__Preferred))
+	hlayout.AddSpacerItem(widgets.NewQSpacerItem(30, 20, widgets.QSizePolicy__Expanding, widgets.QSizePolicy__Preferred))
 	hlayout.AddWidget(logButton, 0, 0)
 	hlayout.AddWidget(settingsButton, 0, 0)
 	hlayout.AddWidget(aboutButton, 0, 0)
 
 	layout := widgets.NewQVBoxLayout()
 	layout.AddLayout(hlayout, 0)
-	layout.SetSpacing(6)
+	layout.SetSpacing(5)
 	layout.SetContentsMargins(0, 0, 0, 0)
 
 	widget.SetLayout(layout)
 
 	toolbar := &Toolbar{NewObject(parent), widget, searchButton, refreshButton, logButton, settingsButton, aboutButton,
-		lineInput, sortByButton, topButton, yearButton, popularButton, topRatedButton, byGenreButton}
+		lineInput, mediaButton, sortByButton, topButton, yearButton, popularButton, topRatedButton, byGenreButton}
 
 	toolbar.ConnectFinished2(func(data string) {
 		var d []bukanir.TItem
@@ -754,6 +798,7 @@ func (t *Toolbar) SetEnabled(enabled bool) {
 	t.Input.SetEnabled(enabled)
 	t.Search.SetEnabled(enabled)
 	t.Refresh.SetEnabled(enabled)
+	t.Media.SetEnabled(enabled)
 	t.SortBy.SetEnabled(enabled)
 	t.Top.SetEnabled(enabled)
 	t.Year.SetEnabled(enabled)
@@ -823,7 +868,7 @@ func NewAbout(parent *widgets.QWidget) *widgets.QDialog {
 	textBrowser := widgets.NewQTextBrowser(dialog)
 	textBrowser.SetOpenExternalLinks(true)
 	textBrowser.Append("<center>Bukanir " + bukanir.Version + "</center>")
-	textBrowser.Append("<center><a href=\"https://bukanir.com\">https://bukanir.com</a></center>")
+	textBrowser.Append("<center><a href=\"https://github.com/gen2brain/bukanir\">https://github.com/gen2brain/bukanir</a></center>")
 	textBrowser.Append("<br/><center>Author: Milan Nikolić (gen2brain)</center>")
 	textBrowser.Append("<center>This program is released under the terms of the</center>")
 	textBrowser.Append("<center><a href=\"http://www.gnu.org/licenses/gpl-3.0.txt\">GNU General Public License version 3</a></center><br/>")
@@ -861,31 +906,32 @@ func NewHelp(parent *widgets.QWidget) *widgets.QDialog {
 	font.SetFamily("Monospace")
 	font.SetFixedPitch(true)
 	font.SetPointSize(10)
+	defer font.DestroyQFont()
 
 	textBrowser := widgets.NewQTextBrowser(dialog)
 	textBrowser.SetFont(font)
 
-	textBrowser.Append("<ul type=\"none\"><li><b>p</b>\t\tPause/playback mode</li>")
-	textBrowser.Append("<li><b>f</b>\t\tToggle fullscreen</li>")
-	textBrowser.Append("<li><b>m</b>\t\tMute/unmute audio</li>")
-	textBrowser.Append("<li><b>A</b>\t\tCycle aspect ratio</li>")
+	textBrowser.Append("<ul type=\"none\"><li><b>p</b>  -  Pause/playback mode</li>")
+	textBrowser.Append("<li><b>f</b>  -  Toggle fullscreen</li>")
+	textBrowser.Append("<li><b>m</b>  -  Mute/unmute audio</li>")
+	textBrowser.Append("<li><b>A</b>  -  Cycle aspect ratio</li>")
 	textBrowser.Append("<br/>")
-	textBrowser.Append("<li><b>v</b>\t\tShow/hide subtitles</li>")
-	textBrowser.Append("<li><b>j/J</b>\t\tNext/previous subtitle</li>")
-	textBrowser.Append("<li><b>r/t</b>\t\tMove subtitles up / down</li>")
-	textBrowser.Append("<li><b>z/x</b>\t\tIncrease/decrease subtitle delay</li>")
+	textBrowser.Append("<li><b>v</b>  -  Show/hide subtitles</li>")
+	textBrowser.Append("<li><b>j/J</b>  -  Next/previous subtitle</li>")
+	textBrowser.Append("<li><b>r/t</b>  -  Move subtitles up / down</li>")
+	textBrowser.Append("<li><b>z/x</b>  -  Increase/decrease subtitle delay</li>")
 	textBrowser.Append("<br/>")
-	textBrowser.Append("<li><b>ctrl++</b>\t\tIncrease audio delay</li>")
-	textBrowser.Append("<li><b>ctrl+-</b>\t\tDecrease audio delay</li>")
+	textBrowser.Append("<li><b>ctrl++</b>  -  Increase audio delay</li>")
+	textBrowser.Append("<li><b>ctrl+-</b>  -  Decrease audio delay</li>")
 	textBrowser.Append("<br/>")
-	textBrowser.Append("<li><b>Right/Left</b>\t\tSeek 5 seconds</li>")
-	textBrowser.Append("<li><b>Up/Down</b>\t\tSeek 60 seconds</li>")
+	textBrowser.Append("<li><b>Right/Left</b>  -  Seek 5 seconds</li>")
+	textBrowser.Append("<li><b>Up/Down</b>  -  Seek 60 seconds</li>")
 	textBrowser.Append("<br/>")
-	textBrowser.Append("<li><b>1/2</b>\t\tDecrease/increase contrast</li>")
-	textBrowser.Append("<li><b>3/4</b>\t\tDecrease/increase brightness</li>")
-	textBrowser.Append("<li><b>5/6</b>\t\tDecrease/increase gamma</li>")
-	textBrowser.Append("<li><b>7/8</b>\t\tDecrease/increase saturation</li>")
-	textBrowser.Append("<li><b>9/0</b>\t\tDecrease/increase audio volume</li></ul>")
+	textBrowser.Append("<li><b>1/2</b>  -  Decrease/increase contrast</li>")
+	textBrowser.Append("<li><b>3/4</b>  -  Decrease/increase brightness</li>")
+	textBrowser.Append("<li><b>5/6</b>  -  Decrease/increase gamma</li>")
+	textBrowser.Append("<li><b>7/8</b>  -  Decrease/increase saturation</li>")
+	textBrowser.Append("<li><b>9/0</b>  -  Decrease/increase audio volume</li></ul>")
 
 	buttonBox := widgets.NewQDialogButtonBox3(widgets.QDialogButtonBox__Close, dialog)
 	buttonBox.ConnectRejected(func() { dialog.Close() })

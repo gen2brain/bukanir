@@ -3,7 +3,7 @@ AppName=Bukanir
 AppVerName=Bukanir {VERSION}
 VersionInfoVersion={VERSION}
 AppPublisher=
-AppPublisherURL=https://bukanir.com/
+AppPublisherURL=https://github.com/gen2brain/bukanir
 AppSupportURL=
 AppUpdatesURL=
 DefaultDirName={pf}\Bukanir
@@ -24,8 +24,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "bukanir\bukanir.exe"; DestDir: "{app}";
-Source: "bukanir\tor.exe"; DestDir: "{app}";
-Source: "bukanir\*.dll"; DestDir: "{app}";
+;Source: "bukanir\tor.exe"; DestDir: "{app}";
+;Source: "bukanir\*.dll"; DestDir: "{app}";
 Source: "bukanir\AUTHORS"; DestDir: "{app}";
 Source: "bukanir\COPYING"; DestDir: "{app}";
 Source: "bukanir\CHANGELOG"; DestDir: "{app}";

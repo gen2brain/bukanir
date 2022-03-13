@@ -168,6 +168,10 @@
         <translation>Settings</translation>
     </message>
     <message>
+        <source>Media</source>
+        <translation>Media</translation>
+    </message>
+    <message>
         <source>Sort By</source>
         <translation>Sort By</translation>
     </message>
@@ -178,6 +182,10 @@
     <message>
         <source>Episodes</source>
         <translation>Episodes</translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation>All</translation>
     </message>
     <message>
         <source>Top</source>
@@ -268,8 +276,8 @@
         <translation>Tor is not running. Anonymous network is not available.</translation>
     </message>
     <message>
-        <source>Tor is enabled and is running.</source>
-        <translation>Tor is enabled and is running.</translation>
+        <source>Tor is enabled and running.</source>
+        <translation>Tor is enabled and running.</translation>
     </message>
     <message>
         <source>Tor is not enabled. Anonymous network is not available.</source>

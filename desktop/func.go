@@ -11,7 +11,7 @@ import (
 	"unsafe"
 )
 
-const LC_NUMERIC = int(C.LC_NUMERIC)
+const LcNumeric = int(C.LC_NUMERIC)
 
 // setLocale sets locale
 func setLocale(lc int, locale string) {
@@ -47,6 +47,17 @@ func cacheDir() string {
 	dir := os.Getenv("XDG_CACHE_HOME")
 	if dir == "" {
 		dir = filepath.Join(homeDir(), ".cache", "bukanir")
+	} else {
+		dir = filepath.Join(dir, "bukanir")
+	}
+	return dir
+}
+
+// configDir returns cache directory
+func configDir() string {
+	dir := os.Getenv("XDG_CONFIG_HOME")
+	if dir == "" {
+		dir = filepath.Join(homeDir(), ".config", "bukanir")
 	} else {
 		dir = filepath.Join(dir, "bukanir")
 	}

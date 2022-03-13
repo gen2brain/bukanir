@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/hpcloud/tail"
 	"github.com/therecipe/qt/core"
@@ -18,9 +19,21 @@ import (
 )
 
 var (
+	tabs []Tab
+
 	textMeta      string = "Downloading torrents metadata..."
 	textMovieMeta string = "Downloading movie metadata..."
 )
+
+// Tab type
+type Tab struct {
+	Query    string
+	Category int
+	Genre    int
+	Movie    bukanir.TMovie
+	Widget   *List
+	Widget2  *Summary
+}
 
 // Window type
 type Window struct {
@@ -94,6 +107,7 @@ func (w *Window) AddWidgets() {
 	w.Toolbar.Input.SetCompleter(w.Completer)
 
 	w.TabWidget = widgets.NewQTabWidget(w)
+	w.TabWidget.SetMovable(true)
 	w.TabWidget.SetTabsClosable(true)
 	w.TabWidget.TabBar().SetTabsClosable(true)
 	w.TabWidget.TabBar().SetExpanding(false)
@@ -112,7 +126,7 @@ func (w *Window) AddWidgets() {
 
 	w.LabelStatusTor = widgets.NewQLabel(w, 0)
 	w.LabelStatusTor.SetPixmap(gui.NewQPixmap5(":/qml/images/tor-off.png", "PNG", core.Qt__AutoColor))
-	w.LabelStatusTor.SetToolTip("Tor is not running. Anonymous network is not available.")
+	w.LabelStatusTor.SetToolTip(tr("Tor is not running. Anonymous network is not available."))
 	w.LabelStatusTor.SetIndent(3)
 
 	w.Movie = gui.NewQMovie3(":/qml/images/loading.gif", core.NewQByteArray2("GIF", 3), w)
@@ -171,7 +185,7 @@ func (w *Window) ConnectSignals() {
 				return
 			}
 
-			w.Search(query, query, 3)
+			w.Search(query, query, 1)
 		}
 	})
 
@@ -194,7 +208,7 @@ func (w *Window) ConnectSignals() {
 			return
 		}
 
-		w.Search(query, query, 3)
+		w.Search(query, query, 1)
 	})
 
 	w.Toolbar.Refresh.ConnectClicked(func(bool) {
@@ -212,20 +226,27 @@ func (w *Window) ConnectSignals() {
 				}
 			}
 
+			var media string
+			for _, a := range w.Toolbar.Media.Menu().Actions() {
+				if a.IsChecked() {
+					media = strings.ToLower(a.Text())
+				}
+			}
+
 			t.Widget.Started = true
-			go w.Client.Search(t.Widget, t.Query, w.Settings.Limit, 1, w.Settings.Days, 3, w.Settings.TPBHost, w.Settings.EZTVHost, sortBy)
+			go w.Client.Search(t.Widget, t.Query, 0, 1, w.Settings.Days, 1, w.Settings.TPBHost, w.Settings.EZTVHost, sortBy, media)
 		} else if t.Category != 0 {
 			w.setLoading(t.Widget.QWidget_PTR(), true)
 			w.LabelStatus.SetText(textMeta)
 
 			t.Widget.Started = true
-			go w.Client.Top(t.Widget, t.Category, w.Settings.Limit, 1, w.Settings.Days, w.Settings.TPBHost)
+			go w.Client.Top(t.Widget, t.Category, 0, 1, w.Settings.Days, w.Settings.TPBHost)
 		} else if t.Genre != 0 {
 			w.setLoading(t.Widget.QWidget_PTR(), true)
 			w.LabelStatus.SetText(textMeta)
 
 			t.Widget.Started = true
-			go w.Client.Genre(t.Widget, t.Genre, w.Settings.Limit, 1, w.Settings.Days, w.Settings.TPBHost)
+			go w.Client.Genre(t.Widget, t.Genre, 0, 1, w.Settings.Days, w.Settings.TPBHost)
 		} else if t.Movie.Id != 0 {
 			w.setLoading(t.Widget2.QWidget_PTR(), true)
 			w.LabelStatus.SetText(textMovieMeta)
@@ -240,17 +261,26 @@ func (w *Window) ConnectSignals() {
 		t := tabs[index]
 
 		if t.Query != "" {
+			var media string
+			for _, a := range w.Toolbar.Media.Menu().Actions() {
+				if a.IsChecked() {
+					media = strings.ToLower(a.Text())
+				}
+			}
+
 			sortBy := strings.ToLower(action.Text())
-			go w.Client.Search(t.Widget, t.Query, w.Settings.Limit, 0, w.Settings.Days, 3, w.Settings.TPBHost, w.Settings.EZTVHost, sortBy)
+			go w.Client.Search(t.Widget, t.Query, 0, 0, w.Settings.Days, 1, w.Settings.TPBHost, w.Settings.EZTVHost, sortBy, media)
 		}
 	})
 
+	boolean := false
+
 	w.Toolbar.Top.Menu().ConnectTriggered(func(action *widgets.QAction) {
-		w.Top(fmt.Sprintf("Top %s", action.Text()), action.Data().ToInt(false))
+		w.Top(fmt.Sprintf("Top %s", action.Text()), action.Data().ToInt(&boolean))
 	})
 
 	w.Toolbar.Year.Menu().ConnectTriggered(func(action *widgets.QAction) {
-		w.Search(fmt.Sprintf("Year %s", action.Text()), action.Text(), 3)
+		w.Search(fmt.Sprintf("Year %s", action.Text()), action.Text(), 1)
 	})
 
 	w.Toolbar.Popular.Menu().ConnectTriggered(func(action *widgets.QAction) {
@@ -262,7 +292,7 @@ func (w *Window) ConnectSignals() {
 	})
 
 	w.Toolbar.Genre.Menu().ConnectTriggered(func(action *widgets.QAction) {
-		w.Genre(action.Text(), action.Data().ToInt(false))
+		w.Genre(action.Text(), action.Data().ToInt(&boolean))
 	})
 
 	w.Toolbar.Settings.ConnectClicked(func(bool) {
@@ -322,6 +352,9 @@ func (w *Window) ConnectSignals() {
 
 			w.LabelStatus.SetText("")
 			w.Toolbar.Input.SetText("")
+			if w.ProgressBar.IsVisible() {
+				w.ProgressBar.SetVisible(false)
+			}
 
 			if t.Widget.Started {
 				go func() {
@@ -334,6 +367,8 @@ func (w *Window) ConnectSignals() {
 
 		w.TabWidget.Widget(index).DeleteLater()
 		w.TabWidget.RemoveTab(index)
+
+		runtime.GC()
 	})
 
 	shortcut := widgets.NewQShortcut(w.TabWidget)
@@ -383,7 +418,7 @@ func (w *Window) Top(title string, category int) {
 	tab.Started = true
 	tabs = append(tabs, Tab{"", category, 0, bukanir.TMovie{}, tab, nil})
 
-	go w.Client.Top(tab, category, w.Settings.Limit, 0, w.Settings.Days, w.Settings.TPBHost)
+	go w.Client.Top(tab, category, 0, 0, w.Settings.Days, w.Settings.TPBHost)
 }
 
 // Search movies
@@ -433,7 +468,14 @@ func (w *Window) Search(title, query string, pages int) {
 		}
 	}
 
-	go w.Client.Search(tab, query, w.Settings.Limit, 0, w.Settings.Days, pages, w.Settings.TPBHost, w.Settings.EZTVHost, sortBy)
+	var media string
+	for _, a := range w.Toolbar.Media.Menu().Actions() {
+		if a.IsChecked() {
+			media = strings.ToLower(a.Text())
+		}
+	}
+
+	go w.Client.Search(tab, query, 0, 0, w.Settings.Days, pages, w.Settings.TPBHost, w.Settings.EZTVHost, sortBy, media)
 }
 
 // Genre search movies by genre
@@ -470,7 +512,7 @@ func (w *Window) Genre(title string, id int) {
 	tab.Started = true
 	tabs = append(tabs, Tab{"", 0, id, bukanir.TMovie{}, tab, nil})
 
-	go w.Client.Genre(tab, id, w.Settings.Limit, 0, w.Settings.Days, w.Settings.TPBHost)
+	go w.Client.Genre(tab, id, 0, 0, w.Settings.Days, w.Settings.TPBHost)
 }
 
 // Cast search movies by cast
@@ -507,7 +549,7 @@ func (w *Window) Cast(title string, id int) {
 	tab.Started = true
 	tabs = append(tabs, Tab{"", 0, id, bukanir.TMovie{}, tab, nil})
 
-	go w.Client.Cast(tab, id, w.Settings.Limit, 0, w.Settings.Days, w.Settings.TPBHost)
+	go w.Client.Cast(tab, id, 0, 0, w.Settings.Days, w.Settings.TPBHost)
 }
 
 // Crew search movies by crew
@@ -544,7 +586,7 @@ func (w *Window) Crew(title string, id int) {
 	tab.Started = true
 	tabs = append(tabs, Tab{"", 0, id, bukanir.TMovie{}, tab, nil})
 
-	go w.Client.Crew(tab, id, w.Settings.Limit, 0, w.Settings.Days, w.Settings.TPBHost)
+	go w.Client.Crew(tab, id, 0, 0, w.Settings.Days, w.Settings.TPBHost)
 }
 
 // Summary shows movie summary
@@ -561,7 +603,8 @@ func (w *Window) Summary(movie bukanir.TMovie) {
 			summary.Started = false
 
 			summary.Director.ConnectClicked(func(bool) {
-				w.Crew(summary.Director.Text(), summary.Director.Property("id").ToInt(false))
+				boolean := false
+				w.Crew(summary.Director.Text(), summary.Director.Property("id").ToInt(&boolean))
 			})
 
 			summary.Cast.ConnectButtonClicked2(func(id int) {
@@ -726,6 +769,7 @@ func (w *Window) Summary(movie bukanir.TMovie) {
 			url, err := bukanir.Trailer(summary.Video)
 			if err != nil {
 				log.Printf("ERROR: Trailer: %s\n", err.Error())
+				summary.Player.Shutdown()
 				return
 			}
 
@@ -771,15 +815,33 @@ func (w *Window) TailLog() {
 
 // Init initialize window
 func (w *Window) Init() {
+	tabs = make([]Tab, 0)
+
 	go w.TailLog()
 
 	go func() {
 		running := bukanir.TorRunning()
 		if running && w.Settings.Proxy {
 			w.LabelStatusTor.SetPixmap(gui.NewQPixmap5(":/qml/images/tor.png", "PNG", core.Qt__AutoColor))
-			w.LabelStatusTor.SetToolTip("Tor is enabled and is running.")
-		} else if running && !w.Settings.Proxy {
-			w.LabelStatusTor.SetToolTip("Tor is not enabled. Anonymous network is not available.")
+			w.LabelStatusTor.SetToolTip(tr("Tor is enabled and running."))
+		}
+
+		for _ = range time.Tick(5 * time.Second) {
+			if w.LabelStatusTor == nil {
+				return
+			}
+
+			running := bukanir.TorRunning()
+			if running && w.Settings.Proxy {
+				w.LabelStatusTor.SetPixmap(gui.NewQPixmap5(":/qml/images/tor.png", "PNG", core.Qt__AutoColor))
+				w.LabelStatusTor.SetToolTip(tr("Tor is enabled and running."))
+			} else if running && !w.Settings.Proxy {
+				w.LabelStatusTor.SetPixmap(gui.NewQPixmap5(":/qml/images/tor-off.png", "PNG", core.Qt__AutoColor))
+				w.LabelStatusTor.SetToolTip(tr("Tor is not enabled. Anonymous network is not available."))
+			} else if !running {
+				w.LabelStatusTor.SetPixmap(gui.NewQPixmap5(":/qml/images/tor-off.png", "PNG", core.Qt__AutoColor))
+				w.LabelStatusTor.SetToolTip(tr("Tor is not running."))
+			}
 		}
 	}()
 

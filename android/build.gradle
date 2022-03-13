@@ -1,16 +1,15 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 24
-    buildToolsVersion '24.0.3'
-    //buildToolsVersion '22.0.1'
+    compileSdkVersion 25
+    buildToolsVersion '25.0.3'
 
     defaultConfig {
         applicationId = 'com.bukanir.android'
-        minSdkVersion 11
-        targetSdkVersion 22
-        versionCode 95
-        versionName '2.3'
+        minSdkVersion 15
+        targetSdkVersion 25
+        versionCode 105
+        versionName '2.4'
         setProperty("archivesBaseName", "bukanir-$versionName")
     }
 
@@ -33,15 +32,16 @@ repositories {
 }
 
 dependencies {
-    compile 'com.android.support:appcompat-v7:24.2.1'
-    //compile 'com.android.support:appcompat-v7:22.2.1'
-    compile 'com.google.android.gms:play-services-analytics:9.6.1'
-    compile 'com.google.code.gson:gson:2.7'
+    compile 'com.android.support:appcompat-v7:25.3.1'
+    compile 'com.google.android.gms:play-services-analytics:11.0.0'
+    compile 'com.google.code.gson:gson:2.8.0'
     compile 'com.nostra13.universalimageloader:universal-image-loader:1.9.5'
 
-    compile (name:'bukanir', ext:'aar')
+    compile (name:'bukanir-arm7', ext:'aar')
     compile (name:'ijkplayer-arm7', ext:'aar')
+
+    compile (name:'bukanir-arm64', ext:'aar')
     compile (name:'ijkplayer-arm64', ext:'aar')
-    //compile (name:'ijkplayer-x86', ext:'aar')
+
     compile (name:'ijkplayer-java', ext:'aar')
 }

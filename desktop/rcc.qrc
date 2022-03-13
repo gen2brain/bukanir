@@ -1,0 +1,22 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+<file>qml/i18n/bukanir.en_US.qm</file>
+<file>qml/i18n/bukanir.en_US.ts</file>
+<file>qml/i18n/bukanir.it.qm</file>
+<file>qml/i18n/bukanir.it.ts</file>
+<file>qml/i18n/bukanir.qm</file>
+<file>qml/i18n/bukanir.ts</file>
+<file>qml/images/bukanir-gray.png</file>
+<file>qml/images/bukanir.png</file>
+<file>qml/images/loading.gif</file>
+<file>qml/images/log.png</file>
+<file>qml/images/pause.png</file>
+<file>qml/images/play.png</file>
+<file>qml/images/refresh.png</file>
+<file>qml/images/search.png</file>
+<file>qml/images/settings.png</file>
+<file>qml/images/tmdb.png</file>
+<file>qml/images/tor-off.png</file>
+<file>qml/images/tor.png</file>
+</qresource>
+</RCC>

@@ -1,9 +1,14 @@
-v2.4  :
+v2.5  Mar 13, 2022:
+
+    * Tor is embedded in binary
+    * Bug fixes
+
+v2.4  Mar 9, 2018:
 
     * Added support for tor socks5 proxy and .onion links
-    * Added torrent blocklist, disabled by default
     * Desktop app now supports translations for UI
     * Added search by cast or director
+    * Updated ijkplayer (FFmpeg v3.4) and libtorrent-rasterbar (v1.0.11)
 
 v2.3  Oct 20, 2016:
 

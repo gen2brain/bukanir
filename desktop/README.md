@@ -1,1 +1,1 @@
-This is a desktop (Qt5) version of https://github.com/gen2brain/bukanir
+This is a desktop (Qt) version of https://github.com/gen2brain/bukanir

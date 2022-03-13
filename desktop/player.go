@@ -1,9 +1,5 @@
 package main
 
-// #include <mpv/client.h>
-// #cgo darwin CFLAGS: -I/usr/local/include
-import "C"
-
 import (
 	"encoding/json"
 	"fmt"
@@ -13,9 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gen2brain/go-mpv"
 	"github.com/therecipe/qt/core"
 	"github.com/therecipe/qt/widgets"
-	"gitlab.com/hannahxy/go-mpv"
 
 	"github.com/gen2brain/bukanir/lib"
 )
@@ -50,32 +46,32 @@ func NewPlayer(w *Window) *Player {
 
 // Init initialize player
 func (p *Player) Init() {
+	setLocale(LcNumeric, "C")
+
 	p.Mpv = mpv.Create()
-	p.Mpv.RequestLogMessages("info")
-	//p.Mpv.RequestLogMessages("v")
+	_ = p.Mpv.RequestLogMessages("info")
+	//_ = p.Mpv.RequestLogMessages("v")
 
 	x := (widgets.QApplication_Desktop().Width() / 2) - (960 / 2)
 	p.SetOptionString("geometry", fmt.Sprintf("960+%d+%d", x, p.Window.Y()+100))
 
 	p.SetOptionString("osc", "yes")
 	p.SetOptionString("ytdl", "no")
+	p.SetOptionString("sdl-sw", "yes")
 
 	switch runtime.GOOS {
 	case "windows":
-		p.SetOptionString("vo", "direct3d,opengl,sdl,null")
+		p.SetOptionString("vo", "gpu,direct3d,sdl,null")
 		p.SetOptionString("ao", "wasapi,sdl,null")
 	case "linux":
-		p.SetOptionString("vo", "opengl,sdl,xv,null")
+		p.SetOptionString("vo", "gpu,xv,sdl,null")
 		p.SetOptionString("ao", "alsa,sdl,null")
 	case "darwin":
-		p.SetOptionString("vo", "opengl,sdl,null")
+		p.SetOptionString("vo", "gpu,sdl,null")
 		p.SetOptionString("ao", "coreaudio,sdl,null")
 	}
 
-	p.SetOption("cache-default", mpv.FORMAT_INT64, 128)
-	p.SetOption("cache-seek-min", mpv.FORMAT_INT64, 32)
-	p.SetOption("cache-secs", mpv.FORMAT_DOUBLE, 1.0)
-
+	p.SetOptionString("cache", "yes")
 	p.SetOptionString("input-default-bindings", "yes")
 	p.SetOptionString("input-vo-keyboard", "yes")
 
@@ -88,6 +84,10 @@ func (p *Player) Init() {
 	}
 
 	p.SetOption("volume-max", mpv.FORMAT_INT64, p.Window.Settings.VolumeMax)
+	p.SetOption("demuxer-max-bytes", mpv.FORMAT_INT64, 67108864)
+	p.SetOption("demuxer-max-back-bytes", mpv.FORMAT_INT64, 67108864)
+	p.SetOption("demuxer-readahead-secs", mpv.FORMAT_INT64, 600)
+	p.SetOptionString("demuxer-seekable-cache", "yes")
 
 	p.SetOption("sub-scale", mpv.FORMAT_DOUBLE, p.Window.Settings.Scale)
 	p.SetOptionString("sub-color", p.Window.Settings.Color)
@@ -127,6 +127,7 @@ func (p *Player) Wait(movie bukanir.TMovie, imdbId string) (bool, string) {
 
 	retry := 0
 	ready := false
+	subsReady := false
 
 	if p.Window.Settings.Subtitles {
 		var subDir string
@@ -140,6 +141,7 @@ func (p *Player) Wait(movie bukanir.TMovie, imdbId string) (bool, string) {
 		if err == nil {
 			go func() {
 				p.AddSubtitles(movie, imdbId, subDir)
+				subsReady = true
 			}()
 		}
 	}
@@ -181,8 +183,11 @@ func (p *Player) Wait(movie bukanir.TMovie, imdbId string) (bool, string) {
 					if status.TotalDownload >= required {
 						p.Window.ProgressBar.SetVisible(false)
 						p.Window.LabelStatus.ValueChanged("")
-						ready = true
-						break
+
+						if subsReady {
+							ready = true
+							break
+						}
 					}
 				}
 			}
@@ -255,12 +260,12 @@ func (p *Player) AddSubtitles(m bukanir.TMovie, imdbId string, subDir string) {
 		}
 
 		if subPath != "" && subPath != "empty" {
-			list = append(list, &mpv.Node{subPath, mpv.FORMAT_STRING})
+			list = append(list, &mpv.Node{Data: subPath, Format: mpv.FORMAT_STRING})
 		}
 	}
 
-	node := &mpv.Node{list, mpv.FORMAT_NODE_ARRAY}
-	p.SetOption("sub-file", mpv.FORMAT_NODE, node)
+	node := &mpv.Node{Data: list, Format: mpv.FORMAT_NODE_ARRAY}
+	p.SetOption("sub-files", mpv.FORMAT_NODE, node)
 }
 
 // Play plays movie
@@ -278,7 +283,7 @@ func (p *Player) Play(url string, title string) {
 		e := p.Mpv.WaitEvent(10000)
 		p.handleEvent(e)
 
-		if e.Event_Id == mpv.EVENT_SHUTDOWN || e.Event_Id == mpv.EVENT_END_FILE {
+		if e.Event_Id == mpv.EVENT_SHUTDOWN || e.Event_Id == mpv.EVENT_END_FILE || e.Error != nil {
 			p.paused = false
 			p.started = false
 			break
@@ -287,6 +292,8 @@ func (p *Player) Play(url string, title string) {
 
 	p.Mpv.TerminateDestroy()
 	p.Shutdown()
+
+	runtime.GC()
 }
 
 // Stop stops movie
@@ -326,8 +333,10 @@ func (p *Player) handleEvent(e *mpv.Event) {
 	case mpv.EVENT_END_FILE:
 		p.EndFile()
 	case mpv.EVENT_LOG_MESSAGE:
-		s := (*C.struct_mpv_event_log_message)(e.Data)
-		msg := C.GoString((*C.char)(s.text))
-		log.Printf("MPV: %s\n", strings.TrimSpace(msg))
+		log.Printf("MPV: %s\n", strings.TrimSpace(e.Message()))
+	}
+
+	if e.Error != nil {
+		log.Printf("MPV: %v\n", e.Error)
 	}
 }

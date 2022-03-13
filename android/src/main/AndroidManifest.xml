@@ -37,7 +37,7 @@
        	</receiver>
 
         <service
-            android:name="com.bukanir.android.services.Torrent2HttpService"
+            android:name="com.bukanir.android.services.TorrentService"
             android:enabled="true"
             android:exported="false" >
         </service>

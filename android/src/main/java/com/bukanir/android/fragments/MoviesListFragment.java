@@ -318,7 +318,7 @@ public class MoviesListFragment extends Fragment {
 
     }
 
-    class ItemAdapter extends BaseAdapter {
+    private class ItemAdapter extends BaseAdapter {
 
         private ImageLoadingListener animateFirstListener = new AnimateFirstDisplayListener();
         private ArrayList<Movie> selectedMovies = new ArrayList<>();
@@ -353,7 +353,7 @@ public class MoviesListFragment extends Fragment {
             View view = convertView;
             final ViewHolder holder;
             if(convertView == null) {
-                LayoutInflater inflater = getLayoutInflater(null);
+                LayoutInflater inflater = getActivity().getLayoutInflater();
                 view = inflater.inflate(R.layout.item_list_image, parent, false);
 
                 holder = new ViewHolder();

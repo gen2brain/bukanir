@@ -12,7 +12,7 @@
 	<string>icon</string>
 
 	<key>CFBundleIdentifier</key>
-	<string>com.bukanir</string>
+	<string>com.github.gen2brain</string>
 
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
@@ -24,7 +24,7 @@
 	<string>APPL</string>
 
 	<key>CFBundleShortVersionString</key>
-	<string>2.3.0.0</string>
+	<string>2.5.0.0</string>
 
 	<key>CFBundleVersion</key>
 	<string>1</string>

@@ -2,6 +2,7 @@ package com.bukanir.android.fragments;
 
 import android.content.Intent;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
 import android.text.Html;
@@ -26,12 +27,12 @@ import com.nostra13.universalimageloader.cache.disc.impl.UnlimitedDiskCache;
 import com.nostra13.universalimageloader.core.DisplayImageOptions;
 import com.nostra13.universalimageloader.core.ImageLoader;
 import com.nostra13.universalimageloader.core.ImageLoaderConfiguration;
-import com.bukanir.android.clients.Torrent2HttpClient;
+import com.bukanir.android.clients.TorrentClient;
 import com.bukanir.android.entities.Movie;
 import com.bukanir.android.entities.Subtitle;
 import com.bukanir.android.entities.TorrentFile;
 import com.bukanir.android.entities.TorrentStatus;
-import com.bukanir.android.services.Torrent2HttpService;
+import com.bukanir.android.services.TorrentService;
 import com.bukanir.android.helpers.Utils;
 import com.nostra13.universalimageloader.core.listener.ImageLoadingListener;
 import com.nostra13.universalimageloader.core.listener.SimpleImageLoadingListener;
@@ -144,7 +145,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         super.onDestroy();
 
         if(Utils.isTorrentServiceRunning(getActivity())) {
-            getActivity().stopService(new Intent(getActivity(), Torrent2HttpService.class));
+            getActivity().stopService(new Intent(getActivity(), TorrentService.class));
         }
     }
 
@@ -179,7 +180,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         buttonTrailer.setEnabled(true);
 
         if(Utils.isTorrentServiceRunning(getActivity())) {
-            getActivity().stopService(new Intent(getActivity(), Torrent2HttpService.class));
+            getActivity().stopService(new Intent(getActivity(), TorrentService.class));
         }
     }
 
@@ -200,7 +201,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
     }
 
     public void startTorrent2HttpTask() {
-        Intent intent = new Intent(getActivity(), Torrent2HttpService.class);
+        Intent intent = new Intent(getActivity(), TorrentService.class);
         intent.putExtra("magnet", movie.magnetLink);
         getActivity().startService(intent);
 
@@ -232,6 +233,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         }
     }
 
+    @SuppressWarnings("deprecation")
     public void setMovieText(View rootView) {
         TextView title = (TextView) rootView.findViewById(R.id.title);
         TextView info = (TextView) rootView.findViewById(R.id.info);
@@ -259,7 +261,13 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
             } else {
                 castText = android.text.TextUtils.join(", ", summary.cast);
             }
-            Spanned text = Html.fromHtml("<i>"+getString(R.string.cast_description)+"</i>" + castText);
+
+            Spanned text;
+            if(Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                text = Html.fromHtml("<i>"+getString(R.string.cast_description)+"</i>" + castText, Html.FROM_HTML_MODE_LEGACY);
+            } else {
+                text = Html.fromHtml("<i>"+getString(R.string.cast_description)+"</i>" + castText);
+            }
             cast.setText(text);
         } else {
             cast.setVisibility(View.GONE);
@@ -278,7 +286,12 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         }
 
         if(!summary.director.isEmpty()) {
-            Spanned text = Html.fromHtml("<i>"+getString(R.string.director_description)+"</i>" + summary.director);
+            Spanned text;
+            if(Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                text = Html.fromHtml("<i>"+getString(R.string.director_description)+"</i>" + summary.director, Html.FROM_HTML_MODE_LEGACY);
+            } else {
+                text = Html.fromHtml("<i>"+getString(R.string.director_description)+"</i>" + summary.director);
+            }
             director.setText(text);
         } else {
             director.setVisibility(View.GONE);
@@ -343,7 +356,7 @@ public class MovieFragment extends Fragment implements View.OnClickListener {
         }
 
         protected TorrentFile doInBackground(Void... params) {
-            Torrent2HttpClient t2h = new Torrent2HttpClient();
+            TorrentClient t2h = new TorrentClient();
             if(!t2h.waitStartup()) {
                 return null;
             }
