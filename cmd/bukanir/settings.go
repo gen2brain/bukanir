@@ -17,7 +17,8 @@ import (
 
 // Settings holds user-configurable preferences, persisted as JSON.
 type Settings struct {
-	CacheDays int `json:"cacheDays"`
+	CacheDays  int    `json:"cacheDays"`
+	Appearance string `json:"appearance"`
 
 	Fullscreen      bool   `json:"fullscreen"`
 	StopScreensaver bool   `json:"stopScreensaver"`
@@ -47,6 +48,7 @@ const tpbOnion = "piratebayo3klnzokct3wt5yyxb2vpebbuyjl7m623iaxmqhsd52coid.onion
 func defaultSettings() *Settings {
 	return &Settings{
 		CacheDays:        1,
+		Appearance:       "dark",
 		Fullscreen:       false,
 		StopScreensaver:  true,
 		VolumeMax:        130,
@@ -129,6 +131,21 @@ func (s *Settings) toTorrentConfig(dialer bukanir.PeerDialer) bukanir.TorrentCon
 	}
 }
 
+// appearanceChoices are the APPEARANCE values offered in the dialog, in list order.
+var appearanceChoices = []struct{ Value, Name string }{
+	{"dark", "Dark"}, {"light", "Light"}, {"system", "System"},
+}
+
+// appearance returns the APPEARANCE global value for the setting, dark when unset or unknown.
+func (s *Settings) appearance() string {
+	for _, a := range appearanceChoices {
+		if a.Value == s.Appearance {
+			return strings.ToUpper(a.Value)
+		}
+	}
+	return "DARK"
+}
+
 // subtitleLanguage returns the configured subtitle language, or "en" if unset.
 func (s *Settings) subtitleLanguage() string {
 	if s.SubLanguage == "" {
@@ -162,6 +179,13 @@ func onSettings() {
 	formLabels = nil
 
 	cacheDays := choiceList(cacheDayChoices, s.CacheDays, nil)
+	appearance := iup.List().SetAttributes("DROPDOWN=YES")
+	for i, a := range appearanceChoices {
+		appearance.SetAttribute(strconv.Itoa(i+1), a.Name)
+		if strings.EqualFold(a.Value, s.appearance()) {
+			appearance.SetAttribute("VALUE", strconv.Itoa(i+1))
+		}
+	}
 
 	fullscreen := toggle("Fullscreen", s.Fullscreen)
 	stopSaver := toggle("Stop screensaver", s.StopScreensaver)
@@ -211,7 +235,10 @@ func onSettings() {
 	}))
 
 	general := frame("General",
-		formRows("Days to keep cache", cacheDays),
+		formRows(
+			"Appearance", appearance,
+			"Days to keep cache", cacheDays,
+		),
 	)
 	player := frame("Player",
 		fullscreen,
@@ -261,6 +288,7 @@ func onSettings() {
 	saveBtn.SetCallback("ACTION", iup.ActionFunc(func(iup.Ihandle) int {
 		next := *s
 		next.CacheDays = cacheDayChoices[listIndex(cacheDays)]
+		next.Appearance = appearanceChoices[listIndex(appearance)].Value
 		next.Fullscreen = isOn(fullscreen)
 		next.StopScreensaver = isOn(stopSaver)
 		next.VolumeMax = atoiDefault(volume.GetAttribute("VALUE"), s.VolumeMax)
@@ -290,6 +318,7 @@ func onSettings() {
 // applySettings persists the new settings and rebuilds the library client.
 func applySettings(next *Settings) {
 	*settings = *next
+	iup.SetGlobal("APPEARANCE", settings.appearance())
 	if err := settings.save(); err != nil {
 		setStatus("Could not save settings: " + err.Error())
 	}

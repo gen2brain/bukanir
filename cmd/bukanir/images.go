@@ -51,7 +51,7 @@ func loadingBox(text string) iup.Ihandle {
 	spinner := iup.AnimatedLabel(iup.GetHandle("loading-anim"))
 	spinner.SetAttribute("START", "YES")
 
-	caption := iup.Label(text).SetAttribute("FGCOLOR", subtleColor)
+	caption := setThemed(iup.Label(text), "FGCOLOR", roleSubtle)
 	row := iup.Hbox(iup.Fill(), spinner, caption, iup.Fill()).SetAttributes("ALIGNMENT=ACENTER, GAP=8")
 	return iup.Vbox(iup.Fill(), row, iup.Fill()).SetAttributes("EXPAND=YES")
 }
@@ -103,9 +103,6 @@ func pauseGlyph(size int) *image.RGBA {
 // iconSize is the uniform toolbar/status icon size.
 const iconSize = 22
 
-//go:embed images/search.png
-var iconSearch []byte
-
 //go:embed images/refresh.png
 var iconRefresh []byte
 
@@ -127,10 +124,36 @@ var iconTorOff []byte
 //go:embed images/log.png
 var iconLog []byte
 
+// monoIcons are recolored to the dialog text color; monoButtons maps toolbar buttons to their icon.
+var (
+	monoIcons = map[string]image.Image{
+		"refresh":  nil,
+		"settings": nil,
+		"log":      nil,
+	}
+	monoButtons = map[iup.Ihandle]string{}
+)
+
+// tintedName returns the image name of icon tinted for the current text color, registering it once.
+func tintedName(icon string) string {
+	fg := globalColor("DLGFGCOLOR")
+	name := fmt.Sprintf("%s-%02x%02x%02x", icon, fg.R, fg.G, fg.B)
+	if iup.GetHandle(name) == 0 && monoIcons[icon] != nil {
+		iup.ImageFromImage(tintIcon(monoIcons[icon], iconSize, fg)).SetHandle(name)
+	}
+	return name
+}
+
+// retintIcons switches the toolbar buttons to icons tinted for the current text color.
+func retintIcons() {
+	for b, icon := range monoButtons {
+		b.SetAttribute("IMAGE", tintedName(icon))
+	}
+}
+
 // loadIcons decodes the embedded PNGs into named IUP images.
 func loadIcons() {
 	mono := map[string][]byte{
-		"search":   iconSearch,
 		"refresh":  iconRefresh,
 		"settings": iconSettings,
 		"log":      iconLog,
@@ -139,10 +162,9 @@ func loadIcons() {
 		"tor":     iconTor,
 		"tor-off": iconTorOff,
 	}
-	fg := globalColor("DLGFGCOLOR")
 	for name, data := range mono {
 		if img, err := png.Decode(bytes.NewReader(data)); err == nil {
-			iup.ImageFromImage(tintIcon(img, iconSize, fg)).SetHandle(name)
+			monoIcons[name] = img
 		}
 	}
 	for name, data := range colored {

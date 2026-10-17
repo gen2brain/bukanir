@@ -57,10 +57,10 @@ func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 		metaParts = append(metaParts, m.SizeHuman)
 	}
 	meta := iup.Label(strings.Join(metaParts, "   ")).SetAttributes("SELECTABLE=YES")
-	genres := iup.Label(strings.Join(s.Genres, ", ")).SetAttributes("SELECTABLE=YES").SetAttribute("FGCOLOR", dimColor)
+	genres := setThemed(iup.Label(strings.Join(s.Genres, ", ")).SetAttributes("SELECTABLE=YES"), "FGCOLOR", roleDim)
 
 	overview := iup.Text().SetAttributes("MULTILINE=YES, READONLY=YES, WORDWRAP=YES, BORDER=NO, SCROLLBAR=VERTICAL, EXPAND=YES")
-	overview.SetAttribute("BGCOLOR", iup.GetGlobal("DLGBGCOLOR"))
+	setThemed(overview, "BGCOLOR", roleDialogBg)
 	overview.SetAttribute("VALUE", s.Overview)
 
 	watch := accentButton("&WATCH")
@@ -79,17 +79,19 @@ func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 
 	top := []iup.Ihandle{title, meta, genres}
 	if m.Release != "" {
-		top = append(top, iup.Label("Torrent: "+m.Release).SetAttributes("WORDWRAP=YES, EXPAND=HORIZONTAL, SELECTABLE=YES").SetAttribute("FGCOLOR", subtleColor))
+		top = append(top, setThemed(iup.Label("Torrent: "+m.Release).SetAttributes("WORDWRAP=YES, EXPAND=HORIZONTAL, SELECTABLE=YES"), "FGCOLOR", roleSubtle))
 	}
 	if s.Tagline != "" {
 		top = append(top, iup.Label(s.Tagline).SetAttributes("FONTSTYLE=Italic, FONTSIZE=13, WORDWRAP=YES, EXPAND=HORIZONTAL, SELECTABLE=YES"))
 	}
+	var rows []iup.Ihandle
 	if d := directorRow(s); d != 0 {
-		top = append(top, d)
+		rows = append(rows, d)
 	}
 	if c := castRow(s); c != 0 {
-		top = append(top, c)
+		rows = append(rows, c)
 	}
+	top = append(top, rows...)
 
 	topBox := iup.Vbox(top...).SetAttributes("GAP=8, EXPAND=HORIZONTAL")
 	buttons := iup.Hbox(actions...).SetAttributes("GAP=8, EXPAND=HORIZONTAL")
@@ -101,6 +103,9 @@ func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 	iup.Append(holder, split)
 	iup.Map(split)
 	iup.Refresh(holder)
+	for _, r := range rows {
+		centerCaption(r)
+	}
 	iup.Refresh(holder)
 
 	go loadPosterSized(posterPref(m), poster, summaryPosterW, summaryPosterH)
@@ -164,7 +169,7 @@ func directorRow(s bukanir.TSummary) iup.Ihandle {
 			return client.Crew(ctx, id, 0)
 		})
 	})
-	return iup.MultiBox(fieldLabel("Director:"), link).SetAttributes("ORIENTATION=HORIZONTAL, GAPHORIZ=6, GAPVERT=4")
+	return fieldRow(fieldLabel("Director:"), link)
 }
 
 func castRow(s bukanir.TSummary) iup.Ihandle {
@@ -184,12 +189,25 @@ func castRow(s bukanir.TSummary) iup.Ihandle {
 	if len(items) == 1 {
 		return 0
 	}
+	return fieldRow(items...)
+}
+
+func fieldRow(items ...iup.Ihandle) iup.Ihandle {
 	return iup.MultiBox(items...).SetAttributes("ORIENTATION=HORIZONTAL, GAPHORIZ=6, GAPVERT=4")
 }
 
-// fieldLabel is an inactive flat button that aligns with the name buttons.
+// centerCaption pads a mapped field row's caption so its text centers on the first name button.
+func centerCaption(row iup.Ihandle) {
+	var lw, lh, bw, bh int
+	fmt.Sscanf(iup.GetChild(row, 0).GetAttribute("NATURALSIZE"), "%dx%d", &lw, &lh)
+	fmt.Sscanf(iup.GetChild(row, 1).GetAttribute("NATURALSIZE"), "%dx%d", &bw, &bh)
+	if bh > lh {
+		iup.GetChild(row, 0).SetAttribute("PADDING", fmt.Sprintf("0x%d", (bh-lh)/2))
+	}
+}
+
 func fieldLabel(text string) iup.Ihandle {
-	return iup.Button(text).SetAttributes("FLAT=YES, ACTIVE=NO").SetAttribute("FGCOLOR", dimColor)
+	return setThemed(iup.Label(text), "FGCOLOR", roleDim)
 }
 
 // openBrowse opens a new grid tab populated by load.

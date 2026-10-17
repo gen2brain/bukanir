@@ -47,7 +47,6 @@ var settings *Settings
 func main() {
 	iup.Open()
 	defer iup.Close()
-	iup.SetGlobal("APPEARANCE", "DARK")
 
 	// libmpv requires LC_NUMERIC=C; iup/GTK changes the locale on Open.
 	mpv.SetLocale(mpv.LCNumeric, "C")
@@ -55,12 +54,13 @@ func main() {
 	iup.SetGlobal("APPNAME", "bukanir")
 	iup.SetGlobal("APPID", "io.github.gen2brain.bukanir")
 	initDirs()
+	settings = loadSettings()
+	iup.SetGlobal("APPEARANCE", settings.appearance())
 
 	loadIcons()
 	loadLoadingAnimation()
 	registerTabIndicators()
 
-	settings = loadSettings()
 	cfg := settings.toConfig()
 	cfg.TorLog = logs
 	logs.setRedactor(bukanir.SecretValues(cfg))
@@ -83,6 +83,7 @@ func main() {
 		"SHRINK":     "YES",
 	}).SetHandle("dlg")
 	dlg.SetCallback("K_ANY", iup.KAnyFunc(onKey))
+	dlg.SetCallback("THEMECHANGED_CB", iup.ThemeChangedFunc(onThemeChanged))
 	dlg.SetCallback("CLOSE_CB", iup.CloseFunc(func(iup.Ihandle) int { return iup.CLOSE })) // end the loop; iup.Close then destroys child dialogs
 	// A MultiBox reports its wrapped height one layout pass late; refresh again after a resize.
 	dlg.SetCallback("RESIZE_CB", iup.ResizeFunc(func(ih iup.Ihandle, _, _ int) int {

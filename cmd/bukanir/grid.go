@@ -20,13 +20,74 @@ var posterSeq atomic.Int64
 // selectedTitle and selectedPoster are the highlighted grid cell's widgets.
 var selectedTitle, selectedPoster iup.Ihandle
 
-const (
-	accentColor = "255 167 37"
-	dimColor    = "170 170 170"
-	subtleColor = "150 150 150"
-)
+const accentColor = "255 167 37"
 
 var accentRGBA = color.RGBA{255, 167, 37, 255}
+
+type colorRole int
+
+const (
+	roleDim colorRole = iota
+	roleSubtle
+	roleDialogBg
+)
+
+// roleColor resolves a color role for the current appearance.
+func roleColor(r colorRole) string {
+	dark := iup.GetGlobal("DARKMODE") == "YES"
+	switch r {
+	case roleDim:
+		if dark {
+			return "170 170 170"
+		}
+		return "120 120 120"
+	case roleSubtle:
+		if dark {
+			return "150 150 150"
+		}
+		return "142 142 142"
+	}
+	return iup.GetGlobal("DLGBGCOLOR")
+}
+
+var themed = map[iup.Ihandle]struct {
+	attr string
+	role colorRole
+}{}
+
+// setThemed sets attr to the role color and keeps it updated on appearance changes.
+func setThemed(ih iup.Ihandle, attr string, role colorRole) iup.Ihandle {
+	ih.SetAttribute(attr, roleColor(role))
+	if _, ok := themed[ih]; !ok {
+		ih.SetCallback("DESTROY_CB", iup.DestroyFunc(func(ih iup.Ihandle) int {
+			delete(themed, ih)
+			return iup.DEFAULT
+		}))
+	}
+	themed[ih] = struct {
+		attr string
+		role colorRole
+	}{attr, role}
+	return ih
+}
+
+// onThemeChanged re-applies every color the app derived from the palette.
+func onThemeChanged(iup.Ihandle, int) int {
+	for ih, t := range themed {
+		ih.SetAttribute(t.attr, roleColor(t.role))
+	}
+	retintIcons()
+	liveTargets.Range(func(k, _ any) bool {
+		ih := k.(iup.Ihandle)
+		if img := ih.GetAttribute("IMAGE"); strings.HasPrefix(img, "poster-blank-") {
+			var w, h int
+			fmt.Sscanf(img, "poster-blank-%dx%d", &w, &h)
+			ih.SetAttribute("IMAGE", blankPoster(w, h))
+		}
+		return true
+	})
+	return iup.DEFAULT
+}
 
 // globalColor parses an "R G B" global attribute into a color.
 func globalColor(name string) color.RGBA {
@@ -73,7 +134,7 @@ func releaseImages() {
 // selectCell highlights a cell as the current selection.
 func selectCell(title, poster iup.Ihandle) {
 	if selectedTitle != 0 && selectedTitle != title {
-		selectedTitle.SetAttribute("FGCOLOR", iup.GetGlobal("DLGFGCOLOR"))
+		selectedTitle.SetAttribute("FGCOLOR", nil)
 	}
 	if selectedPoster != 0 && selectedPoster != poster {
 		setPosterSelected(selectedPoster, false)
@@ -267,7 +328,7 @@ func scrollToShowCell(scroll, cell iup.Ihandle) {
 func posterCell(m bukanir.TMovie) (cell, target iup.Ihandle) {
 	titleAttr := fmt.Sprintf("ALIGNMENT=ACENTER, WORDWRAP=YES, RASTERSIZE=%dx", posterW)
 	title := iup.Label(elide(m.Title, 40)).SetAttributes(titleAttr)
-	sub := iup.Label(movieSubtitle(m)).SetAttributes(fmt.Sprintf(`ALIGNMENT=ACENTER, FGCOLOR="%s", RASTERSIZE=%dx`, subtleColor, posterW))
+	sub := setThemed(iup.Label(movieSubtitle(m)).SetAttributes(fmt.Sprintf("ALIGNMENT=ACENTER, RASTERSIZE=%dx", posterW)), "FGCOLOR", roleSubtle)
 	movie := m
 
 	var poster iup.Ihandle
@@ -330,12 +391,13 @@ func posterView(w, h int, onSelect, onOpen func()) iup.Ihandle {
 	return poster
 }
 
-// blankPoster returns the name of a shared placeholder image of the given size.
+// blankPoster returns the name of a shared placeholder image of the given size in the current text background.
 func blankPoster(w, h int) string {
-	name := fmt.Sprintf("poster-blank-%dx%d", w, h)
+	bg := globalColor("TXTBGCOLOR")
+	name := fmt.Sprintf("poster-blank-%dx%d-%02x%02x%02x", w, h, bg.R, bg.G, bg.B)
 	if iup.GetHandle(name) == 0 {
 		m := image.NewRGBA(image.Rect(0, 0, w, h))
-		draw.Draw(m, m.Bounds(), image.NewUniform(globalColor("TXTBGCOLOR")), image.Point{}, draw.Src)
+		draw.Draw(m, m.Bounds(), image.NewUniform(bg), image.Point{}, draw.Src)
 		iup.ImageFromImage(m).SetHandle(name)
 	}
 	return name

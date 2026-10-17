@@ -294,7 +294,12 @@ func clearList(list iup.Ihandle) {
 }
 
 func iconButton(icon string, onClick func()) iup.Ihandle {
-	b := iup.Button("").SetAttributes("IMAGE=" + icon + ", FLAT=YES")
+	b := iup.Button("").SetAttributes("FLAT=YES")
+	if _, ok := monoIcons[icon]; ok {
+		monoButtons[b] = icon
+		icon = tintedName(icon)
+	}
+	b.SetAttribute("IMAGE", icon)
 	b.SetCallback("ACTION", iup.ActionFunc(func(iup.Ihandle) int {
 		onClick()
 		return iup.DEFAULT
@@ -460,7 +465,7 @@ func gridTab() iup.Ihandle {
 
 // placeholder is a centered, dimmed, expanding label for an empty content area.
 func placeholder(text string) iup.Ihandle {
-	return iup.Label(text).SetAttributes("EXPAND=YES, ALIGNMENT=ACENTER:ACENTER").SetAttribute("FGCOLOR", subtleColor)
+	return setThemed(iup.Label(text).SetAttributes("EXPAND=YES, ALIGNMENT=ACENTER:ACENTER"), "FGCOLOR", roleSubtle)
 }
 
 // clearChildren detaches and destroys all children of h.
