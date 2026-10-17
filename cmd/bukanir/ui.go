@@ -17,6 +17,7 @@ func layout() iup.Ihandle {
 		toolbar(),
 		iup.Label("").SetAttributes("SEPARATOR=HORIZONTAL"),
 		content(),
+		placeholder("Search for a title or pick one from the menus").SetHandle("noTabs").SetAttributes("VISIBLE=NO, FLOATING=IGNORE"),
 		iup.Label("").SetAttributes("SEPARATOR=HORIZONTAL"),
 		statusBar(),
 		suggestList(),
@@ -441,8 +442,7 @@ func content() iup.Ihandle {
 		return iup.CONTINUE
 	}))
 	tabs.SetCallback("POSTMESSAGE_CB", iup.PostMessageFunc(onTabMessage))
-	empty := placeholder("Search for a title or pick one from the menus").SetHandle("noTabs").SetAttributes("VISIBLE=NO, FLOATING=IGNORE")
-	return iup.Vbox(tabs, empty)
+	return tabs
 }
 
 // updateNoTabs shows the placeholder in place of the tab strip while no tab is open.
