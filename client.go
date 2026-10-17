@@ -35,6 +35,9 @@ type Client struct {
 	tmdbMu   sync.Mutex
 	tmdbConf *tmdbConfiguration // memoized image configuration
 
+	tmdbMemoMu sync.Mutex
+	tmdbMemo   map[string]*tmdbLookup // memoized TMDB responses by URL
+
 	subsMu    sync.Mutex
 	subsToken string // memoized OpenSubtitles login token
 	subsErr   error  // memoized login failure

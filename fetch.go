@@ -69,9 +69,20 @@ func (c *Client) doBytesAccept(ctx context.Context, method, url string, headers 
 			}
 		default:
 			logf("ERROR: %s %s: %s", method, url, resp.Status)
-			return nil, fmt.Errorf("bukanir: %s %s: %s", method, url, resp.Status)
+			return nil, &statusError{method: method, url: url, code: resp.StatusCode, status: resp.Status}
 		}
 	}
+}
+
+// statusError is a request that ended with an unusable HTTP status.
+type statusError struct {
+	method, url string
+	code        int
+	status      string
+}
+
+func (e *statusError) Error() string {
+	return fmt.Sprintf("bukanir: %s %s: %s", e.method, e.url, e.status)
 }
 
 func (c *Client) getBytes(ctx context.Context, url string) ([]byte, error) {

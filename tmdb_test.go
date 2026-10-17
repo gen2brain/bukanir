@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -349,5 +350,108 @@ func TestDiscoverPrefersRealCounts(t *testing.T) {
 	}
 	if len(movies) != 1 || movies[0].Source != "tpb" {
 		t.Fatalf("genre pick = %+v, want the apibay torrent", movies)
+	}
+}
+
+func TestTMDBLookupsMemoized(t *testing.T) {
+	var searchHits, imageHits, deniedHits int32
+	mux := http.NewServeMux()
+	mux.HandleFunc("/configuration", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"images":{"secure_base_url":"https://img/","poster_sizes":["w92","w154","w185","w342","w500"]}}`))
+	})
+	mux.HandleFunc("/search/tv", func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&searchHits, 1)
+		time.Sleep(50 * time.Millisecond)
+		w.Write([]byte(`{"results":[{"id":1399,"name":"The Terror","first_air_date":"2018-03-25","poster_path":"/s.jpg"}]}`))
+	})
+	mux.HandleFunc("/tv/1399/season/3/images", func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&imageHits, 1)
+		http.NotFound(w, r)
+	})
+	mux.HandleFunc("/tv/1399/season/4/images", func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&deniedHits, 1)
+		w.WriteHeader(http.StatusUnauthorized)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	c, err := New(context.Background(), Config{CacheDir: t.TempDir(), CacheTTL: time.Hour, TMDBKey: "testkey"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { c.Close() })
+	c.tmdbBase = srv.URL
+	ctx := context.Background()
+	conf, err := c.tmdbConfiguration(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tr := torrentResult{Title: "The Terror", Season: 3, Episode: 1, Category: CategoryTV}
+	var wg sync.WaitGroup
+	for range 5 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if m, ok := c.enrichTV(ctx, conf, tr); !ok || m.ID != 1399 {
+				t.Errorf("enrichTV = %+v, %v", m, ok)
+			}
+		}()
+	}
+	wg.Wait()
+	c.enrichTV(ctx, conf, tr)
+	if searchHits != 1 || imageHits != 1 {
+		t.Errorf("search hits = %d, image hits = %d, want 1 and 1", searchHits, imageHits)
+	}
+
+	tr.Season = 4
+	c.enrichTV(ctx, conf, tr)
+	c.enrichTV(ctx, conf, tr)
+	if deniedHits != 2 {
+		t.Errorf("401 hits = %d, want 2 (not cached)", deniedHits)
+	}
+}
+
+func TestTMDBLookupSurvivesCanceledLeader(t *testing.T) {
+	var hits int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&hits, 1)
+		select {
+		case <-time.After(150 * time.Millisecond):
+		case <-r.Context().Done():
+			return
+		}
+		w.Write([]byte(`{"id":7}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	c, err := New(context.Background(), Config{CacheDir: t.TempDir(), CacheTTL: time.Hour, TMDBKey: "testkey"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { c.Close() })
+	c.tmdbBase = srv.URL
+	u := c.tmdbURL("/tv/7/external_ids", nil)
+
+	leaderCtx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+	defer cancel()
+	leaderErr := make(chan error, 1)
+	go func() {
+		var out tmdbExternalIDs
+		leaderErr <- c.tmdbGetJSON(leaderCtx, u, &out)
+	}()
+	time.Sleep(10 * time.Millisecond)
+
+	var out struct {
+		ID int `json:"id"`
+	}
+	if err := c.tmdbGetJSON(context.Background(), u, &out); err != nil || out.ID != 7 {
+		t.Fatalf("waiter = %+v, %v; want id 7 after the leader's context ended", out, err)
+	}
+	if err := <-leaderErr; err == nil {
+		t.Error("leader with an expired context returned no error")
+	}
+	if hits != 2 {
+		t.Errorf("hits = %d, want 2 (canceled fetch, then the waiter's own)", hits)
 	}
 }

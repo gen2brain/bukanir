@@ -3,11 +3,14 @@ package bukanir
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // tmdbBaseURL is the TMDB v3 API root.
@@ -226,11 +229,77 @@ func (c *Client) tmdbConfiguration(ctx context.Context) (*tmdbConfiguration, err
 		return c.tmdbConf, nil
 	}
 	var conf tmdbConfiguration
-	if err := c.getJSON(ctx, c.tmdbURL("/configuration", nil), &conf); err != nil {
+	if err := c.tmdbGetJSON(ctx, c.tmdbURL("/configuration", nil), &conf); err != nil {
 		return nil, err
 	}
 	c.tmdbConf = &conf
 	return &conf, nil
+}
+
+// tmdbLookup is one memoized TMDB response, shared by concurrent requests for the same URL.
+type tmdbLookup struct {
+	done    chan struct{}
+	data    []byte
+	err     error
+	expires time.Time
+}
+
+// tmdbGetJSON fetches a TMDB URL once per CacheTTL, remembering found and not-found answers alike.
+func (c *Client) tmdbGetJSON(ctx context.Context, url string, out any) error {
+	c.tmdbMemoMu.Lock()
+	l := c.tmdbMemo[url]
+	if l != nil {
+		select {
+		case <-l.done:
+			if time.Now().After(l.expires) {
+				l = nil
+			}
+		default:
+		}
+	}
+	if l == nil {
+		l = &tmdbLookup{done: make(chan struct{})}
+		if c.tmdbMemo == nil {
+			c.tmdbMemo = map[string]*tmdbLookup{}
+		}
+		c.tmdbMemo[url] = l
+		c.tmdbMemoMu.Unlock()
+
+		l.data, l.err = c.getBytes(ctx, url)
+		l.expires = time.Now().Add(c.cfg.CacheTTL)
+		if c.cfg.CacheTTL <= 0 || !tmdbDefinitive(l.err) {
+			c.tmdbMemoMu.Lock()
+			if c.tmdbMemo[url] == l {
+				delete(c.tmdbMemo, url)
+			}
+			c.tmdbMemoMu.Unlock()
+		}
+		close(l.done)
+	} else {
+		c.tmdbMemoMu.Unlock()
+		select {
+		case <-l.done:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		if (errors.Is(l.err, context.Canceled) || errors.Is(l.err, context.DeadlineExceeded)) && ctx.Err() == nil {
+			return c.tmdbGetJSON(ctx, url, out)
+		}
+	}
+
+	if l.err != nil {
+		return l.err
+	}
+	if err := json.Unmarshal(l.data, out); err != nil {
+		return fmt.Errorf("bukanir: decode %s: %w", url, err)
+	}
+	return nil
+}
+
+// tmdbDefinitive reports whether a TMDB answer holds until it expires: a success or a 404.
+func tmdbDefinitive(err error) bool {
+	var se *statusError
+	return err == nil || (errors.As(err, &se) && se.code == http.StatusNotFound)
 }
 
 func (c *Client) tmdbSearchMovie(ctx context.Context, query string) (*tmdbSearchResponse, error) {
@@ -243,14 +312,14 @@ func (c *Client) tmdbSearchTV(ctx context.Context, query string) (*tmdbSearchRes
 
 func (c *Client) tmdbSearch(ctx context.Context, path, query string) (*tmdbSearchResponse, error) {
 	var out tmdbSearchResponse
-	err := c.getJSON(ctx, c.tmdbURL(path, url.Values{"query": {query}}), &out)
+	err := c.tmdbGetJSON(ctx, c.tmdbURL(path, url.Values{"query": {query}}), &out)
 	return &out, err
 }
 
 func (c *Client) tmdbMovieDetails(ctx context.Context, id int) (*tmdbDetails, error) {
 	q := url.Values{"append_to_response": {"credits,videos"}}
 	var out tmdbDetails
-	err := c.getJSON(ctx, c.tmdbURL("/movie/"+strconv.Itoa(id), q), &out)
+	err := c.tmdbGetJSON(ctx, c.tmdbURL("/movie/"+strconv.Itoa(id), q), &out)
 	return &out, err
 }
 
@@ -262,14 +331,14 @@ func (c *Client) tmdbTVDetails(ctx context.Context, id, season int) (*tmdbDetail
 	}
 	q := url.Values{"append_to_response": {"credits,videos"}}
 	var out tmdbDetails
-	err := c.getJSON(ctx, c.tmdbURL(path, q), &out)
+	err := c.tmdbGetJSON(ctx, c.tmdbURL(path, q), &out)
 	return &out, err
 }
 
 func (c *Client) tmdbTVImages(ctx context.Context, id, season int) (*tmdbImages, error) {
 	path := fmt.Sprintf("/tv/%d/season/%d/images", id, season)
 	var out tmdbImages
-	err := c.getJSON(ctx, c.tmdbURL(path, nil), &out)
+	err := c.tmdbGetJSON(ctx, c.tmdbURL(path, nil), &out)
 	return &out, err
 }
 
@@ -279,26 +348,26 @@ type tmdbFindResponse struct {
 
 func (c *Client) tmdbFind(ctx context.Context, imdbID string) (*tmdbFindResponse, error) {
 	var out tmdbFindResponse
-	err := c.getJSON(ctx, c.tmdbURL("/find/"+url.PathEscape(imdbID), url.Values{"external_source": {"imdb_id"}}), &out)
+	err := c.tmdbGetJSON(ctx, c.tmdbURL("/find/"+url.PathEscape(imdbID), url.Values{"external_source": {"imdb_id"}}), &out)
 	return &out, err
 }
 
 func (c *Client) tmdbTVExternalIDs(ctx context.Context, id int) (*tmdbExternalIDs, error) {
 	var out tmdbExternalIDs
-	err := c.getJSON(ctx, c.tmdbURL(fmt.Sprintf("/tv/%d/external_ids", id), nil), &out)
+	err := c.tmdbGetJSON(ctx, c.tmdbURL(fmt.Sprintf("/tv/%d/external_ids", id), nil), &out)
 	return &out, err
 }
 
 // tmdbList fetches a paged list such as movie/popular or tv/top_rated.
 func (c *Client) tmdbList(ctx context.Context, media, kind string) (*tmdbSearchResponse, error) {
 	var out tmdbSearchResponse
-	err := c.getJSON(ctx, c.tmdbURL("/"+media+"/"+kind, nil), &out)
+	err := c.tmdbGetJSON(ctx, c.tmdbURL("/"+media+"/"+kind, nil), &out)
 	return &out, err
 }
 
 func (c *Client) tmdbGenres(ctx context.Context) ([]tmdbGenre, error) {
 	var out tmdbGenreList
-	if err := c.getJSON(ctx, c.tmdbURL("/genre/movie/list", nil), &out); err != nil {
+	if err := c.tmdbGetJSON(ctx, c.tmdbURL("/genre/movie/list", nil), &out); err != nil {
 		return nil, err
 	}
 	return out.Genres, nil
@@ -312,7 +381,7 @@ func (c *Client) tmdbDiscoverMovie(ctx context.Context, with string, id, page in
 		"page":    {strconv.Itoa(page)},
 	}
 	var out tmdbSearchResponse
-	err := c.getJSON(ctx, c.tmdbURL("/discover/movie", q), &out)
+	err := c.tmdbGetJSON(ctx, c.tmdbURL("/discover/movie", q), &out)
 	return &out, err
 }
 
