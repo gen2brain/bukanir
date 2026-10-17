@@ -1,0 +1,212 @@
+package bukanir
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+)
+
+func TestMagnetLink(t *testing.T) {
+	m := magnetLink("ABCDEF0123", "The Matrix 1999")
+	if !strings.HasPrefix(m, "magnet:?xt=urn:btih:ABCDEF0123") {
+		t.Errorf("bad prefix: %s", m)
+	}
+	if !strings.Contains(m, "dn=The+Matrix+1999") {
+		t.Errorf("display name not escaped: %s", m)
+	}
+	if got := strings.Count(m, "&tr="); got != len(defaultTrackers) {
+		t.Errorf("trackers = %d, want %d", got, len(defaultTrackers))
+	}
+}
+
+func TestHumanizeBytes(t *testing.T) {
+	cases := map[int64]string{
+		512:            "512 B",
+		1024:           "1.0 KiB",
+		1536:           "1.5 KiB",
+		1 << 20:        "1.0 MiB",
+		int64(5) << 30: "5.0 GiB",
+	}
+	for n, want := range cases {
+		if got := humanizeBytes(n); got != want {
+			t.Errorf("humanizeBytes(%d) = %q, want %q", n, got, want)
+		}
+	}
+}
+
+const tpbMatrix = `{"id":"123","info_hash":"AAAA","name":"The.Matrix.1999.1080p.x264","size":"1500000000","seeders":"100","category":"207"}`
+
+// A response exercising every filter.
+const tpbBody = `[` +
+	tpbMatrix + `,` +
+	`{"id":"0","name":"No results returned","info_hash":"0","size":"0","seeders":"0","category":"0"},` +
+	`{"id":"5","info_hash":"BBBB","name":"Some.Movie.2020","size":"1000","seeders":"0","category":"201"},` +
+	`{"id":"6","info_hash":"CCCC","name":"Big.Movie.2020","size":"9999999999999","seeders":"5","category":"201"},` +
+	`{"id":"7","info_hash":"DDDD","name":"Show.Without.Episode.2020","size":"1000000","seeders":"5","category":"205"},` +
+	`{"id":"8","info_hash":"EEEE","name":"Breaking.Bad.S05E14.HDTV.x264","size":"500000000","seeders":"50","category":"205"}` +
+	`]`
+
+func mockTPB(t *testing.T, wantCat string) *Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/q.php" && wantCat != "" {
+			if got := r.URL.Query().Get("cat"); got != wantCat {
+				t.Errorf("cat = %q, want %q", got, wantCat)
+			}
+		}
+		w.Write([]byte(tpbBody))
+	}))
+	t.Cleanup(srv.Close)
+
+	c, err := New(context.Background(), Config{CacheDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.tpbBase = srv.URL
+	t.Cleanup(func() { c.Close() })
+	return c
+}
+
+func TestTPBSearchFilters(t *testing.T) {
+	c := mockTPB(t, "201,207,205,208")
+	res, err := c.tpbSearch(context.Background(), "matrix", "all")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != 2 {
+		t.Fatalf("got %d results, want 2 (kept movie + tv episode)", len(res))
+	}
+
+	movie := res[0]
+	if movie.Title != "the matrix" || movie.Year != 1999 || movie.Category != CategoryHDMovies || movie.Seeders != 100 {
+		t.Errorf("movie = %+v", movie)
+	}
+	if movie.Magnet == "" || movie.SizeHuman == "" {
+		t.Errorf("magnet/size not set: %+v", movie)
+	}
+
+	tv := res[1]
+	if tv.Category != CategoryTV || tv.Season != 5 || tv.Episode != 14 {
+		t.Errorf("tv = %+v", tv)
+	}
+}
+
+func TestTPBMediaCategoryMapping(t *testing.T) {
+	c := mockTPB(t, "201,207")
+	if _, err := c.tpbSearch(context.Background(), "x", "movies"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestTPBTop(t *testing.T) {
+	c := mockTPB(t, "")
+	res, err := c.tpbTop(context.Background(), CategoryMovies)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != 2 {
+		t.Fatalf("top returned %d, want 2", len(res))
+	}
+}
+
+func TestParseTPBBadJSON(t *testing.T) {
+	if _, err := parseTPB([]byte("not json")); err == nil {
+		t.Fatal("expected error on bad JSON")
+	}
+}
+
+const eztvBody = `{"torrents_count":3,"torrents":[
+	{"title":"Breaking.Bad.S05E14.720p.HDTV.x264","magnet_url":"magnet:?xt=urn:btih:EEEE","hash":"EEEE","seeds":50,"size_bytes":"500000000","season":"5","episode":"14"},
+	{"title":"Some.Show.S01E01","magnet_url":"","hash":"FFFF","seeds":0,"size_bytes":"1000000","season":"1","episode":"1"},
+	{"title":"Big.Show.S01E01","magnet_url":"magnet:?xt=urn:btih:GGGG","hash":"GGGG","seeds":10,"size_bytes":"9999999999999","season":"1","episode":"1"}
+]}`
+
+func mockEZTV(t *testing.T, body string, wantIMDb string) *Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if wantIMDb != "" {
+			if got := r.URL.Query().Get("imdb_id"); got != wantIMDb {
+				t.Errorf("imdb_id = %q, want %q", got, wantIMDb)
+			}
+		}
+		w.Write([]byte(body))
+	}))
+	t.Cleanup(srv.Close)
+
+	c, err := New(context.Background(), Config{CacheDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.eztvBase = srv.URL
+	t.Cleanup(func() { c.Close() })
+	return c
+}
+
+func TestEZTVSearchFilters(t *testing.T) {
+	// "tt" prefix must be stripped before querying.
+	c := mockEZTV(t, eztvBody, "0903747")
+	res, err := c.eztvSearch(context.Background(), "tt0903747", 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != 1 {
+		t.Fatalf("got %d results, want 1 (zero-seeder and oversized dropped)", len(res))
+	}
+	got := res[0]
+	if got.Category != CategoryTV || got.Season != 5 || got.Episode != 14 || got.Seeders != 50 {
+		t.Errorf("result = %+v", got)
+	}
+	if got.Magnet != "magnet:?xt=urn:btih:EEEE" {
+		t.Errorf("magnet = %q", got.Magnet)
+	}
+}
+
+func TestEZTVEmptyTorrentsFalse(t *testing.T) {
+	// EZTV returns torrents:false when there are no results.
+	c := mockEZTV(t, `{"torrents_count":0,"torrents":false}`, "")
+	res, err := c.eztvSearch(context.Background(), "tt1234567", 30)
+	if err != nil {
+		t.Fatalf("unexpected error on empty response: %v", err)
+	}
+	if len(res) != 0 {
+		t.Fatalf("got %d results, want 0", len(res))
+	}
+}
+
+func TestEZTVEmptyIMDb(t *testing.T) {
+	c := mockEZTV(t, eztvBody, "")
+	res, err := c.eztvSearch(context.Background(), "", 30)
+	if err != nil || res != nil {
+		t.Fatalf("empty imdb: got %v, %v", res, err)
+	}
+}
+
+func TestParseRelease(t *testing.T) {
+	cases := []struct {
+		name string
+		want release
+	}{
+		{"The.Matrix.1999.1080p.BluRay.x264-GROUP", release{Title: "the matrix", Year: 1999, Quality: "1080"}},
+		{"Game.of.Thrones.S01E02.720p.HDTV.x264", release{Title: "game of thrones", Season: 1, Episode: 2, Quality: "720"}},
+		{"Inception (2010) [1080p]", release{Title: "inception", Year: 2010, Quality: "1080"}},
+		{"Breaking.Bad.S05E14.HDTV.x264", release{Title: "breaking bad", Season: 5, Episode: 14}},
+		{"Some Random Movie", release{Title: "some random movie"}},
+	}
+	for _, tc := range cases {
+		got := parseRelease(tc.name)
+		if got != tc.want {
+			t.Errorf("parseRelease(%q) = %+v, want %+v", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestReleaseYearEdge(t *testing.T) {
+	if y := releaseYear("No Year Here"); y != 0 {
+		t.Errorf("year = %d, want 0", y)
+	}
+	if y := releaseYear("Movie.2021.x264"); y != 2021 {
+		t.Errorf("year = %d, want 2021", y)
+	}
+}
