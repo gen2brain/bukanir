@@ -20,6 +20,11 @@ var (
 
 // doBytes performs an HTTP request and returns the body, retrying transient failures.
 func (c *Client) doBytes(ctx context.Context, method, url string, headers map[string]string, body []byte) ([]byte, error) {
+	return c.doBytesAccept(ctx, method, url, headers, body, nil)
+}
+
+// doBytesAccept is doBytes that also returns the body, without retrying, for statuses accept reports as usable.
+func (c *Client) doBytesAccept(ctx context.Context, method, url string, headers map[string]string, body []byte, accept func(status int) bool) ([]byte, error) {
 	hc, err := c.tr.clientFor(url)
 	if err != nil {
 		return nil, err
@@ -47,7 +52,7 @@ func (c *Client) doBytes(ctx context.Context, method, url string, headers map[st
 		resp.Body.Close()
 
 		switch {
-		case resp.StatusCode >= 200 && resp.StatusCode < 300:
+		case resp.StatusCode >= 200 && resp.StatusCode < 300, accept != nil && accept(resp.StatusCode):
 			if readErr != nil {
 				return nil, readErr
 			}

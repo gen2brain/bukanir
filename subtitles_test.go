@@ -241,3 +241,33 @@ func TestSubdlLive(t *testing.T) {
 		t.Fatalf("got %d bytes as %q", len(data), name)
 	}
 }
+
+func TestMovieSubtitlesSearch500(t *testing.T) {
+	c := testClient(t)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/search.php", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`<a href="/movie-1.html">Blade Runner 2049 (2017)</a><a href="/movie-2.html">Runner (2018)</a><a href="/movie-3.html">Front Runner, The (2018)</a>`))
+	})
+	mux.HandleFunc("/movie-3.html", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<table><tr><td><a href="/subtitle-42.html"><div class="subtitle"><div><img src="images/flags/en.gif" alt="en"><a href="/subtitle-42.html"><b>Front Runner, The 2018 english subtitles (1080p.WEB)</b></a></div></div></a></td></tr>` +
+			`<tr><td><a href="/subtitle-43.html"><div class="subtitle"><div><img src="images/flags/fr.gif" alt="fr"><a href="/subtitle-43.html"><b>Front Runner, The 2018 french subtitles ()</b></a></div></div></a></td></tr></table>`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c.movieSubtitlesBase = srv.URL
+	p := movieSubtitlesProvider{c}
+
+	subs, err := p.search(context.Background(), SubtitleQuery{Title: "The Front Runner", Year: 2018, Language: "en"})
+	if err != nil || len(subs) != 1 || subs[0].DownloadURI != "/download-42.html" || subs[0].Release != "1080p.WEB" {
+		t.Fatalf("search = %+v, %v", subs, err)
+	}
+	for _, q := range []SubtitleQuery{{Title: "Runner", Year: 2026}, {Title: "Blade Runner", Year: 2017}} {
+		if path, err := p.findMovie(context.Background(), q.Title, q.Year); err != nil || path != "" {
+			t.Errorf("findMovie(%q, %d) = %q, %v; want no match", q.Title, q.Year, path, err)
+		}
+	}
+	if path, _ := p.findMovie(context.Background(), "Runner", 2018); path != "/movie-2.html" {
+		t.Errorf("findMovie(Runner, 2018) = %q", path)
+	}
+}
