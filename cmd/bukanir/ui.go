@@ -194,7 +194,7 @@ var suggestTitles []string
 
 // searchBox is the query field driving the autocomplete list.
 func searchBox() iup.Ihandle {
-	search := iup.Text().SetAttributes("CUEBANNER=Search, VISIBLECOLUMNS=16").SetHandle("search")
+	search := iup.Text().SetAttributes("CUEBANNER=Search, VISIBLECOLUMNS=22").SetHandle("search")
 	search.SetCallback("VALUECHANGED_CB", iup.ValueChangedFunc(func(ih iup.Ihandle) int {
 		onSearchChanged(ih.GetAttribute("VALUE"))
 		return iup.DEFAULT
