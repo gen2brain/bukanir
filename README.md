@@ -1,18 +1,32 @@
+<p align="center"><img src="cmd/bukanir/images/bukanir.png" alt="Bukanir" width="128" height="128"></p>
+
 Bukanir
 =======
 
-Bukanir streams movies and TV shows from bittorrent magnet links
+Bukanir streams movies and TV shows from bittorrent magnet links.
 
 Features
 --------
 
-* Watch movies and TV shows on your desktop
+* Watch movies and TV shows on your desktop, played with libmpv
+* Browse top, popular and top rated titles, by year or by genre, or search by title, cast or director
 * Embedded Tor for privacy
-* Many languages to choose for subtitles
+* Subtitles in many languages from OpenSubtitles, SubDL, YIFY, Gestdown and MovieSubtitles
+* Dark, light or system appearance
 * Ads free and free as in Freedom
+
+Credentials
+-----------
+
+OpenSubtitles and SubDL are used only when their keys are set in the environment:
+
+* `BUKANIR_OPENSUBTITLES_KEY`, `BUKANIR_OPENSUBTITLES_USER`, `BUKANIR_OPENSUBTITLES_PASS`
+* `BUKANIR_SUBDL_KEY`
+
+`BUKANIR_TMDB_KEY` sets the TMDB key; release builds have one built in.
 
 License
 -------
 
 Bukanir is free/libre software released under the terms of the GNU GPL license,
-see the `COPYING' file for details.
+see the `COPYING` file for details.
