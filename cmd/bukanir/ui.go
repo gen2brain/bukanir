@@ -441,7 +441,25 @@ func content() iup.Ihandle {
 		return iup.CONTINUE
 	}))
 	tabs.SetCallback("POSTMESSAGE_CB", iup.PostMessageFunc(onTabMessage))
-	return tabs
+	empty := placeholder("Search for a title or pick one from the menus").SetHandle("noTabs").SetAttributes("VISIBLE=NO, FLOATING=IGNORE")
+	return iup.Vbox(tabs, empty)
+}
+
+// updateNoTabs shows the placeholder in place of the tab strip while no tab is open.
+func updateNoTabs() {
+	tabs := iup.GetHandle("tabs")
+	empty := iup.GetHandle("noTabs")
+	none := iup.GetChildCount(tabs) == 0
+	if (empty.GetAttribute("VISIBLE") == "YES") == none {
+		return
+	}
+	show := func(ih iup.Ihandle, on bool) {
+		ih.SetAttribute("FLOATING", map[bool]string{true: "NO", false: "IGNORE"}[on])
+		ih.SetAttribute("VISIBLE", yesNo(on))
+	}
+	show(tabs, !none)
+	show(empty, none)
+	iup.Refresh(tabs)
 }
 
 // addTab appends child as a new tab, maps it, and switches to it.
@@ -451,6 +469,7 @@ func addTab(name string, child iup.Ihandle) {
 	child.SetAttribute("TABTITLE", title)
 	child.SetAttribute("TABIMAGE", "tab-blank")
 	iup.Append(tabs, child)
+	updateNoTabs()
 	iup.Map(child)
 	pos := iup.GetChildCount(tabs) - 1
 	iup.SetAttributeId(tabs, "TABIMAGE", pos, "")
@@ -489,6 +508,7 @@ func clearChildren(h iup.Ihandle) {
 // onTabMessage dispatches tabs-area messages: "gc", "enable", "load", "play".
 func onTabMessage(tabs iup.Ihandle, msg string, delta int, p any) int {
 	if msg == "gc" {
+		updateNoTabs()
 		releaseImages()
 		runtime.GC()
 		return iup.DEFAULT
@@ -505,6 +525,7 @@ func onTabMessage(tabs iup.Ihandle, msg string, delta int, p any) int {
 			delete(reloaders, h)
 			delete(watchActions, h)
 			iup.Destroy(h)
+			updateNoTabs()
 			releaseImages()
 			runtime.GC()
 		}
