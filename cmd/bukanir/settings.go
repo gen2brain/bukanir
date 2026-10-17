@@ -278,7 +278,7 @@ func onSettings() {
 	norm := iup.Normalizer(formLabels...)
 	left := iup.Vbox(general, player, subs).SetAttributes("GAP=8, NORMALIZESIZE=HORIZONTAL")
 	columns := iup.Hbox(left, torrents).SetAttributes("GAP=10, ALIGNMENT=ATOP")
-	body := iup.Vbox(norm, columns, buttons).SetAttributes("MARGIN=10x10, GAP=8")
+	body := iup.Vbox(norm, columns, buttons).SetAttributes("NMARGIN=10x10, GAP=8")
 	dlg := iup.Dialog(body).SetAttributes(map[string]string{
 		"TITLE": "Settings", "DIALOGFRAME": "YES", "MINBOX": "NO", "MAXBOX": "NO",
 	})
@@ -348,7 +348,7 @@ func updateTorStatus() {
 }
 
 func frame(title string, children ...iup.Ihandle) iup.Ihandle {
-	box := iup.Vbox(children...).SetAttributes("MARGIN=8x8, GAP=6")
+	box := iup.Vbox(children...).SetAttributes("NMARGIN=8x8, GAP=6")
 	return iup.Frame(box).SetAttribute("TITLE", title)
 }
 
@@ -364,7 +364,7 @@ func formRows(pairs ...any) iup.Ihandle {
 	}
 	// SIZECOL=1 sizes each line to its control's height so controls do not overlap.
 	return iup.GridBox(cells...).SetAttributes(
-		"ORIENTATION=HORIZONTAL, NUMDIV=2, GAPLIN=6, GAPCOL=10, ALIGNMENTLIN=ACENTER, SIZECOL=1",
+		"ORIENTATION=HORIZONTAL, NUMDIV=2, GAPLIN=6, GAPCOL=10, ALIGNMENTLIN=ACENTER, SIZECOL=1, SIZELIN=-1",
 	)
 }
 
