@@ -84,7 +84,7 @@ func (s *logStore) Write(p []byte) (int, error) {
 		if strings.TrimSpace(raw) == "" {
 			continue
 		}
-		ln := logLine{text: s.redact(raw), err: strings.Contains(strings.ToLower(raw), "error")}
+		ln := logLine{text: s.redact(raw), err: isErrorLine(raw)}
 		s.push(ln)
 		out = append(out, ln)
 	}
@@ -97,6 +97,16 @@ func (s *logStore) Write(p []byte) (int, error) {
 		}
 	}
 	return len(p), nil
+}
+
+// isErrorLine reports whether a log line carries the ERROR level marker as a word of its own.
+func isErrorLine(line string) bool {
+	for _, f := range strings.Fields(line) {
+		if f == "ERROR" || f == "ERROR:" {
+			return true
+		}
+	}
+	return false
 }
 
 // postLogLine hands a line to the viewer's text widget (err flag in the code).
