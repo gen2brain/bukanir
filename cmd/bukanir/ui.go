@@ -351,10 +351,22 @@ func setStatus(s string) {
 	iup.GetHandle("status").SetAttribute("TITLE", s)
 }
 
-// onKey handles global tab shortcuts: cycle (Ctrl+Tab) and close (Ctrl+W / Ctrl+F4).
-// Ctrl+letter arrives uppercased with the Ctrl bit, so match K_W not K_w.
+// watchActions starts the current detail tab's playback on Enter, keyed by the tab.
+var watchActions = map[iup.Ihandle]func(){}
+
+// onKey handles global shortcuts: cycle tabs (Ctrl+Tab), close (Ctrl+W / Ctrl+F4),
+// watch (Enter on a detail tab). Ctrl+letter arrives uppercased with the Ctrl bit, so match K_W not K_w.
 func onKey(_ iup.Ihandle, c int) int {
 	switch c {
+	case iup.K_CR:
+		if cls := iup.GetClassName(iup.GetFocus()); cls == "text" || cls == "list" {
+			return iup.CONTINUE
+		}
+		tabs := iup.GetHandle("tabs")
+		if f := watchActions[iup.GetChild(tabs, tabs.GetInt("VALUEPOS"))]; f != nil {
+			f()
+			return iup.IGNORE
+		}
 	case iup.XKeyCtrl(iup.K_TAB):
 		cycleTab(1)
 		return iup.IGNORE
@@ -396,6 +408,7 @@ func content() iup.Ihandle {
 		child := iup.GetChild(ih, pos)
 		stopSessions(child)
 		delete(reloaders, child)
+		delete(watchActions, child)
 		iup.PostMessage(ih, "gc", 0, nil) // GC after the page is destroyed
 		return iup.DEFAULT
 	}))
@@ -461,6 +474,7 @@ func onTabMessage(tabs iup.Ihandle, msg string, delta int, p any) int {
 		if isDescendant(tabs, h) {
 			stopSessions(h)
 			delete(reloaders, h)
+			delete(watchActions, h)
 			iup.Destroy(h)
 			releaseImages()
 			runtime.GC()

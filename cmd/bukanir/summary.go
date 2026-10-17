@@ -63,11 +63,16 @@ func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 	overview.SetAttribute("BGCOLOR", iup.GetGlobal("DLGBGCOLOR"))
 	overview.SetAttribute("VALUE", s.Overview)
 
-	watch := accentButton("WATCH")
+	watch := accentButton("&WATCH")
 	playButton(watch, func() { onWatch(m, s, holder, watch) })
+	watchActions[holder] = func() {
+		if watch.GetAttribute("ACTIVE") != "NO" {
+			onWatch(m, s, holder, watch)
+		}
+	}
 	actions := []iup.Ihandle{watch}
 	if s.TrailerKey != "" {
-		trailer := accentButton("TRAILER")
+		trailer := accentButton("&TRAILER")
 		playButton(trailer, func() { onTrailer(s, holder, trailer) })
 		actions = append(actions, trailer)
 	}
