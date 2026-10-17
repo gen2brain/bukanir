@@ -6,7 +6,7 @@ Bukanir streams movies and TV shows from bittorrent magnet links
 Features
 --------
 
-* Watch movies and TV shows on your Desktop or Android devices
+* Watch movies and TV shows on your desktop
 * Embedded Tor for privacy
 * Many languages to choose for subtitles
 * Ads free and free as in Freedom
