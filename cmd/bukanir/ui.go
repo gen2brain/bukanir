@@ -95,7 +95,7 @@ func mediaMenu() iup.Ihandle {
 	for _, o := range opts {
 		mi := menuItemAction(o.label, func() {
 			media = o.val
-			iup.GetHandle("btnMedia").SetAttribute("TITLE", mediaLabel())
+			setButtonTitle("btnMedia", mediaLabel())
 		})
 		if media == o.val {
 			mi.SetAttribute("VALUE", "ON")
@@ -111,7 +111,7 @@ func sortMenu() iup.Ihandle {
 	for _, o := range opts {
 		mi := menuItemAction(o.label, func() {
 			sortBy = o.val
-			iup.GetHandle("btnSort").SetAttribute("TITLE", sortLabel())
+			setButtonTitle("btnSort", sortLabel())
 		})
 		if sortBy == o.val {
 			mi.SetAttribute("VALUE", "ON")
@@ -119,6 +119,13 @@ func sortMenu() iup.Ihandle {
 		items = append(items, mi)
 	}
 	return iup.Menu(items...)
+}
+
+// setButtonTitle changes a toolbar button's title and lays the dialog out again for its new width.
+func setButtonTitle(handle, title string) {
+	btn := iup.GetHandle(handle)
+	btn.SetAttribute("TITLE", title)
+	iup.Refresh(btn)
 }
 
 func mediaLabel() string { return "Media: " + titleCase(media) + " ▾" }
@@ -429,8 +436,9 @@ func content() iup.Ihandle {
 		stopSessions(child)
 		delete(reloaders, child)
 		delete(watchActions, child)
+		selectNeighborTab(ih, pos)
 		iup.PostMessage(ih, "gc", 0, nil) // GC after the page is destroyed
-		return iup.DEFAULT
+		return iup.CONTINUE
 	}))
 	tabs.SetCallback("POSTMESSAGE_CB", iup.PostMessageFunc(onTabMessage))
 	return tabs
@@ -492,6 +500,7 @@ func onTabMessage(tabs iup.Ihandle, msg string, delta int, p any) int {
 	switch msg {
 	case "close":
 		if isDescendant(tabs, h) {
+			selectNeighborTab(tabs, childPos(tabs, h))
 			stopSessions(h)
 			delete(reloaders, h)
 			delete(watchActions, h)
@@ -569,6 +578,18 @@ func setTabImage(tabs, tab iup.Ihandle, img string) {
 	if pos := childPos(tabs, tab); pos >= 0 {
 		iup.SetAttributeId(tabs, "TABIMAGE", pos, img)
 	}
+}
+
+// selectNeighborTab moves the selection off the current tab at pos before it is removed: to the previous tab, or the next one for the first.
+func selectNeighborTab(tabs iup.Ihandle, pos int) {
+	if pos < 0 || tabs.GetInt("VALUEPOS") != pos || iup.GetChildCount(tabs) < 2 {
+		return
+	}
+	next := pos - 1
+	if pos == 0 {
+		next = 1
+	}
+	tabs.SetAttribute("VALUEPOS", strconv.Itoa(next))
 }
 
 func childPos(parent, child iup.Ihandle) int {
