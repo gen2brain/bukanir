@@ -475,7 +475,6 @@ func stopSessions(tab iup.Ihandle) {
 // playExternal opens an mpv window and plays url with any external subtitles.
 func playExternal(sess *session, title, url string, subtitles []string, onStart func(), onPause func(bool)) error {
 	m := mpv.New()
-	m.SetOptionString("ytdl", "no")
 	m.SetOptionString("title", title)
 	m.SetOptionString("force-media-title", title)
 	m.SetOptionString("force-window", "yes")
@@ -488,13 +487,18 @@ func playExternal(sess *session, title, url string, subtitles []string, onStart 
 	// Bound the demuxer RAM cache; the torrent already buffers to disk.
 	m.SetOptionString("demuxer-max-bytes", "48MiB")
 	m.SetOptionString("demuxer-max-back-bytes", "24MiB")
-	applyPlayerSettings(m)
+	if settings.MPVConfig {
+		m.SetOptionString("config", "yes")
+	}
 
 	if err := m.Initialize(); err != nil {
 		m.TerminateDestroy()
 		return err
 	}
 	defer m.TerminateDestroy()
+	m.SetPropertyString("ytdl", "no")
+	applyPlayerSettings(m)
+	applyPlayerOptions(m, settings.MPVOptions)
 	sess.setPlayer(m)
 	m.ObserveProperty(0, "pause", mpv.FormatFlag)
 
@@ -543,24 +547,35 @@ func playExternal(sess *session, title, url string, subtitles []string, onStart 
 	}
 }
 
-// applyPlayerSettings applies the user's player preferences to an mpv instance.
+// applyPlayerSettings applies the user's player preferences to an initialized mpv instance.
 func applyPlayerSettings(m *mpv.Mpv) {
-	if settings == nil {
-		return
-	}
 	if settings.Fullscreen {
-		m.SetOptionString("fullscreen", "yes")
+		m.SetPropertyString("fullscreen", "yes")
 	}
-	if settings.StopScreensaver {
-		m.SetOptionString("stop-screensaver", "yes")
-	}
+	m.SetPropertyString("stop-screensaver", yesNo(settings.StopScreensaver))
 	if settings.VolumeMax >= 100 {
-		m.SetOptionString("volume-max", strconv.Itoa(settings.VolumeMax))
+		m.SetPropertyString("volume-max", strconv.Itoa(settings.VolumeMax))
 	}
 	if settings.SubScale > 0 {
-		m.SetOptionString("sub-scale", strconv.FormatFloat(settings.SubScale, 'f', 2, 64))
+		m.SetPropertyString("sub-scale", strconv.FormatFloat(settings.SubScale, 'f', 2, 64))
 	}
 	if settings.SubColor != "" {
-		m.SetOptionString("sub-color", settings.SubColor)
+		m.SetPropertyString("sub-color", settings.SubColor)
+	}
+}
+
+// applyPlayerOptions applies space-separated "name=value" or "--name=value" options from the settings.
+func applyPlayerOptions(m *mpv.Mpv, opts string) {
+	for _, f := range strings.Fields(opts) {
+		name, value, found := strings.Cut(strings.TrimPrefix(f, "--"), "=")
+		if !found {
+			value = "yes"
+			if rest, ok := strings.CutPrefix(name, "no-"); ok {
+				name, value = rest, "no"
+			}
+		}
+		if err := m.SetPropertyString(name, value); err != nil {
+			log.Printf("PLAYER: option %s=%s: %v", name, value, err)
+		}
 	}
 }

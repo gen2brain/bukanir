@@ -38,6 +38,7 @@ func toolbar() iup.Ihandle {
 		iup.Fill(),
 		iconButton("log", showLogView),
 		iconButton("settings", onSettings),
+		logoButton(),
 	).SetAttributes("GAP=3, ALIGNMENT=ACENTER")
 }
 
@@ -296,6 +297,20 @@ func iconButton(icon string, onClick func()) iup.Ihandle {
 	b := iup.Button("").SetAttributes("IMAGE=" + icon + ", FLAT=YES")
 	b.SetCallback("ACTION", iup.ActionFunc(func(iup.Ihandle) int {
 		onClick()
+		return iup.DEFAULT
+	}))
+	return b
+}
+
+// logoButton opens About; the grey logo turns to the colored one under the pointer.
+func logoButton() iup.Ihandle {
+	b := iconButton("logo-gray", showAbout).SetAttributes("TIP=About")
+	b.SetCallback("ENTERWINDOW_CB", iup.EnterWindowFunc(func(ih iup.Ihandle) int {
+		ih.SetAttribute("IMAGE", "logo")
+		return iup.DEFAULT
+	}))
+	b.SetCallback("LEAVEWINDOW_CB", iup.LeaveWindowFunc(func(ih iup.Ihandle) int {
+		ih.SetAttribute("IMAGE", "logo-gray")
 		return iup.DEFAULT
 	}))
 	return b

@@ -113,7 +113,10 @@ var iconRefresh []byte
 var iconSettings []byte
 
 //go:embed images/bukanir.png
-var iconAbout []byte
+var iconLogo []byte
+
+//go:embed images/bukanir-gray.png
+var iconLogoGray []byte
 
 //go:embed images/tor.png
 var iconTor []byte
@@ -148,8 +151,13 @@ func loadIcons() {
 		}
 	}
 
-	if img, err := png.Decode(bytes.NewReader(iconAbout)); err == nil {
+	if img, err := png.Decode(bytes.NewReader(iconLogo)); err == nil {
 		iup.ImageFromImage(resizeIcon(img, 48)).SetHandle("appicon")
+		iup.ImageFromImage(resizeIcon(img, iconSize)).SetHandle("logo")
+		iup.ImageFromImage(img).SetHandle("logo-large")
+	}
+	if img, err := png.Decode(bytes.NewReader(iconLogoGray)); err == nil {
+		iup.ImageFromImage(resizeIcon(img, iconSize)).SetHandle("logo-gray")
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -18,9 +19,11 @@ import (
 type Settings struct {
 	CacheDays int `json:"cacheDays"`
 
-	Fullscreen      bool `json:"fullscreen"`
-	StopScreensaver bool `json:"stopScreensaver"`
-	VolumeMax       int  `json:"volumeMax"`
+	Fullscreen      bool   `json:"fullscreen"`
+	StopScreensaver bool   `json:"stopScreensaver"`
+	VolumeMax       int    `json:"volumeMax"`
+	MPVConfig       bool   `json:"mpvConfig"`
+	MPVOptions      string `json:"mpvOptions"`
 
 	SubtitlesEnabled bool    `json:"subtitlesEnabled"`
 	SubLanguage      string  `json:"subLanguage"`
@@ -172,9 +175,13 @@ func onSettings() {
 		return iup.DEFAULT
 	}))
 
+	mpvConfig := toggle("Load mpv configuration files", s.MPVConfig)
+	mpvOptions := iup.Text().SetAttributes("VISIBLECOLUMNS=20, CUEBANNER=\"hwdec=auto vo=gpu\"")
+	mpvOptions.SetAttribute("VALUE", s.MPVOptions)
+
 	subsEnabled := toggle("Download subtitles", s.SubtitlesEnabled)
 	subLang := languageList(s.subtitleLanguage())
-	subScale := iup.Text().SetAttributes("VALUE=" + strconv.FormatFloat(s.SubScale, 'f', 1, 64) + ", VISIBLECOLUMNS=6")
+	subScale := scaleSpin(s.SubScale)
 	subColor := colorButton(s.SubColor)
 
 	useTor := toggle("Route peers through Tor", s.UseTor)
@@ -187,12 +194,19 @@ func onSettings() {
 		"VALUE": strconv.Itoa(s.Port), "VISIBLECOLUMNS": "8",
 	})
 	keepFiles := toggle("Keep downloaded files", s.KeepFiles)
-	dlDir := iup.Text().SetAttributes("VALUE=" + s.DownloadDir + ", VISIBLECOLUMNS=24")
+	dlDir := iup.Text().SetAttributes("VISIBLECOLUMNS=24")
+	dlDir.SetAttribute("VALUE", s.DownloadDir)
 	browse := iup.Button("Browse...").SetAttributes("PADDING=8x2")
 	browse.SetCallback("ACTION", iup.ActionFunc(func(iup.Ihandle) int {
 		if dir, ok := pickDirectory(dlDir.GetAttribute("VALUE")); ok {
 			dlDir.SetAttribute("VALUE", dir)
 		}
+		return iup.DEFAULT
+	}))
+	dlRow := iup.Hbox(dlDir, browse).SetAttributes("ALIGNMENT=ACENTER, GAP=6")
+	setActive(s.KeepFiles, dlDir, browse)
+	keepFiles.SetCallback("ACTION", iup.ToggleActionFunc(func(_ iup.Ihandle, state int) int {
+		setActive(state == 1, dlDir, browse)
 		return iup.DEFAULT
 	}))
 
@@ -202,7 +216,11 @@ func onSettings() {
 	player := frame("Player",
 		fullscreen,
 		stopSaver,
-		formRows("Maximum volume", iup.Hbox(volume, volumeLabel).SetAttributes("ALIGNMENT=ACENTER, GAP=6")),
+		mpvConfig,
+		formRows(
+			"Maximum volume", iup.Hbox(volume, volumeLabel).SetAttributes("ALIGNMENT=ACENTER, GAP=6"),
+			"Extra mpv options", mpvOptions,
+		),
 	)
 	subs := frame("Subtitles",
 		subsEnabled,
@@ -221,7 +239,7 @@ func onSettings() {
 			"Max download rate", dlRate,
 			"Max upload rate", ulRate,
 			"Peer port (0 = auto)", port,
-			"Download folder", iup.Hbox(dlDir, browse).SetAttributes("ALIGNMENT=ACENTER, GAP=6"),
+			"Download folder", dlRow,
 		),
 	)
 
@@ -246,6 +264,8 @@ func onSettings() {
 		next.Fullscreen = isOn(fullscreen)
 		next.StopScreensaver = isOn(stopSaver)
 		next.VolumeMax = atoiDefault(volume.GetAttribute("VALUE"), s.VolumeMax)
+		next.MPVConfig = isOn(mpvConfig)
+		next.MPVOptions = strings.TrimSpace(mpvOptions.GetAttribute("VALUE"))
 		next.SubtitlesEnabled = isOn(subsEnabled)
 		next.SubLanguage = subtitleLanguages[listIndex(subLang)].Code
 		next.SubScale = parseFloatDefault(subScale.GetAttribute("VALUE"), s.SubScale)
@@ -300,7 +320,7 @@ func updateTorStatus() {
 
 func frame(title string, children ...iup.Ihandle) iup.Ihandle {
 	box := iup.Vbox(children...).SetAttributes("MARGIN=8x8, GAP=6")
-	return iup.Frame(box).SetAttributes("TITLE=" + title)
+	return iup.Frame(box).SetAttribute("TITLE", title)
 }
 
 // formLabels collects every form label so a normalizer can align them.
@@ -328,6 +348,39 @@ func toggle(label string, on bool) iup.Ihandle {
 }
 
 func isOn(t iup.Ihandle) bool { return t.GetAttribute("VALUE") == "ON" }
+
+func yesNo(b bool) string {
+	if b {
+		return "YES"
+	}
+	return "NO"
+}
+
+func setActive(on bool, controls ...iup.Ihandle) {
+	for _, c := range controls {
+		c.SetAttribute("ACTIVE", yesNo(on))
+	}
+}
+
+// scaleSpin is a spin box stepping a factor by tenths, shown with one decimal.
+func scaleSpin(value float64) iup.Ihandle {
+	t := iup.Text().SetAttributes(map[string]string{
+		"SPIN": "YES", "SPINAUTO": "NO", "SPINMIN": "5", "SPINMAX": "30", "SPININC": "1",
+		"SPINVALUE": strconv.Itoa(int(math.Round(value * 10))), "VISIBLECOLUMNS": "6",
+	})
+	t.SetAttribute("VALUE", strconv.FormatFloat(value, 'f', 1, 64))
+	t.SetCallback("SPIN_CB", iup.SpinFunc(func(ih iup.Ihandle, pos int) int {
+		ih.SetAttribute("VALUE", strconv.FormatFloat(float64(pos)/10, 'f', 1, 64))
+		return iup.DEFAULT
+	}))
+	t.SetCallback("VALUECHANGED_CB", iup.ValueChangedFunc(func(ih iup.Ihandle) int {
+		if f, err := strconv.ParseFloat(ih.GetAttribute("VALUE"), 64); err == nil {
+			ih.SetAttribute("SPINVALUE", strconv.Itoa(int(math.Round(f*10))))
+		}
+		return iup.DEFAULT
+	}))
+	return t
+}
 
 // choiceList builds a dropdown of integer choices, selecting current.
 func choiceList(choices []int, current int, label func(int) string) iup.Ihandle {
@@ -387,12 +440,16 @@ func colorButton(hex string) iup.Ihandle {
 	setButtonColor(b, hex)
 	b.SetCallback("ACTION", iup.ActionFunc(func(ih iup.Ihandle) int {
 		r, g, bl := parseHexColor(ih.GetAttribute("BUKANIRCOLOR"))
-		col, ok := iup.GetColor(iup.CENTER, iup.CENTER)
-		if ok == 1 {
-			setButtonColor(ih, fmt.Sprintf("#%02X%02X%02X", col.R, col.G, col.B))
-		} else {
-			setButtonColor(ih, fmt.Sprintf("#%02X%02X%02X", r, g, bl))
+		dlg := iup.ColorDlg().SetAttributes(map[string]string{"TITLE": "Text color", "SHOWHEX": "YES"})
+		dlg.SetAttribute("VALUE", fmt.Sprintf("%d %d %d", r, g, bl))
+		iup.SetAttributeHandle(dlg, "PARENTDIALOG", iup.GetDialog(ih))
+		iup.Popup(dlg, iup.CENTER, iup.CENTER)
+		if dlg.GetInt("STATUS") == 1 {
+			if _, err := fmt.Sscanf(dlg.GetAttribute("VALUE"), "%d %d %d", &r, &g, &bl); err == nil {
+				setButtonColor(ih, fmt.Sprintf("#%02X%02X%02X", r, g, bl))
+			}
 		}
+		iup.Destroy(dlg)
 		return iup.DEFAULT
 	}))
 	return b

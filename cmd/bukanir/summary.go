@@ -47,7 +47,7 @@ func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 
 	poster := summaryPoster()
 
-	title := iup.Label(s.Title).SetAttributes("FONTSTYLE=Bold, FONTSIZE=19, WORDWRAP=YES, EXPAND=HORIZONTAL")
+	title := iup.Label(s.Title).SetAttributes("FONTSTYLE=Bold, FONTSIZE=19, WORDWRAP=YES, EXPAND=HORIZONTAL, SELECTABLE=YES")
 
 	metaParts := []string{fmt.Sprintf("%.1f/10", s.Rating), fmt.Sprintf("%d", s.Year)}
 	if r := runtimeStr(s.Runtime); r != "" {
@@ -56,8 +56,8 @@ func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 	if m.SizeHuman != "" {
 		metaParts = append(metaParts, m.SizeHuman)
 	}
-	meta := iup.Label(strings.Join(metaParts, "   "))
-	genres := iup.Label(strings.Join(s.Genres, ", ")).SetAttribute("FGCOLOR", dimColor)
+	meta := iup.Label(strings.Join(metaParts, "   ")).SetAttributes("SELECTABLE=YES")
+	genres := iup.Label(strings.Join(s.Genres, ", ")).SetAttributes("SELECTABLE=YES").SetAttribute("FGCOLOR", dimColor)
 
 	overview := iup.Text().SetAttributes("MULTILINE=YES, READONLY=YES, WORDWRAP=YES, BORDER=NO, SCROLLBAR=VERTICAL, EXPAND=YES")
 	overview.SetAttribute("BGCOLOR", iup.GetGlobal("DLGBGCOLOR"))
@@ -79,10 +79,10 @@ func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 
 	top := []iup.Ihandle{title, meta, genres}
 	if m.Release != "" {
-		top = append(top, iup.Label("Torrent: "+m.Release).SetAttributes("WORDWRAP=YES, EXPAND=HORIZONTAL").SetAttribute("FGCOLOR", subtleColor))
+		top = append(top, iup.Label("Torrent: "+m.Release).SetAttributes("WORDWRAP=YES, EXPAND=HORIZONTAL, SELECTABLE=YES").SetAttribute("FGCOLOR", subtleColor))
 	}
 	if s.Tagline != "" {
-		top = append(top, iup.Label(s.Tagline).SetAttributes("FONTSTYLE=Italic, FONTSIZE=13, WORDWRAP=YES, EXPAND=HORIZONTAL"))
+		top = append(top, iup.Label(s.Tagline).SetAttributes("FONTSTYLE=Italic, FONTSIZE=13, WORDWRAP=YES, EXPAND=HORIZONTAL, SELECTABLE=YES"))
 	}
 	if d := directorRow(s); d != 0 {
 		top = append(top, d)
