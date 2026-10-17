@@ -13,7 +13,7 @@ import (
 
 const appName = "Bukanir"
 
-// appVersion is shown in the title bar.
+// appVersion is shown in the About dialog.
 var appVersion string
 
 func init() {
@@ -77,7 +77,7 @@ func main() {
 	defer client.Close()
 
 	dlg := iup.Dialog(layout()).SetAttributes(map[string]string{
-		"TITLE":      appName + " " + appVersion,
+		"TITLE":      appName,
 		"ICON":       "appicon",
 		"RASTERSIZE": "1000x720",
 		"SHRINK":     "YES",
