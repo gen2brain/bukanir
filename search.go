@@ -54,6 +54,8 @@ func (c *Client) Search(ctx context.Context, query string, opts SearchOptions) (
 	movies := boundedMap(ctx, torrents, enrichConcurrency, func(ctx context.Context, tr torrentResult) (TMovie, bool) {
 		return c.enrich(ctx, conf, tr)
 	})
+	preferRealSeeders(movies)
+	movies = dedupeMovies(movies)
 
 	if data, err := json.Marshal(movies); err == nil {
 		_ = c.cache.put(cacheKey, data)
@@ -84,6 +86,13 @@ func (c *Client) gatherTorrents(ctx context.Context, query, media string) ([]tor
 	wg.Go(func() {
 		collect(c.tpbSearch(ctx, query, media))
 	})
+
+	if media == "all" || media == "movies" {
+		wg.Go(func() {
+			res, _ := c.ytsSearch(ctx, query)
+			collect(res, nil)
+		})
+	}
 
 	if media == "all" || media == "episodes" {
 		wg.Go(func() {
@@ -119,6 +128,55 @@ func finalizeMovies(movies []TMovie, opts SearchOptions) []TMovie {
 		movies = movies[:opts.Limit]
 	}
 	return movies
+}
+
+// preferRealSeeders replaces the seeder count of YTS entries, which the YTS API
+// caps, with the best count another source reports for the same title.
+func preferRealSeeders(movies []TMovie) {
+	type key struct{ id, season, episode int }
+	real := map[key]int{}
+	for _, m := range movies {
+		if m.Source == "yts" {
+			continue
+		}
+		k := key{m.ID, m.Season, m.Episode}
+		if m.Seeders > real[k] {
+			real[k] = m.Seeders
+		}
+	}
+	for i := range movies {
+		if movies[i].Source != "yts" {
+			continue
+		}
+		if n, ok := real[key{movies[i].ID, movies[i].Season, movies[i].Episode}]; ok {
+			movies[i].Seeders = n
+		}
+	}
+}
+
+// dedupeMovies keeps one entry per title, episode and quality: the best seeded,
+// and on a tie the one whose seeder count is not a YTS estimate.
+func dedupeMovies(movies []TMovie) []TMovie {
+	type key struct {
+		id, season, episode int
+		quality             string
+	}
+	index := map[key]int{}
+	out := make([]TMovie, 0, len(movies))
+	for _, m := range movies {
+		k := key{m.ID, m.Season, m.Episode, m.Quality}
+		i, seen := index[k]
+		if !seen {
+			index[k] = len(out)
+			out = append(out, m)
+			continue
+		}
+		cur := out[i]
+		if m.Seeders > cur.Seeders || (m.Seeders == cur.Seeders && cur.Source == "yts" && m.Source != "yts") {
+			out[i] = m
+		}
+	}
+	return out
 }
 
 func sortMovies(movies []TMovie, sortBy string) {

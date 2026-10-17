@@ -54,6 +54,7 @@ type TMovie struct {
 	Seeders      int      `json:"seeders"`
 	Magnet       string   `json:"magnet"`
 	Release      string   `json:"release"`
+	Source       string   `json:"source"` // "tpb", "eztv" or "yts"
 	Category     Category `json:"category"`
 	Season       int      `json:"season"`
 	Episode      int      `json:"episode"`
@@ -272,6 +273,16 @@ func (c *Client) tmdbTVImages(ctx context.Context, id, season int) (*tmdbImages,
 	return &out, err
 }
 
+type tmdbFindResponse struct {
+	MovieResults []tmdbResult `json:"movie_results"`
+}
+
+func (c *Client) tmdbFind(ctx context.Context, imdbID string) (*tmdbFindResponse, error) {
+	var out tmdbFindResponse
+	err := c.getJSON(ctx, c.tmdbURL("/find/"+url.PathEscape(imdbID), url.Values{"external_source": {"imdb_id"}}), &out)
+	return &out, err
+}
+
 func (c *Client) tmdbTVExternalIDs(ctx context.Context, id int) (*tmdbExternalIDs, error) {
 	var out tmdbExternalIDs
 	err := c.getJSON(ctx, c.tmdbURL(fmt.Sprintf("/tv/%d/external_ids", id), nil), &out)
@@ -407,6 +418,12 @@ func (c *Client) Category(ctx context.Context, category Category) ([]TMovie, err
 	}
 
 	torrents, err := c.tpbTop(ctx, category)
+	if !category.IsTV() {
+		if extra, yerr := c.ytsTop(ctx, category); yerr == nil {
+			torrents = append(torrents, extra...)
+			err = nil
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -417,6 +434,8 @@ func (c *Client) Category(ctx context.Context, category Category) ([]TMovie, err
 	movies := boundedMap(ctx, torrents, enrichConcurrency, func(ctx context.Context, tr torrentResult) (TMovie, bool) {
 		return c.enrich(ctx, conf, tr)
 	})
+	preferRealSeeders(movies)
+	movies = dedupeMovies(movies)
 	sortMovies(movies, "seeders")
 
 	if data, err := json.Marshal(movies); err == nil {
@@ -472,6 +491,8 @@ func (c *Client) discover(ctx context.Context, with string, id, limit int) ([]TM
 	movies := boundedMap(ctx, results, enrichConcurrency, func(ctx context.Context, r tmdbResult) (TMovie, bool) {
 		return c.torrentForResult(ctx, conf, r)
 	})
+	preferRealSeeders(movies)
+	movies = dedupeMovies(movies)
 	sortMovies(movies, "seeders")
 
 	if data, err := json.Marshal(movies); err == nil {
@@ -482,11 +503,19 @@ func (c *Client) discover(ctx context.Context, with string, id, limit int) ([]TM
 
 // torrentForResult finds the best torrent for a TMDB movie result.
 func (c *Client) torrentForResult(ctx context.Context, conf *tmdbConfiguration, r tmdbResult) (TMovie, bool) {
-	torrents, err := c.tpbSearch(ctx, r.title(), "movies")
-	if err != nil || len(torrents) == 0 {
+	torrents, _ := c.tpbSearch(ctx, r.title(), "movies")
+	if extra, err := c.ytsSearch(ctx, r.title()); err == nil {
+		torrents = append(torrents, extra...)
+	}
+	if len(torrents) == 0 {
 		return TMovie{}, false
 	}
-	sort.SliceStable(torrents, func(i, j int) bool { return torrents[i].Seeders > torrents[j].Seeders })
+	sort.SliceStable(torrents, func(i, j int) bool {
+		if a, b := torrents[i].Source == "yts", torrents[j].Source == "yts"; a != b {
+			return b
+		}
+		return torrents[i].Seeders > torrents[j].Seeders
+	})
 
 	ry := r.year()
 	for _, tr := range torrents {

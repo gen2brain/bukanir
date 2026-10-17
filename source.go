@@ -40,6 +40,8 @@ type torrentResult struct {
 	Season    int
 	Episode   int
 	Quality   string
+	IMDbID    string // set by sources that know it, skips the title match
+	Source    string // "tpb", "eztv" or "yts"
 }
 
 func magnetLink(infoHash, name string) string {
@@ -152,6 +154,7 @@ func parseTPB(body []byte) ([]torrentResult, error) {
 		}
 
 		results = append(results, torrentResult{
+			Source:    "tpb",
 			Name:      t.Name,
 			Title:     rel.Title,
 			Magnet:    magnetLink(t.InfoHash, t.Name),
@@ -164,6 +167,105 @@ func parseTPB(body []byte) ([]torrentResult, error) {
 			Episode:   rel.Episode,
 			Quality:   rel.Quality,
 		})
+	}
+	return results, nil
+}
+
+// DefaultYTSHost is the YTS API host used when Config.YTSHost is empty.
+const DefaultYTSHost = "yts.gg"
+
+// ytsBaseURL builds the API root for host.
+func ytsBaseURL(host string) string {
+	if host == "" {
+		host = DefaultYTSHost
+	}
+	if strings.HasSuffix(host, ".onion") {
+		return "http://" + host
+	}
+	return "https://" + host
+}
+
+type ytsResponse struct {
+	Status string `json:"status"`
+	Data   struct {
+		Movies []ytsMovie `json:"movies"`
+	} `json:"data"`
+}
+
+type ytsMovie struct {
+	Title     string       `json:"title_english"`
+	TitleLong string       `json:"title_long"`
+	Year      int          `json:"year"`
+	IMDbID    string       `json:"imdb_code"`
+	Torrents  []ytsTorrent `json:"torrents"`
+}
+
+type ytsTorrent struct {
+	Hash      string `json:"hash"`
+	Quality   string `json:"quality"`
+	Type      string `json:"type"`
+	Seeds     int    `json:"seeds"`
+	SizeBytes int64  `json:"size_bytes"`
+}
+
+func (c *Client) ytsSearch(ctx context.Context, query string) ([]torrentResult, error) {
+	u := fmt.Sprintf("%s/api/v2/list_movies.json?query_term=%s&limit=50&sort_by=seeds", c.ytsBase, url.QueryEscape(query))
+	body, err := c.getBytes(ctx, u)
+	if err != nil {
+		return nil, err
+	}
+	return parseYTS(body)
+}
+
+func (c *Client) ytsTop(ctx context.Context, category Category) ([]torrentResult, error) {
+	u := c.ytsBase + "/api/v2/list_movies.json?limit=50&sort_by=seeds"
+	if category == CategoryHDMovies {
+		u += "&quality=1080p"
+	}
+	body, err := c.getBytes(ctx, u)
+	if err != nil {
+		return nil, err
+	}
+	return parseYTS(body)
+}
+
+func parseYTS(body []byte) ([]torrentResult, error) {
+	var resp ytsResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, err
+	}
+	if resp.Status != "ok" {
+		return nil, fmt.Errorf("bukanir: yts status %q", resp.Status)
+	}
+	var results []torrentResult
+	for _, m := range resp.Data.Movies {
+		if m.Title == "" || m.IMDbID == "" {
+			continue
+		}
+		for _, t := range m.Torrents {
+			if t.Seeds == 0 || t.Hash == "" || t.SizeBytes <= 0 || t.SizeBytes > maxTorrentSize {
+				continue
+			}
+			name := fmt.Sprintf("%s [%s] [%s] [YTS]", m.TitleLong, t.Quality, strings.ToUpper(t.Type))
+			quality := strings.TrimSuffix(t.Quality, "p")
+			category := CategoryHDMovies
+			if quality == "720" || quality == "480" {
+				category = CategoryMovies
+			}
+			results = append(results, torrentResult{
+				Source:    "yts",
+				Name:      name,
+				Title:     strings.ToLower(m.Title),
+				Magnet:    magnetLink(t.Hash, name),
+				Year:      m.Year,
+				Size:      t.SizeBytes,
+				SizeHuman: humanizeBytes(t.SizeBytes),
+				Seeders:   t.Seeds,
+				Category:  category,
+				Quality:   quality,
+				IMDbID:    m.IMDbID,
+			})
+		}
 	}
 	return results, nil
 }
@@ -250,6 +352,7 @@ func parseEZTV(body []byte) ([]torrentResult, error) {
 		}
 
 		results = append(results, torrentResult{
+			Source:    "eztv",
 			Name:      t.Title,
 			Title:     rel.Title,
 			Magnet:    magnet,
@@ -283,6 +386,12 @@ func (c *Client) enrich(ctx context.Context, conf *tmdbConfiguration, tr torrent
 }
 
 func (c *Client) enrichMovie(ctx context.Context, conf *tmdbConfiguration, tr torrentResult) (TMovie, bool) {
+	if tr.IMDbID != "" {
+		if found, err := c.tmdbFind(ctx, tr.IMDbID); err == nil && len(found.MovieResults) > 0 {
+			r := found.MovieResults[0]
+			return buildMovie(conf, r, r.PosterPath, tr), true
+		}
+	}
 	resp, err := c.tmdbSearchMovie(ctx, tr.Title)
 	if err != nil {
 		return TMovie{}, false
@@ -343,6 +452,7 @@ func buildMovie(conf *tmdbConfiguration, r tmdbResult, posterPath string, tr tor
 		Seeders:      tr.Seeders,
 		Magnet:       tr.Magnet,
 		Release:      tr.Name,
+		Source:       tr.Source,
 		Category:     tr.Category,
 		Season:       tr.Season,
 		Episode:      tr.Episode,

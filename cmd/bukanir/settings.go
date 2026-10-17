@@ -29,6 +29,7 @@ type Settings struct {
 
 	UseTor       bool   `json:"useTor"`
 	TPBHost      string `json:"tpbHost"`
+	YTSHost      string `json:"ytsHost"`
 	DownloadRate int    `json:"downloadRate"`
 	UploadRate   int    `json:"uploadRate"`
 	Port         int    `json:"port"`
@@ -52,6 +53,7 @@ func defaultSettings() *Settings {
 		SubColor:         "#FFFFFF",
 		UseTor:           false,
 		TPBHost:          bukanir.DefaultTPBHost,
+		YTSHost:          bukanir.DefaultYTSHost,
 		DownloadRate:     0,
 		UploadRate:       0,
 		Port:             0,
@@ -108,6 +110,7 @@ func (s *Settings) toConfig() bukanir.Config {
 	cfg.CacheDir = cacheDir
 	cfg.Tor = s.UseTor
 	cfg.TPBHost = s.TPBHost
+	cfg.YTSHost = s.YTSHost
 	return cfg
 }
 
@@ -176,6 +179,7 @@ func onSettings() {
 
 	useTor := toggle("Route peers through Tor", s.UseTor)
 	tpbHost := editableChoice(s.TPBHost, []string{bukanir.DefaultTPBHost, tpbOnion})
+	ytsHost := editableChoice(s.YTSHost, []string{bukanir.DefaultYTSHost})
 	dlRate := choiceList(rateChoices, s.DownloadRate, rateLabel)
 	ulRate := choiceList(rateChoices, s.UploadRate, rateLabel)
 	port := iup.Text().SetAttributes(map[string]string{
@@ -213,6 +217,7 @@ func onSettings() {
 		keepFiles,
 		formRows(
 			"TPB host", tpbHost,
+			"YTS host", ytsHost,
 			"Max download rate", dlRate,
 			"Max upload rate", ulRate,
 			"Peer port (0 = auto)", port,
@@ -252,6 +257,7 @@ func onSettings() {
 		next.KeepFiles = isOn(keepFiles)
 		next.DownloadDir = dlDir.GetAttribute("VALUE")
 		next.TPBHost = strings.TrimSpace(choiceText(tpbHost))
+		next.YTSHost = strings.TrimSpace(choiceText(ytsHost))
 
 		applySettings(&next)
 		return iup.CLOSE

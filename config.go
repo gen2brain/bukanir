@@ -37,6 +37,8 @@ type Config struct {
 
 	// TPBHost is the ThePirateBay/apibay API host.
 	TPBHost string
+	// YTSHost is the YTS API host.
+	YTSHost string
 
 	// Tor routes torrent peer connections through the embedded Tor client.
 	Tor bool
@@ -75,6 +77,13 @@ func (c *Config) tpbHost() string {
 		return c.TPBHost
 	}
 	return DefaultTPBHost
+}
+
+func (c *Config) ytsHost() string {
+	if c.YTSHost != "" {
+		return c.YTSHost
+	}
+	return DefaultYTSHost
 }
 
 func (c *Config) tmdbKey() string {

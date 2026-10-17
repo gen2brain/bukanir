@@ -40,6 +40,11 @@ func mockBackend(t *testing.T) *Client {
 		}
 	})
 
+	// YTS
+	mux.HandleFunc("/api/v2/list_movies.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"status":"ok","data":{"movies":[]}}`))
+	})
+
 	// EZTV
 	mux.HandleFunc("/api/get-torrents", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`{"torrents":[{"title":"Breaking.Bad.S05E15.720p.HDTV.x264","magnet_url":"magnet:?xt=urn:btih:ZZZZ","hash":"ZZZZ","seeds":80,"size_bytes":"550000000","season":"5","episode":"15"}]}`))
@@ -52,7 +57,7 @@ func mockBackend(t *testing.T) *Client {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c.tmdbBase, c.tpbBase, c.eztvBase = srv.URL, srv.URL, srv.URL
+	c.tmdbBase, c.tpbBase, c.eztvBase, c.ytsBase = srv.URL, srv.URL, srv.URL, srv.URL
 	t.Cleanup(func() { c.Close() })
 	return c
 }
@@ -104,7 +109,7 @@ func TestSearchCaches(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Point sources at a dead server; a cache hit must still return results.
-	c.tpbBase = "http://127.0.0.1:0"
+	c.tpbBase, c.ytsBase = "http://127.0.0.1:0", "http://127.0.0.1:0"
 	movies, err := c.Search(context.Background(), "matrix", SearchOptions{Media: "movies"})
 	if err != nil {
 		t.Fatalf("cached search failed: %v", err)
@@ -184,5 +189,48 @@ func TestListsAndAutocomplete(t *testing.T) {
 	ac, err := c.Autocomplete(context.Background(), "matr")
 	if err != nil || len(ac) != 1 || ac[0].Title != "Matrix" || ac[0].Year != 1999 {
 		t.Fatalf("autocomplete = %+v, %v", ac, err)
+	}
+}
+
+func TestPreferRealSeeders(t *testing.T) {
+	movies := []TMovie{
+		{ID: 1, Source: "yts", Seeders: 100},
+		{ID: 1, Source: "tpb", Seeders: 12},
+		{ID: 1, Source: "tpb", Seeders: 40},
+		{ID: 2, Source: "yts", Seeders: 100},
+		{ID: 3, Source: "yts", Seeders: 100, Season: 1, Episode: 2},
+		{ID: 3, Source: "eztv", Seeders: 7, Season: 1, Episode: 3},
+	}
+	preferRealSeeders(movies)
+	want := []int{40, 12, 40, 100, 100, 7}
+	for i, m := range movies {
+		if m.Seeders != want[i] {
+			t.Errorf("movies[%d].Seeders = %d, want %d", i, m.Seeders, want[i])
+		}
+	}
+}
+
+func TestDedupeMovies(t *testing.T) {
+	movies := []TMovie{
+		{ID: 1, Quality: "1080", Source: "yts", Seeders: 40, Release: "a"},
+		{ID: 1, Quality: "1080", Source: "tpb", Seeders: 40, Release: "b"},
+		{ID: 1, Quality: "1080", Source: "tpb", Seeders: 90, Release: "c"},
+		{ID: 1, Quality: "720", Source: "tpb", Seeders: 5, Release: "d"},
+		{ID: 1, Quality: "1080", Season: 1, Episode: 1, Source: "eztv", Seeders: 3, Release: "e"},
+		{ID: 2, Quality: "1080", Source: "yts", Seeders: 100, Release: "f"},
+	}
+	got := dedupeMovies(movies)
+	want := []string{"c", "d", "e", "f"}
+	if len(got) != len(want) {
+		t.Fatalf("got %d movies, want %d: %+v", len(got), len(want), got)
+	}
+	for i, m := range got {
+		if m.Release != want[i] {
+			t.Errorf("got[%d] = %q, want %q", i, m.Release, want[i])
+		}
+	}
+	tie := dedupeMovies(movies[:2])
+	if len(tie) != 1 || tie[0].Release != "b" {
+		t.Errorf("tie = %+v, want the apibay entry", tie)
 	}
 }

@@ -22,6 +22,7 @@ type Client struct {
 
 	tmdbBase           string // TMDB API base URL
 	tpbBase            string // ThePirateBay API base URL
+	ytsBase            string // YTS API base URL
 	eztvBase           string // EZTV API base URL
 	subsBase           string // OpenSubtitles API base URL
 	gestdownBase       string // gestdown.info API base URL
@@ -63,6 +64,7 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 		subsCache:          newCache(filepath.Join(root, "subtitles"), subsTTL),
 		tmdbBase:           tmdbBaseURL,
 		tpbBase:            tpbBaseURL(cfg.tpbHost()),
+		ytsBase:            ytsBaseURL(cfg.ytsHost()),
 		eztvBase:           eztvBaseURL,
 		subsBase:           openSubtitlesBaseURL,
 		gestdownBase:       gestdownBaseURL,

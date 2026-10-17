@@ -206,6 +206,9 @@ func mockBrowse(t *testing.T) *Client {
 	mux.HandleFunc("/q.php", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`[` + tpbMatrix + `]`))
 	})
+	mux.HandleFunc("/api/v2/list_movies.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"status":"ok","data":{"movies":[{"title_english":"The Matrix","title_long":"The Matrix (1999)","year":1999,"imdb_code":"tt0133093","torrents":[{"hash":"YTS1","quality":"1080p","type":"bluray","seeds":100,"size_bytes":1600000000}]}]}}`))
+	})
 
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
@@ -213,7 +216,7 @@ func mockBrowse(t *testing.T) *Client {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c.tmdbBase, c.tpbBase = srv.URL, srv.URL
+	c.tmdbBase, c.tpbBase, c.ytsBase = srv.URL, srv.URL, srv.URL
 	t.Cleanup(func() { c.Close() })
 	return c
 }
@@ -224,8 +227,11 @@ func TestCategory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(movies) != 1 || movies[0].Title != "The Matrix" || movies[0].Category != CategoryHDMovies {
-		t.Fatalf("category = %+v", movies)
+	if len(movies) != 1 || movies[0].Source != "tpb" {
+		t.Fatalf("category = %+v, want the two 1080p Matrix entries folded into the apibay one", movies)
+	}
+	if m := movies[0]; m.Title != "The Matrix" || m.Category != CategoryHDMovies || m.Seeders != 100 {
+		t.Errorf("category entry = %+v", m)
 	}
 }
 
@@ -332,5 +338,16 @@ func TestTVSummaryEpisodeOverlay(t *testing.T) {
 	}
 	if s.Director != "Ep Director" || s.DirectorID != 2 {
 		t.Errorf("episode director = %q/%d", s.Director, s.DirectorID)
+	}
+}
+
+func TestDiscoverPrefersRealCounts(t *testing.T) {
+	c := mockBrowse(t)
+	movies, err := c.Genre(context.Background(), 28, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(movies) != 1 || movies[0].Source != "tpb" {
+		t.Fatalf("genre pick = %+v, want the apibay torrent", movies)
 	}
 }

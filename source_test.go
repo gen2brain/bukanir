@@ -210,3 +210,78 @@ func TestReleaseYearEdge(t *testing.T) {
 		t.Errorf("year = %d, want 2021", y)
 	}
 }
+
+const ytsBody = `{"status":"ok","data":{"movies":[
+	{"title_english":"The Matrix","title_long":"The Matrix (1999)","year":1999,"imdb_code":"tt0133093","torrents":[
+		{"hash":"AAAA","quality":"720p","type":"bluray","seeds":40,"size_bytes":800000000},
+		{"hash":"BBBB","quality":"1080p","type":"web","seeds":90,"size_bytes":1600000000},
+		{"hash":"CCCC","quality":"2160p","type":"bluray","seeds":5,"size_bytes":9999999999999},
+		{"hash":"DDDD","quality":"1080p","type":"bluray","seeds":0,"size_bytes":1600000000}]},
+	{"title_english":"","title_long":"Nameless (2000)","year":2000,"imdb_code":"tt1","torrents":[{"hash":"EEEE","quality":"720p","type":"web","seeds":9,"size_bytes":1000}]}
+]}}`
+
+func mockYTS(t *testing.T, wantQuery string) *Client {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v2/list_movies.json", func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("query_term"); got != wantQuery {
+			t.Errorf("query_term = %q, want %q", got, wantQuery)
+		}
+		w.Write([]byte(ytsBody))
+	})
+	mux.HandleFunc("/configuration", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"images":{"secure_base_url":"https://img/","poster_sizes":["w92","w154","w185","w342","w500"]}}`))
+	})
+	mux.HandleFunc("/find/tt0133093", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("external_source") != "imdb_id" {
+			t.Error("find without external_source")
+		}
+		w.Write([]byte(`{"movie_results":[{"id":603,"title":"The Matrix","release_date":"1999-03-30","poster_path":"/m.jpg"}]}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c, err := New(context.Background(), Config{CacheDir: t.TempDir(), TMDBKey: "k"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.ytsBase, c.tmdbBase = srv.URL, srv.URL
+	t.Cleanup(func() { c.Close() })
+	return c
+}
+
+func TestYTSSearch(t *testing.T) {
+	c := mockYTS(t, "matrix")
+	res, err := c.ytsSearch(context.Background(), "matrix")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != 2 {
+		t.Fatalf("got %d torrents, want 2 (oversized, unseeded and nameless dropped): %+v", len(res), res)
+	}
+	sd, hd := res[0], res[1]
+	if sd.Category != CategoryMovies || sd.Quality != "720" || hd.Category != CategoryHDMovies || hd.Quality != "1080" {
+		t.Errorf("categories/qualities = %v/%s %v/%s", sd.Category, sd.Quality, hd.Category, hd.Quality)
+	}
+	if hd.Title != "the matrix" || hd.Year != 1999 || hd.IMDbID != "tt0133093" || hd.Seeders != 90 {
+		t.Errorf("hd = %+v", hd)
+	}
+	if hd.Name != "The Matrix (1999) [1080p] [WEB] [YTS]" || !strings.HasPrefix(hd.Magnet, "magnet:?xt=urn:btih:BBBB") {
+		t.Errorf("name/magnet = %q %q", hd.Name, hd.Magnet)
+	}
+}
+
+func TestEnrichMovieByIMDb(t *testing.T) {
+	c := mockYTS(t, "matrix")
+	res, err := c.ytsSearch(context.Background(), "matrix")
+	if err != nil || len(res) == 0 {
+		t.Fatal(err)
+	}
+	conf, err := c.tmdbConfiguration(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, ok := c.enrichMovie(context.Background(), conf, res[1])
+	if !ok || m.ID != 603 || m.Title != "The Matrix" || m.Magnet != res[1].Magnet || m.PosterLarge == "" {
+		t.Fatalf("enriched = %+v (ok=%v)", m, ok)
+	}
+}
