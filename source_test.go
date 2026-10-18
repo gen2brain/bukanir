@@ -305,6 +305,9 @@ func TestParseRelease(t *testing.T) {
 		{"The.Matrix.1999.1080p.BluRay.x264-GROUP", release{Title: "the matrix", Year: 1999, Quality: "1080"}},
 		{"Game.of.Thrones.S01E02.720p.HDTV.x264", release{Title: "game of thrones", Season: 1, Episode: 2, Quality: "720"}},
 		{"Inception (2010) [1080p]", release{Title: "inception", Year: 2010, Quality: "1080"}},
+		{"Dune.Part.Two.2024.2160p.WEB-DL.x265", release{Title: "dune part two", Year: 2024, Quality: "2160"}},
+		{"Show.S03E04.480p.HDTV", release{Title: "show", Season: 3, Episode: 4, Quality: "480"}},
+		{"Show.S03E04.HDTV.x264-KILLERS", release{Title: "show", Season: 3, Episode: 4}},
 		{"Breaking.Bad.S05E14.HDTV.x264", release{Title: "breaking bad", Season: 5, Episode: 14}},
 		{"Some Random Movie", release{Title: "some random movie"}},
 	}

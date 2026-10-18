@@ -53,6 +53,9 @@ func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 	if r := runtimeStr(s.Runtime); r != "" {
 		metaParts = append(metaParts, r)
 	}
+	if q := qualityLabel(m.Quality); q != "" {
+		metaParts = append(metaParts, q)
+	}
 	if m.SizeHuman != "" {
 		metaParts = append(metaParts, m.SizeHuman)
 	}

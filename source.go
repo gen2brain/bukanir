@@ -650,7 +650,7 @@ func abs(n int) int {
 // Release-name heuristics extracting title, year, season/episode, and quality.
 var (
 	reYear     = regexp.MustCompile(`19\d{2}|20\d{2}`)
-	reQuality  = regexp.MustCompile(`(720|1080)p?`)
+	reQuality  = regexp.MustCompile(`(?i)(2160|1080|720|576|480)p|(1080|720)`)
 	reTitleTag = regexp.MustCompile(
 		`(?i)(.*?)(dvdrip|xvid|dvdscr|brrip|bdrip|divx|klaxxon|hc|webrip|hdrip|camrip|hdtv|eztv|proper|x264|x265|hevc|480p|720p|1080p|2160p|[\*\{\(\[]?19\d{2}|20\d{2}).*`)
 	reTitleParen = regexp.MustCompile(`(.*?)\(.*\)(.*)`)
@@ -709,7 +709,7 @@ func releaseYear(name string) int {
 
 func releaseQuality(name string) string {
 	if m := reQuality.FindStringSubmatch(name); m != nil {
-		return m[1]
+		return m[1] + m[2]
 	}
 	return ""
 }

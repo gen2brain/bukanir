@@ -404,14 +404,22 @@ func blankPoster(w, h int) string {
 }
 
 func movieSubtitle(m bukanir.TMovie) string {
-	if m.Category.IsTV() {
-		return fmt.Sprintf("S%02dE%02d", m.Season, m.Episode)
-	}
 	s := strconv.Itoa(m.Year)
-	if m.Quality != "" {
-		s += " (" + m.Quality + "p)"
+	if m.Category.IsTV() {
+		s = fmt.Sprintf("S%02dE%02d", m.Season, m.Episode)
+	}
+	if q := qualityLabel(m.Quality); q != "" {
+		s += " (" + q + ")"
 	}
 	return s
+}
+
+// qualityLabel turns a release quality such as "1080" into "1080p".
+func qualityLabel(quality string) string {
+	if quality == "" {
+		return ""
+	}
+	return quality + "p"
 }
 
 func elide(s string, n int) string {
