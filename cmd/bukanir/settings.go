@@ -186,6 +186,12 @@ func onSettings() {
 			appearance.SetAttribute("VALUE", strconv.Itoa(i+1))
 		}
 	}
+	appearance.SetCallback("ACTION", iup.ListActionFunc(func(_ iup.Ihandle, _ string, item, state int) int {
+		if state == 1 {
+			iup.SetGlobal("APPEARANCE", strings.ToUpper(appearanceChoices[item-1].Value))
+		}
+		return iup.DEFAULT
+	}))
 
 	fullscreen := toggle(s.Fullscreen)
 	stopSaver := toggle(s.StopScreensaver)
@@ -329,6 +335,7 @@ func onSettings() {
 	})
 	iup.SetAttributeHandle(dlg, "PARENTDIALOG", iup.GetHandle("dlg"))
 
+	saved := false
 	cancelBtn.SetCallback("ACTION", iup.ActionFunc(func(iup.Ihandle) int { return iup.CLOSE }))
 	saveBtn.SetCallback("ACTION", iup.ActionFunc(func(iup.Ihandle) int {
 		next := *s
@@ -353,10 +360,14 @@ func onSettings() {
 		next.YTSHost = strings.TrimSpace(choiceText(ytsHost))
 
 		applySettings(&next)
+		saved = true
 		return iup.CLOSE
 	}))
 
 	iup.Popup(dlg, iup.CENTER, iup.CENTER)
+	if !saved && iup.GetGlobal("APPEARANCE") != s.appearance() {
+		iup.SetGlobal("APPEARANCE", s.appearance())
+	}
 	iup.Destroy(dlg)
 }
 
