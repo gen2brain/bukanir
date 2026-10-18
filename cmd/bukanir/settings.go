@@ -187,8 +187,8 @@ func onSettings() {
 		}
 	}
 
-	fullscreen := toggle("Fullscreen", s.Fullscreen)
-	stopSaver := toggle("Stop screensaver", s.StopScreensaver)
+	fullscreen := toggle(s.Fullscreen)
+	stopSaver := toggle(s.StopScreensaver)
 	volume := iup.Val("HORIZONTAL").SetAttributes(map[string]string{
 		"MIN": "100", "MAX": "200", "VALUE": strconv.Itoa(s.VolumeMax), "EXPAND": "HORIZONTAL",
 	})
@@ -199,16 +199,16 @@ func onSettings() {
 		return iup.DEFAULT
 	}))
 
-	mpvConfig := toggle("Load mpv configuration files", s.MPVConfig)
+	mpvConfig := toggle(s.MPVConfig)
 	mpvOptions := iup.Text().SetAttributes("VISIBLECOLUMNS=20, CUEBANNER=\"hwdec=auto vo=gpu\"")
 	mpvOptions.SetAttribute("VALUE", s.MPVOptions)
 
-	subsEnabled := toggle("Download subtitles", s.SubtitlesEnabled)
+	subsEnabled := toggle(s.SubtitlesEnabled)
 	subLang := languageList(s.subtitleLanguage())
 	subScale := scaleSpin(s.SubScale)
 	subColor := colorButton(s.SubColor)
 
-	useTor := toggle("Route peers through Tor", s.UseTor)
+	useTor := toggle(s.UseTor)
 	tpbHost := editableChoice(s.TPBHost, []string{bukanir.DefaultTPBHost, tpbOnion})
 	ytsHost := editableChoice(s.YTSHost, []string{bukanir.DefaultYTSHost})
 	dlRate := choiceList(rateChoices, s.DownloadRate, rateLabel)
@@ -217,7 +217,7 @@ func onSettings() {
 		"SPIN": "YES", "SPINMIN": "0", "SPINMAX": "65535", "SPININC": "1",
 		"VALUE": strconv.Itoa(s.Port), "VISIBLECOLUMNS": "8",
 	})
-	keepFiles := toggle("Keep downloaded files", s.KeepFiles)
+	keepFiles := toggle(s.KeepFiles)
 	dlDir := iup.Text().SetAttributes("VISIBLECOLUMNS=24")
 	dlDir.SetAttribute("VALUE", s.DownloadDir)
 	browse := iup.Button("Browse...").SetAttributes("PADDING=8x2")
@@ -234,51 +234,96 @@ func onSettings() {
 		return iup.DEFAULT
 	}))
 
-	general := frame("General",
-		formRows(
-			"Appearance", appearance,
-			"Days to keep cache", cacheDays,
-		),
-	)
-	player := frame("Player",
-		fullscreen,
-		stopSaver,
-		mpvConfig,
-		formRows(
-			"Maximum volume", iup.Hbox(volume, volumeLabel).SetAttributes("ALIGNMENT=ACENTER, GAP=6"),
-			"Extra mpv options", mpvOptions,
-		),
-	)
-	subs := frame("Subtitles",
-		subsEnabled,
-		formRows(
-			"Language", subLang,
-			"Font scale", subScale,
-			"Text color", subColor,
-		),
-	)
-	torrents := frame("Torrents",
-		useTor,
-		keepFiles,
-		formRows(
-			"TPB host", tpbHost,
-			"YTS host", ytsHost,
-			"Max download rate", dlRate,
-			"Max upload rate", ulRate,
-			"Peer port (0 = auto)", port,
-			"Download folder", dlRow,
-		),
-	)
+	pageList := []settingsPage{
+		{"General", "Appearance and cache.",
+			page(
+				frame("Interface", formRows("Appearance", appearance)),
+				frame("Cache", formRows("Days to keep cache", cacheDays)),
+			)},
+		{"Player", "Playback window, volume and mpv.",
+			page(
+				frame("Playback", formRows(
+					"Fullscreen", fullscreen,
+					"Stop screensaver", stopSaver,
+					"Maximum volume", iup.Hbox(volume, volumeLabel).SetAttributes("ALIGNMENT=ACENTER, GAP=6"),
+				)),
+				frame("mpv", formRows(
+					"Load configuration files", mpvConfig,
+					"Extra options", mpvOptions,
+				)),
+			)},
+		{"Subtitles", "Subtitle download and style.",
+			page(
+				frame("Download", formRows(
+					"Download subtitles", subsEnabled,
+					"Language", subLang,
+				)),
+				frame("Style", formRows(
+					"Font scale", subScale,
+					"Text color", subColor,
+				)),
+			)},
+		{"Network", "Tor and torrent sites.",
+			page(
+				frame("Tor", formRows("Route peers through Tor", useTor)),
+				frame("Sources", formRows(
+					"TPB host", tpbHost,
+					"YTS host", ytsHost,
+				)),
+			)},
+		{"Torrents", "Transfer limits, peer port and files.",
+			page(
+				frame("Limits", formRows(
+					"Max download rate", dlRate,
+					"Max upload rate", ulRate,
+					"Peer port (0 = auto)", port,
+				)),
+				frame("Files", formRows(
+					"Keep downloaded files", keepFiles,
+					"Download folder", dlRow,
+				)),
+			)},
+	}
+
+	sidebar := iup.List().SetAttributes(map[string]string{
+		"SPACING": "4", "VISIBLECOLUMNS": "10", "EXPAND": "VERTICAL",
+		"VISIBLELINES": strconv.Itoa(len(pageList)),
+	})
+	title := iup.Label("").SetAttributes("FONTSTYLE=Bold, FONTSIZE=16, EXPAND=HORIZONTAL")
+	summary := iup.Label("").SetAttributes(`FGCOLOR="128 128 128", EXPAND=HORIZONTAL`)
+	bodies := make([]iup.Ihandle, len(pageList))
+	for i, pg := range pageList {
+		sidebar.SetAttribute(strconv.Itoa(i+1), pg.name)
+		bodies[i] = pg.body
+	}
+	pages := iup.Zbox(bodies...).SetAttributes("ALIGNMENT=NW, EXPAND=YES")
+	showPage := func(i int) {
+		settingsPageIndex = i
+		pages.SetAttribute("VALUEPOS", strconv.Itoa(i))
+		title.SetAttribute("TITLE", pageList[i].name)
+		summary.SetAttribute("TITLE", pageList[i].summary)
+	}
+	sidebar.SetCallback("ACTION", iup.ListActionFunc(func(_ iup.Ihandle, _ string, item, state int) int {
+		if state == 1 {
+			showPage(item - 1)
+		}
+		return iup.DEFAULT
+	}))
+	if settingsPageIndex >= len(pageList) {
+		settingsPageIndex = 0
+	}
+	sidebar.SetAttribute("VALUE", strconv.Itoa(settingsPageIndex+1))
+	showPage(settingsPageIndex)
 
 	saveBtn := iup.Button("Save").SetAttributes("PADDING=14x4")
 	cancelBtn := iup.Button("Cancel").SetAttributes("PADDING=14x4")
 	buttons := iup.Hbox(iup.Fill(), cancelBtn, saveBtn).SetAttributes("GAP=8")
 
-	// The normalizer equalizes every label's width so control columns line up.
+	// The normalizer equalizes every label's width so control columns line up across pages.
 	norm := iup.Normalizer(formLabels...)
-	left := iup.Vbox(general, player, subs).SetAttributes("GAP=8, NORMALIZESIZE=HORIZONTAL")
-	columns := iup.Hbox(left, torrents).SetAttributes("GAP=10, ALIGNMENT=ATOP")
-	body := iup.Vbox(norm, columns, buttons).SetAttributes("NMARGIN=10x10, GAP=8")
+	content := iup.Vbox(title, summary, pages).SetAttributes("GAP=8, NMARGIN=12x0, EXPAND=YES")
+	columns := iup.Hbox(sidebar, iup.Label("").SetAttribute("SEPARATOR", "VERTICAL"), content).SetAttributes("GAP=8")
+	body := iup.Vbox(norm, columns, buttons).SetAttributes("NMARGIN=10x10, GAP=10")
 	dlg := iup.Dialog(body).SetAttributes(map[string]string{
 		"TITLE": "Settings", "DIALOGFRAME": "YES", "MINBOX": "NO", "MAXBOX": "NO",
 	})
@@ -347,9 +392,22 @@ func updateTorStatus() {
 	tor.SetAttribute("TIP", tip)
 }
 
+// settingsPage is one sidebar entry of the settings dialog.
+type settingsPage struct {
+	name, summary string
+	body          iup.Ihandle
+}
+
+// settingsPageIndex remembers the last shown settings page across openings.
+var settingsPageIndex int
+
+func page(frames ...iup.Ihandle) iup.Ihandle {
+	return iup.Vbox(frames...).SetAttributes("GAP=10")
+}
+
 func frame(title string, children ...iup.Ihandle) iup.Ihandle {
-	box := iup.Vbox(children...).SetAttributes("NMARGIN=8x8, GAP=6")
-	return iup.Frame(box).SetAttribute("TITLE", title)
+	box := iup.Vbox(children...).SetAttributes("GAP=6")
+	return iup.Frame(iup.Hbox(box, iup.Fill()).SetAttributes("NMARGIN=10x8")).SetAttribute("TITLE", title)
 }
 
 // formLabels collects every form label so a normalizer can align them.
@@ -368,8 +426,8 @@ func formRows(pairs ...any) iup.Ihandle {
 	)
 }
 
-func toggle(label string, on bool) iup.Ihandle {
-	t := iup.Toggle(label)
+func toggle(on bool) iup.Ihandle {
+	t := iup.Toggle("")
 	if on {
 		t.SetAttribute("VALUE", "ON")
 	}
