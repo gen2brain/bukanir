@@ -467,12 +467,10 @@ func addTab(name string, child iup.Ihandle) {
 	tabs := iup.GetHandle("tabs")
 	title := elide(name, 16)
 	child.SetAttribute("TABTITLE", title)
-	child.SetAttribute("TABIMAGE", "tab-blank")
 	iup.Append(tabs, child)
 	updateNoTabs()
 	iup.Map(child)
 	pos := iup.GetChildCount(tabs) - 1
-	iup.SetAttributeId(tabs, "TABIMAGE", pos, "")
 	iup.Refresh(tabs)
 	tabs.SetAttribute("TABTIP"+strconv.Itoa(pos), name)
 	tabs.SetAttribute("VALUEPOS", strconv.Itoa(pos))

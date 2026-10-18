@@ -61,9 +61,8 @@ const tabIconSize = 20
 // tabSpinFrames holds the registered image names for the tab loading spinner.
 var tabSpinFrames []string
 
-// registerTabIndicators registers the tab-indicator images (blank, spinner, play, pause).
+// registerTabIndicators registers the tab-indicator images (spinner, play, pause).
 func registerTabIndicators() {
-	iup.ImageFromImage(image.NewRGBA(image.Rect(0, 0, tabIconSize, tabIconSize))).SetHandle("tab-blank")
 	iup.ImageFromImage(playGlyph(tabIconSize)).SetHandle("tab-play")
 	iup.ImageFromImage(pauseGlyph(tabIconSize)).SetHandle("tab-pause")
 	tabSpinFrames = loadingFrames
