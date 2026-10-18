@@ -57,11 +57,14 @@ type TMovie struct {
 	Seeders      int      `json:"seeders"`
 	Magnet       string   `json:"magnet"`
 	Release      string   `json:"release"`
-	Source       string   `json:"source"` // "tpb", "eztv" or "yts"
+	Source       string   `json:"source"` // "tpb", "eztv", "torrentio" or "yts"
 	Category     Category `json:"category"`
 	Season       int      `json:"season"`
 	Episode      int      `json:"episode"`
 	Quality      string   `json:"quality"`
+	FileName     string   `json:"fileName,omitempty"` // episode file inside a multi-file torrent
+	FileIdx      int      `json:"fileIdx,omitempty"`  // its index, used when the name is not found
+	Pack         bool     `json:"pack,omitempty"`     // Size may be the episode file or the whole pack
 }
 
 // TSummary is the detailed metadata for a movie or episode.
@@ -158,6 +161,7 @@ type tmdbDetails struct {
 	Credits      tmdbCredits   `json:"credits"`
 	Videos       tmdbVideos    `json:"videos"`
 	Episodes     []tmdbEpisode `json:"episodes"` // present on TV season details
+	LastEpisode  *tmdbEpisode  `json:"last_episode_to_air"`
 }
 
 type tmdbGenre struct {

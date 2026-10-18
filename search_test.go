@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// mockBackend serves TMDB, TPB, and EZTV endpoints from one server.
+// mockBackend serves TMDB, TPB, EZTV and Torrentio endpoints from one server.
 func mockBackend(t *testing.T) *Client {
 	t.Helper()
 	mux := http.NewServeMux()
@@ -25,6 +25,12 @@ func mockBackend(t *testing.T) *Client {
 	})
 	mux.HandleFunc("/tv/1396/external_ids", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`{"imdb_id":"tt0903747"}`))
+	})
+	mux.HandleFunc("/tv/1396", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"id":1396,"name":"Breaking Bad","last_episode_to_air":{"season_number":5,"episode_number":16,"air_date":"2013-09-29"}}`))
+	})
+	mux.HandleFunc("/tv/1396/season/5", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"episodes":[{"season_number":5,"episode_number":15,"air_date":"2013-09-22"},{"season_number":5,"episode_number":16,"air_date":"2013-09-29"},{"season_number":5,"episode_number":17,"air_date":"2999-01-01"}]}`))
 	})
 
 	// TPB
@@ -50,6 +56,18 @@ func mockBackend(t *testing.T) *Client {
 		w.Write([]byte(`{"torrents":[{"title":"Breaking.Bad.S05E15.720p.HDTV.x264","magnet_url":"magnet:?xt=urn:btih:ZZZZ","hash":"ZZZZ","seeds":80,"size_bytes":"550000000","season":"5","episode":"15"}]}`))
 	})
 
+	// Torrentio
+	mux.HandleFunc("/stream/series/", func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/stream/series/tt0903747:5:16.json":
+			w.Write([]byte(`{"streams":[{"title":"Breaking.Bad.S05.1080p.BluRay.x264\nBreaking.Bad.S05E16.1080p.BluRay.x264.mkv\n👤 90 💾 25.4 GB ⚙️ 1337x","infoHash":"pppp","fileIdx":15,"behaviorHints":{"filename":"Breaking.Bad.S05E16.1080p.BluRay.x264.mkv"}}]}`))
+		case "/stream/series/tt0903747:5:17.json":
+			t.Errorf("unaired episode requested")
+		default:
+			w.Write([]byte(`{"streams":[]}`))
+		}
+	})
+
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 
@@ -57,7 +75,7 @@ func mockBackend(t *testing.T) *Client {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c.tmdbBase, c.tpbBase, c.eztvBase, c.ytsBase = srv.URL, srv.URL, srv.URL, srv.URL
+	c.tmdbBase, c.tpbBase, c.eztvBase, c.ytsBase, c.torrentioBase = srv.URL, srv.URL, srv.URL, srv.URL, srv.URL
 	t.Cleanup(func() { c.Close() })
 	return c
 }
@@ -83,23 +101,85 @@ func TestSearchMovies(t *testing.T) {
 	}
 }
 
-func TestSearchEpisodesMergesEZTV(t *testing.T) {
+func TestSearchEpisodesMergesSources(t *testing.T) {
 	c := mockBackend(t)
 	movies, err := c.Search(context.Background(), "breaking bad", SearchOptions{Media: "episodes", SortBy: "episodes"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	// TPB contributes S05E14, EZTV contributes S05E15.
-	if len(movies) != 2 {
-		t.Fatalf("got %d episodes, want 2 (TPB + EZTV)", len(movies))
+	// TPB contributes S05E14, EZTV S05E15, Torrentio a season pack for S05E16.
+	if len(movies) != 3 {
+		t.Fatalf("got %d episodes, want 3 (TPB + EZTV + Torrentio)", len(movies))
 	}
-	if movies[0].Episode != 14 || movies[1].Episode != 15 {
-		t.Errorf("episode sort wrong: %d then %d", movies[0].Episode, movies[1].Episode)
+	if movies[0].Episode != 14 || movies[1].Episode != 15 || movies[2].Episode != 16 {
+		t.Errorf("episode sort wrong: %d, %d, %d", movies[0].Episode, movies[1].Episode, movies[2].Episode)
 	}
 	for _, m := range movies {
 		if m.Title != "Breaking Bad" || m.Category != CategoryTV {
 			t.Errorf("tv result = %+v", m)
 		}
+	}
+	pack := movies[2]
+	if !pack.Pack || pack.Source != "torrentio" || pack.FileIdx != 15 || pack.FileName != "Breaking.Bad.S05E16.1080p.BluRay.x264.mkv" {
+		t.Errorf("pack = %+v", pack)
+	}
+}
+
+func TestSearchAllAsksTorrentioOnlyForNamedEpisode(t *testing.T) {
+	c := mockBackend(t)
+	movies, err := c.Search(context.Background(), "breaking bad", SearchOptions{Media: "all"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range movies {
+		if m.Source == "torrentio" {
+			t.Errorf("plain query in all media asked Torrentio: %+v", m)
+		}
+	}
+
+	movies, err = c.Search(context.Background(), "breaking bad s05e16", SearchOptions{Media: "all"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, m := range movies {
+		if m.Source == "torrentio" && m.Season == 5 && m.Episode == 16 {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("SxxEyy query did not return the Torrentio episode")
+	}
+}
+
+func TestShowForQueryStripsEpisode(t *testing.T) {
+	var query string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/search/tv":
+			query = r.URL.Query().Get("query")
+			w.Write([]byte(`{"results":[{"id":1396,"name":"Breaking Bad"}]}`))
+		case "/tv/1396/external_ids":
+			w.Write([]byte(`{"imdb_id":"tt0903747"}`))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c, err := New(context.Background(), Config{CacheDir: t.TempDir(), TMDBKey: "k"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { c.Close() })
+	c.tmdbBase = srv.URL
+
+	show, ok := c.showForQuery(context.Background(), "Breaking Bad S02E03 1080p")
+	if !ok {
+		t.Fatal("no show")
+	}
+	if query != "Breaking Bad" {
+		t.Errorf("TMDB query = %q, want %q", query, "Breaking Bad")
+	}
+	if show.name != "Breaking Bad" || show.imdbID != "tt0903747" || show.season != 2 || show.episode != 3 {
+		t.Errorf("show = %+v", show)
 	}
 }
 

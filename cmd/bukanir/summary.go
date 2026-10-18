@@ -81,6 +81,9 @@ func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 	if m.Release != "" {
 		top = append(top, setThemed(iup.Label("Torrent: "+m.Release).SetAttributes("WORDWRAP=YES, EXPAND=HORIZONTAL"), "FGCOLOR", roleSubtle))
 	}
+	if m.FileName != "" {
+		top = append(top, setThemed(iup.Label("File: "+m.FileName).SetAttributes("WORDWRAP=YES, EXPAND=HORIZONTAL"), "FGCOLOR", roleSubtle))
+	}
 	if s.Tagline != "" {
 		top = append(top, iup.Label(s.Tagline).SetAttributes("FONTSTYLE=Italic, FONTSIZE=13, WORDWRAP=YES, EXPAND=HORIZONTAL"))
 	}

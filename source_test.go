@@ -183,6 +183,73 @@ func TestEZTVEmptyIMDb(t *testing.T) {
 	}
 }
 
+const torrentioBody = `{"streams":[
+	{"title":"Breaking.Bad.S01E05.1080p.WEB.x264\n👤 30 💾 1.5 GB ⚙️ ThePirateBay","infoHash":"aaaa","behaviorHints":{"filename":"Breaking.Bad.S01E05.1080p.WEB.x264.mkv"}},
+	{"title":"Breaking.Bad.S01.720p.BluRay\nBreaking.Bad.S01E05.720p.BluRay.mkv\n👤 80 💾 12.5 GB ⚙️ 1337x","infoHash":"bbbb","fileIdx":4,"behaviorHints":{"filename":"Breaking.Bad.S01E05.720p.BluRay.mkv"}},
+	{"title":"Breaking.Bad.S01E05.2160p.WEB\n👤 20 💾 9.1 GB ⚙️ ThePirateBay","infoHash":"cccc","behaviorHints":{}},
+	{"title":"Breaking.Bad.S01E05.480p\n👤 0 💾 300 MB ⚙️ ThePirateBay","infoHash":"dddd","behaviorHints":{}},
+	{"title":"Breaking.Bad.Complete\n👤 5 💾 40 GB ⚙️ RARBG","infoHash":"eeee","behaviorHints":{}},
+	{"title":"Breaking.Bad.S01E05-E07.480p\nBreaking.Bad.S01E05.480p.mkv\n👤 7 💾 900 MB ⚙️ 1337x","infoHash":"ffff","fileIdx":0,"behaviorHints":{"filename":"Breaking.Bad.S01E05.480p.mkv"}}
+]}`
+
+func TestTorrentioSearch(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/stream/series/tt0903747:1:5.json" {
+			t.Errorf("path = %q", r.URL.Path)
+		}
+		w.Write([]byte(torrentioBody))
+	}))
+	t.Cleanup(srv.Close)
+	c, err := New(context.Background(), Config{CacheDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { c.Close() })
+	c.torrentioBase = srv.URL
+
+	res, err := c.torrentioSearch(context.Background(), "0903747", "Breaking Bad", 1, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Oversized single episode, zero seeders and a pack without a file name are dropped.
+	if len(res) != 3 {
+		t.Fatalf("got %d results, want 3: %+v", len(res), res)
+	}
+	single, pack, multi := res[0], res[1], res[2]
+	if multi.Pack || multi.FileName != "Breaking.Bad.S01E05.480p.mkv" || multi.SizeHuman == "season pack" {
+		t.Errorf("multi-episode torrent = %+v", multi)
+	}
+	if single.Pack || single.Seeders != 30 || single.Size != int64(1.5*(1<<30)) || single.Quality != "1080" || single.FileName != "" || single.Title != "Breaking Bad" {
+		t.Errorf("single = %+v", single)
+	}
+	if single.Season != 1 || single.Episode != 5 || single.Category != CategoryTV || single.Source != "torrentio" {
+		t.Errorf("single episode fields = %+v", single)
+	}
+	if !pack.Pack || pack.FileIdx != 4 || pack.FileName != "Breaking.Bad.S01E05.720p.BluRay.mkv" || pack.Quality != "720" {
+		t.Errorf("pack = %+v", pack)
+	}
+	if pack.Size <= maxTorrentSize || pack.SizeHuman != "season pack" {
+		t.Errorf("pack size = %d %q", pack.Size, pack.SizeHuman)
+	}
+	if !strings.Contains(pack.Magnet, "bbbb") {
+		t.Errorf("pack magnet = %q", pack.Magnet)
+	}
+}
+
+func TestTorrentioSize(t *testing.T) {
+	cases := map[string]int64{
+		"👤 1 💾 512 MB ⚙️ x": 512 << 20,
+		"👤 1 💾 2 GB":        2 << 30,
+		"👤 1 💾 700 KB":      700 << 10,
+		"no size":           0,
+	}
+	for in, want := range cases {
+		if got := torrentioSize(in); got != want {
+			t.Errorf("torrentioSize(%q) = %d, want %d", in, got, want)
+		}
+	}
+}
+
 func TestParseRelease(t *testing.T) {
 	cases := []struct {
 		name string

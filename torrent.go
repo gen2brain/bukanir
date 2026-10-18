@@ -83,6 +83,10 @@ type Torrent struct {
 	tmpDir  string
 	fileIdx int
 
+	prefName string
+	prefIdx  int
+	prefSet  bool
+
 	server   *http.Server
 	addr     string
 	portStop func()
@@ -185,7 +189,10 @@ func NewTorrent(magnet string, cfg TorrentConfig) (*Torrent, error) {
 func (t *Torrent) WaitForMetadata(ctx context.Context) error {
 	select {
 	case <-t.t.GotInfo():
-		t.selectLargestFile()
+		if err := t.selectFile(); err != nil {
+			logf("ERROR: TORRENT: %s", err)
+			return err
+		}
 		logf("TORRENT: metadata %q", t.t.Name())
 		return nil
 	case <-ctx.Done():
@@ -194,15 +201,40 @@ func (t *Torrent) WaitForMetadata(ctx context.Context) error {
 	}
 }
 
-// selectLargestFile picks the biggest file to stream and deprioritizes the rest.
-func (t *Torrent) selectLargestFile() {
+// PreferFile streams the file with this name, or the one at index, instead of the largest; call it before WaitForMetadata.
+func (t *Torrent) PreferFile(name string, index int) {
+	t.mu.Lock()
+	t.prefName, t.prefIdx, t.prefSet = name, index, true
+	t.mu.Unlock()
+}
+
+// selectFile picks the file to stream and deprioritizes the rest.
+func (t *Torrent) selectFile() error {
 	files := t.t.Files()
-	idx, largest := -1, int64(-1)
-	for i, f := range files {
-		if f.Length() > largest {
-			largest, idx = f.Length(), i
+	t.mu.Lock()
+	name, prefIdx, pref := t.prefName, t.prefIdx, t.prefSet
+	t.mu.Unlock()
+
+	idx := -1
+	if pref {
+		paths := make([]string, len(files))
+		for i, f := range files {
+			paths[i] = f.DisplayPath()
+		}
+		idx = preferredFileIndex(paths, name, prefIdx)
+	}
+	if idx < 0 {
+		largest := int64(-1)
+		for i, f := range files {
+			if f.Length() > largest {
+				largest, idx = f.Length(), i
+			}
 		}
 	}
+	if pref && idx >= 0 && files[idx].Length() > maxTorrentSize {
+		return fmt.Errorf("bukanir: episode file is %s, over the %s limit", humanizeBytes(files[idx].Length()), humanizeBytes(maxTorrentSize))
+	}
+
 	t.mu.Lock()
 	t.fileIdx = idx
 	t.mu.Unlock()
@@ -213,6 +245,23 @@ func (t *Torrent) selectLargestFile() {
 			f.SetPriority(atorrent.PiecePriorityNone)
 		}
 	}
+	return nil
+}
+
+// preferredFileIndex finds name among the file paths, falling back to index; -1 when neither fits.
+func preferredFileIndex(paths []string, name string, index int) int {
+	if name != "" {
+		base := strings.ToLower(path.Base(name))
+		for i, p := range paths {
+			if strings.ToLower(path.Base(p)) == base {
+				return i
+			}
+		}
+	}
+	if index >= 0 && index < len(paths) {
+		return index
+	}
+	return -1
 }
 
 // Serve starts the streaming HTTP server and returns its base URL.

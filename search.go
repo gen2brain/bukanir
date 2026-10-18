@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
+	"time"
 )
 
 // SearchOptions tunes a Search.
@@ -96,9 +98,20 @@ func (c *Client) gatherTorrents(ctx context.Context, query, media string) ([]tor
 
 	if media == "all" || media == "episodes" {
 		wg.Go(func() {
-			// EZTV failures are non-fatal.
-			res, _ := c.eztvByQuery(ctx, query)
-			collect(res, nil)
+			// Episode source failures are non-fatal.
+			show, ok := c.showForQuery(ctx, query)
+			if !ok {
+				return
+			}
+			var sources sync.WaitGroup
+			sources.Go(func() {
+				res, _ := c.eztvSearch(ctx, show.imdbID, 100)
+				collect(res, nil)
+			})
+			sources.Go(func() {
+				collect(c.torrentioShow(ctx, show, media == "episodes"), nil)
+			})
+			sources.Wait()
 		})
 	}
 	wg.Wait()
@@ -109,17 +122,77 @@ func (c *Client) gatherTorrents(ctx context.Context, query, media string) ([]tor
 	return all, nil
 }
 
-// eztvByQuery resolves a query to a show's IMDb id via TMDB, then lists EZTV torrents.
-func (c *Client) eztvByQuery(ctx context.Context, query string) ([]torrentResult, error) {
-	resp, err := c.tmdbSearchTV(ctx, query)
+// torrentioConcurrency bounds the parallel per-episode Torrentio requests.
+const torrentioConcurrency = 4
+
+// showMatch is the TV show a query names, plus the episode when the query has SxxEyy.
+type showMatch struct {
+	id      int
+	name    string
+	imdbID  string
+	season  int
+	episode int
+}
+
+type episodeRef struct{ season, episode int }
+
+// showForQuery resolves a query to a TV show and its IMDb id via TMDB.
+func (c *Client) showForQuery(ctx context.Context, query string) (showMatch, bool) {
+	season, episode := releaseSeasonEpisode(query)
+	title := strings.TrimSpace(reSeason.ReplaceAllString(query, ""))
+	if title == "" {
+		title = query
+	}
+	resp, err := c.tmdbSearchTV(ctx, title)
 	if err != nil || len(resp.Results) == 0 {
-		return nil, err
+		return showMatch{}, false
 	}
-	ext, err := c.tmdbTVExternalIDs(ctx, resp.Results[0].ID)
+	r := resp.Results[0]
+	ext, err := c.tmdbTVExternalIDs(ctx, r.ID)
 	if err != nil || ext.ImdbID == "" {
-		return nil, err
+		return showMatch{}, false
 	}
-	return c.eztvSearch(ctx, ext.ImdbID, 100)
+	return showMatch{id: r.ID, name: r.title(), imdbID: ext.ImdbID, season: season, episode: episode}, true
+}
+
+// torrentioShow asks Torrentio for the query's episode, or for the latest season's aired episodes when latest is set.
+func (c *Client) torrentioShow(ctx context.Context, show showMatch, latest bool) []torrentResult {
+	var eps []episodeRef
+	switch {
+	case show.season > 0 && show.episode > 0:
+		eps = []episodeRef{{show.season, show.episode}}
+	case latest:
+		eps = c.latestSeasonEpisodes(ctx, show.id)
+	}
+	lists := boundedMap(ctx, eps, torrentioConcurrency, func(ctx context.Context, e episodeRef) ([]torrentResult, bool) {
+		res, err := c.torrentioSearch(ctx, show.imdbID, show.name, e.season, e.episode)
+		return res, err == nil && len(res) > 0
+	})
+	var out []torrentResult
+	for _, l := range lists {
+		out = append(out, l...)
+	}
+	return out
+}
+
+// latestSeasonEpisodes lists the aired episodes of a show's most recent season.
+func (c *Client) latestSeasonEpisodes(ctx context.Context, id int) []episodeRef {
+	details, err := c.tmdbTVDetails(ctx, id, 0)
+	if err != nil || details.LastEpisode == nil || details.LastEpisode.SeasonNumber <= 0 {
+		return nil
+	}
+	season, err := c.tmdbTVDetails(ctx, id, details.LastEpisode.SeasonNumber)
+	if err != nil {
+		return nil
+	}
+	today := time.Now().Format("2006-01-02")
+	var eps []episodeRef
+	for _, e := range season.Episodes {
+		if e.EpisodeNumber > 0 && e.AirDate != "" && e.AirDate <= today {
+			eps = append(eps, episodeRef{details.LastEpisode.SeasonNumber, e.EpisodeNumber})
+		}
+	}
+	return eps
 }
 
 func finalizeMovies(movies []TMovie, opts SearchOptions) []TMovie {

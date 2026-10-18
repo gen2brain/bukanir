@@ -41,7 +41,10 @@ type torrentResult struct {
 	Episode   int
 	Quality   string
 	IMDbID    string // set by sources that know it, skips the title match
-	Source    string // "tpb", "eztv" or "yts"
+	Source    string // "tpb", "eztv", "torrentio" or "yts"
+	FileName  string // episode file inside a multi-file torrent
+	FileIdx   int    // its index in the torrent
+	Pack      bool   // Size may be the episode file or the whole pack
 }
 
 func magnetLink(infoHash, name string) string {
@@ -369,6 +372,137 @@ func parseEZTV(body []byte) ([]torrentResult, error) {
 	return results, nil
 }
 
+// torrentioBaseURL is the Torrentio add-on root.
+const torrentioBaseURL = "https://torrentio.strem.fun"
+
+// torrentioStream is one entry of a Torrentio stream response.
+type torrentioStream struct {
+	Title         string `json:"title"`
+	InfoHash      string `json:"infoHash"`
+	FileIdx       *int   `json:"fileIdx"`
+	BehaviorHints struct {
+		Filename string `json:"filename"`
+	} `json:"behaviorHints"`
+}
+
+var (
+	reTorrentioSeeders = regexp.MustCompile(`👤 (\d+)`)
+	reTorrentioSize    = regexp.MustCompile(`💾 ([\d.]+) ([KMGT]?B)`)
+)
+
+// torrentioSearch returns the torrents Torrentio lists for one episode of a show.
+func (c *Client) torrentioSearch(ctx context.Context, imdbID, show string, season, episode int) ([]torrentResult, error) {
+	if imdbID == "" || season <= 0 || episode <= 0 {
+		return nil, nil
+	}
+	if !strings.HasPrefix(imdbID, "tt") {
+		imdbID = "tt" + imdbID
+	}
+	u := fmt.Sprintf("%s/stream/series/%s:%d:%d.json", c.torrentioBase, imdbID, season, episode)
+	body, err := c.getBytes(ctx, u)
+	if err != nil {
+		return nil, err
+	}
+	return parseTorrentio(body, show, season, episode)
+}
+
+// parseTorrentio decodes a Torrentio response for one episode; a torrent not named after it is a season pack.
+func parseTorrentio(body []byte, show string, season, episode int) ([]torrentResult, error) {
+	var resp struct {
+		Streams []torrentioStream `json:"streams"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, err
+	}
+
+	results := make([]torrentResult, 0, len(resp.Streams))
+	for _, st := range resp.Streams {
+		if st.InfoHash == "" {
+			continue
+		}
+		lines := strings.Split(st.Title, "\n")
+		name := strings.TrimSpace(lines[0])
+		meta := strings.Join(lines[1:], " ")
+
+		seeders := 0
+		if m := reTorrentioSeeders.FindStringSubmatch(meta); m != nil {
+			seeders, _ = strconv.Atoi(m[1])
+		}
+		if seeders == 0 {
+			continue
+		}
+		size := torrentioSize(meta)
+		if size <= 0 {
+			continue
+		}
+
+		rel := parseRelease(name)
+		pack := rel.Season != season || rel.Episode != episode
+		file := ""
+		if len(lines) > 2 && !strings.HasPrefix(strings.TrimSpace(lines[1]), "👤") {
+			file = st.BehaviorHints.Filename
+		}
+		if pack && file == "" {
+			continue
+		}
+		if !pack && size > maxTorrentSize {
+			continue
+		}
+
+		quality := rel.Quality
+		if file != "" {
+			if q := releaseQuality(file); q != "" {
+				quality = q
+			}
+		}
+		human := humanizeBytes(size)
+		if pack {
+			human = "season pack"
+		}
+		idx := 0
+		if file != "" && st.FileIdx != nil {
+			idx = *st.FileIdx
+		}
+		title := show
+		if title == "" {
+			title = rel.Title
+		}
+
+		results = append(results, torrentResult{
+			Source:    "torrentio",
+			Name:      name,
+			Title:     title,
+			Magnet:    magnetLink(st.InfoHash, name),
+			Year:      rel.Year,
+			Size:      size,
+			SizeHuman: human,
+			Seeders:   seeders,
+			Category:  CategoryTV,
+			Season:    season,
+			Episode:   episode,
+			Quality:   quality,
+			FileName:  file,
+			FileIdx:   idx,
+			Pack:      pack,
+		})
+	}
+	return results, nil
+}
+
+// torrentioSize reads the size Torrentio prints after the 💾 marker.
+func torrentioSize(meta string) int64 {
+	m := reTorrentioSize.FindStringSubmatch(meta)
+	if m == nil {
+		return 0
+	}
+	v, err := strconv.ParseFloat(m[1], 64)
+	if err != nil {
+		return 0
+	}
+	mult := map[string]float64{"B": 1, "KB": 1 << 10, "MB": 1 << 20, "GB": 1 << 30, "TB": 1 << 40}[m[2]]
+	return int64(v * mult)
+}
+
 // Poster size indices into TMDB's poster_sizes list.
 const (
 	posterSmall  = 0
@@ -457,6 +591,9 @@ func buildMovie(conf *tmdbConfiguration, r tmdbResult, posterPath string, tr tor
 		Season:       tr.Season,
 		Episode:      tr.Episode,
 		Quality:      tr.Quality,
+		FileName:     tr.FileName,
+		FileIdx:      tr.FileIdx,
+		Pack:         tr.Pack,
 	}
 }
 

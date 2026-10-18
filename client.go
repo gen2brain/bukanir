@@ -24,6 +24,7 @@ type Client struct {
 	tpbBase            string // ThePirateBay API base URL
 	ytsBase            string // YTS API base URL
 	eztvBase           string // EZTV API base URL
+	torrentioBase      string // Torrentio add-on base URL
 	subsBase           string // OpenSubtitles API base URL
 	gestdownBase       string // gestdown.info API base URL
 	subdlBase          string // subdl.com API base URL
@@ -69,6 +70,7 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 		tpbBase:            tpbBaseURL(cfg.tpbHost()),
 		ytsBase:            ytsBaseURL(cfg.ytsHost()),
 		eztvBase:           eztvBaseURL,
+		torrentioBase:      torrentioBaseURL,
 		subsBase:           openSubtitlesBaseURL,
 		gestdownBase:       gestdownBaseURL,
 		subdlBase:          subdlBaseURL,

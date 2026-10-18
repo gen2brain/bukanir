@@ -121,6 +121,9 @@ func onWatch(m bukanir.TMovie, s bukanir.TSummary, tab, btn iup.Ihandle) {
 			return
 		}
 		defer tr.Close()
+		if m.FileName != "" {
+			tr.PreferFile(m.FileName, m.FileIdx)
+		}
 
 		metaTimeout := 90 * time.Second
 		if settings.UseTor {
@@ -260,7 +263,7 @@ func fetchSubtitles(parent context.Context, s bukanir.TSummary, m bukanir.TMovie
 		Season:   m.Season,
 		Episode:  m.Episode,
 		Language: lang,
-		Release:  m.Release,
+		Release:  subtitleRelease(m),
 	})
 	if err != nil {
 		log.Printf("SUBTITLES: search failed (lang=%s imdb=%s): %v", lang, s.IMDbID, err)
@@ -578,4 +581,13 @@ func applyPlayerOptions(m *mpv.Mpv, opts string) {
 			log.Printf("PLAYER: option %s=%s: %v", name, value, err)
 		}
 	}
+}
+
+// subtitleRelease is the release name subtitles are matched against: the episode file for a pack.
+func subtitleRelease(m bukanir.TMovie) string {
+	if m.FileName == "" {
+		return m.Release
+	}
+	base := filepath.Base(m.FileName)
+	return strings.TrimSuffix(base, filepath.Ext(base))
 }

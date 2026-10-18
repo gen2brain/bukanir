@@ -68,7 +68,12 @@ func seedFile(t *testing.T, name string, content []byte) (*atorrent.Client, stri
 	if err := os.WriteFile(filepath.Join(dir, name), content, 0o644); err != nil {
 		t.Fatal(err)
 	}
+	return seedPath(t, dir, name)
+}
 
+// seedPath seeds the file or directory name inside dir and returns the client with the magnet link.
+func seedPath(t *testing.T, dir, name string) (*atorrent.Client, string) {
+	t.Helper()
 	info := metainfo.Info{PieceLength: 64 * 1024}
 	if err := info.BuildFromFilePath(filepath.Join(dir, name)); err != nil {
 		t.Fatal(err)
@@ -161,6 +166,70 @@ func TestTorrentStreamLocal(t *testing.T) {
 	}
 }
 
+func TestTorrentPreferFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("spins up two torrent clients; skipped under -short")
+	}
+	dir := t.TempDir()
+	pack := filepath.Join(dir, "Show.S01")
+	if err := os.Mkdir(pack, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ep1 := make([]byte, 400*1024)
+	ep2 := make([]byte, 200*1024)
+	for i := range ep1 {
+		ep1[i] = byte(i * 3)
+	}
+	for i := range ep2 {
+		ep2[i] = byte(i * 11)
+	}
+	if err := os.WriteFile(filepath.Join(pack, "Show.S01E01.mkv"), ep1, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pack, "Show.S01E02.mkv"), ep2, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	seeder, magnet := seedPath(t, dir, "Show.S01")
+
+	tr, err := NewTorrent(magnet, TorrentConfig{DownloadDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tr.Close()
+	tr.PreferFile("Show.S01E02.mkv", 0)
+	if n := tr.t.AddClientPeer(seeder); n == 0 {
+		t.Fatal("no seeder peers added")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := tr.WaitForMetadata(ctx); err != nil {
+		t.Fatalf("metadata: %v", err)
+	}
+	url, err := tr.Serve()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	got, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != len(ep2) {
+		t.Fatalf("streamed %d bytes, want the smaller preferred episode (%d)", len(got), len(ep2))
+	}
+	for i := range got {
+		if got[i] != ep2[i] {
+			t.Fatalf("byte %d differs", i)
+		}
+	}
+}
+
 // countingDialer dials directly but records that the Dialer path was taken.
 type countingDialer struct {
 	calls atomic.Int32
@@ -218,6 +287,26 @@ func TestTorrentStreamViaDialer(t *testing.T) {
 	}
 	if dialer.calls.Load() == 0 {
 		t.Fatal("peers were not dialed through the provided Dialer")
+	}
+}
+
+func TestPreferredFileIndex(t *testing.T) {
+	paths := []string{"Show.S01/Show.S01E01.mkv", "Show.S01/Show.S01E02.mkv", "Show.S01/sample.mkv"}
+	cases := []struct {
+		name  string
+		index int
+		want  int
+	}{
+		{"Show.S01E02.mkv", 0, 1},
+		{"show.s01e02.MKV", 0, 1},
+		{"Missing.mkv", 2, 2},
+		{"Missing.mkv", 9, -1},
+		{"", 0, 0},
+	}
+	for _, tc := range cases {
+		if got := preferredFileIndex(paths, tc.name, tc.index); got != tc.want {
+			t.Errorf("preferredFileIndex(%q, %d) = %d, want %d", tc.name, tc.index, got, tc.want)
+		}
 	}
 }
 
