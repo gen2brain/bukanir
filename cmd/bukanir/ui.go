@@ -28,7 +28,7 @@ func layout() iup.Ihandle {
 func toolbar() iup.Ihandle {
 	return iup.Hbox(
 		searchBox(),
-		iconButton("refresh", onRefreshClick),
+		iconButton("refresh", onRefreshClick).SetAttributes("TIP=Refresh"),
 		menuButton(mediaLabel(), "btnMedia", mediaMenu),
 		menuButton(sortLabel(), "btnSort", sortMenu),
 		menuButton("Top ▾", "", topMenu),
@@ -37,8 +37,8 @@ func toolbar() iup.Ihandle {
 		menuButton("Top Rated ▾", "", topRatedMenu),
 		menuButton("Genre ▾", "", genreMenu),
 		iup.Fill(),
-		iconButton("log", showLogView),
-		iconButton("settings", onSettings),
+		iconButton("log", showLogView).SetAttributes("TIP=Log"),
+		iconButton("settings", onSettings).SetAttributes("TIP=Settings"),
 		logoButton(),
 	).SetAttributes("GAP=3, ALIGNMENT=ACENTER")
 }
