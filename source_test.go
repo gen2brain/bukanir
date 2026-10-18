@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -160,6 +161,52 @@ func TestEZTVSearchFilters(t *testing.T) {
 	}
 	if got.Magnet != "magnet:?xt=urn:btih:EEEE" {
 		t.Errorf("magnet = %q", got.Magnet)
+	}
+}
+
+func TestEZTVEpisodePages(t *testing.T) {
+	pages := map[string]string{
+		"1": `{"torrents_count":150,"torrents":[
+			{"title":"Show.S02E01.720p","hash":"A1","seeds":9,"size_bytes":"400000000","season":"2","episode":"1"},
+			{"title":"Show.S01E03.720p","hash":"A2","seeds":9,"size_bytes":"400000000","season":"1","episode":"3"}]}`,
+		"2": `{"torrents_count":150,"torrents":[
+			{"title":"Show.S01E03.1080p","hash":"B1","seeds":4,"size_bytes":"900000000","season":"1","episode":"3"},
+			{"title":"Show.S01E02.720p","hash":"B2","seeds":4,"size_bytes":"400000000","season":"1","episode":"2"}]}`,
+	}
+	var requested sync.Map
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		page := r.URL.Query().Get("page")
+		requested.Store(page, true)
+		if r.URL.Query().Get("limit") != "100" {
+			t.Errorf("limit = %q", r.URL.Query().Get("limit"))
+		}
+		w.Write([]byte(pages[page]))
+	}))
+	t.Cleanup(srv.Close)
+	c, err := New(context.Background(), Config{CacheDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { c.Close() })
+	c.eztvBase = srv.URL
+
+	res, err := c.eztvEpisode(context.Background(), "tt1234567", 1, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := requested.Load("2"); !ok {
+		t.Error("second page not requested")
+	}
+	if _, ok := requested.Load("3"); ok {
+		t.Error("page past the torrent count requested")
+	}
+	if len(res) != 2 {
+		t.Fatalf("got %d results, want both S01E03 torrents: %+v", len(res), res)
+	}
+	for _, r := range res {
+		if r.Season != 1 || r.Episode != 3 {
+			t.Errorf("result = %+v", r)
+		}
 	}
 }
 

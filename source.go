@@ -287,21 +287,64 @@ type eztvTorrent struct {
 	Episode   json.Number `json:"episode"`
 }
 
-// eztvSearch returns TV torrents for a title's IMDb id.
+// eztvPageSize is the largest page the EZTV API returns.
+const eztvPageSize = 100
+
+// eztvMaxPages caps how many pages an episode lookup reads.
+const eztvMaxPages = 10
+
+// eztvSearch returns a show's newest TV torrents for its IMDb id.
 func (c *Client) eztvSearch(ctx context.Context, imdbID string, limit int) ([]torrentResult, error) {
-	id := strings.TrimPrefix(imdbID, "tt")
-	if id == "" {
-		return nil, nil
-	}
-	if limit <= 0 {
-		limit = 100
-	}
-	u := fmt.Sprintf("%s/api/get-torrents?imdb_id=%s&limit=%d", c.eztvBase, id, limit)
-	body, err := c.getBytes(ctx, u)
+	res, _, err := c.eztvPage(ctx, imdbID, limit, 1)
+	return res, err
+}
+
+// eztvEpisode reads a show's EZTV pages, which are ordered by date added, and keeps one episode.
+func (c *Client) eztvEpisode(ctx context.Context, imdbID string, season, episode int) ([]torrentResult, error) {
+	first, count, err := c.eztvPage(ctx, imdbID, eztvPageSize, 1)
 	if err != nil {
 		return nil, err
 	}
-	return parseEZTV(body)
+	pages := min((count+eztvPageSize-1)/eztvPageSize, eztvMaxPages)
+	var rest []int
+	for p := 2; p <= pages; p++ {
+		rest = append(rest, p)
+	}
+	lists := boundedMap(ctx, rest, 4, func(ctx context.Context, page int) ([]torrentResult, bool) {
+		res, _, err := c.eztvPage(ctx, imdbID, eztvPageSize, page)
+		return res, err == nil
+	})
+	var out []torrentResult
+	for _, list := range append([][]torrentResult{first}, lists...) {
+		for _, tr := range list {
+			if tr.Season == season && tr.Episode == episode {
+				out = append(out, tr)
+			}
+		}
+	}
+	return out, nil
+}
+
+// eztvPage fetches one page of a show's EZTV torrents and the show's total torrent count.
+func (c *Client) eztvPage(ctx context.Context, imdbID string, limit, page int) ([]torrentResult, int, error) {
+	id := strings.TrimPrefix(imdbID, "tt")
+	if id == "" {
+		return nil, 0, nil
+	}
+	if limit <= 0 || limit > eztvPageSize {
+		limit = eztvPageSize
+	}
+	u := fmt.Sprintf("%s/api/get-torrents?imdb_id=%s&limit=%d&page=%d", c.eztvBase, id, limit, page)
+	body, err := c.getBytes(ctx, u)
+	if err != nil {
+		return nil, 0, err
+	}
+	var head struct {
+		Count int `json:"torrents_count"`
+	}
+	_ = json.Unmarshal(body, &head)
+	res, err := parseEZTV(body)
+	return res, head.Count, err
 }
 
 // parseEZTV decodes an EZTV response and applies the candidate filters.

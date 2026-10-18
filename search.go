@@ -105,7 +105,12 @@ func (c *Client) gatherTorrents(ctx context.Context, query, media string) ([]tor
 			}
 			var sources sync.WaitGroup
 			sources.Go(func() {
-				res, _ := c.eztvSearch(ctx, show.imdbID, 100)
+				if show.season > 0 && show.episode > 0 {
+					res, _ := c.eztvEpisode(ctx, show.imdbID, show.season, show.episode)
+					collect(res, nil)
+					return
+				}
+				res, _ := c.eztvSearch(ctx, show.imdbID, eztvPageSize)
 				collect(res, nil)
 			})
 			sources.Go(func() {
