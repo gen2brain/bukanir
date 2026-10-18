@@ -567,7 +567,7 @@ func applyPlayerSettings(m *mpv.Mpv) {
 	if settings.Fullscreen {
 		m.SetPropertyString("fullscreen", "yes")
 	}
-	m.SetPropertyString("stop-screensaver", yesNo(settings.StopScreensaver))
+	m.SetPropertyString("stop-screensaver", strings.ToLower(yesNo(settings.StopScreensaver)))
 	if settings.VolumeMax >= 100 {
 		m.SetPropertyString("volume-max", strconv.Itoa(settings.VolumeMax))
 	}
