@@ -64,24 +64,31 @@ func onTrailer(s bukanir.TSummary, tab, btn iup.Ihandle) {
 		defer enableControl(btn)
 		defer phase.end()
 		defer sess.end()
-		stream, size, err := client.TrailerStream(sess.ctx, s.TrailerKey)
+		video, audio, err := client.TrailerStreams(sess.ctx, s.TrailerKey)
 		if err != nil {
 			if sess.ctx.Err() == nil {
 				postStatus("error: " + err.Error())
 			}
 			return
 		}
-		defer stream.Close()
+		defer video.Body.Close()
 
-		url, stop := serveStream(stream, size, "video/mp4")
+		url, stop := serveStream(video.Body, video.Size, video.MimeType)
 		defer stop()
+		audioURL := ""
+		if audio != nil {
+			defer audio.Body.Close()
+			var stopAudio func()
+			audioURL, stopAudio = serveStream(audio.Body, audio.Size, audio.MimeType)
+			defer stopAudio()
+		}
 
 		onStart := func() {
 			phase.started()
 			postStatus("Playing trailer...")
 			log.Printf("PLAYER: trailer %q", s.Title)
 		}
-		if err := playExternal(sess, s.Title+" - Trailer", url, nil, onStart, nil); err != nil {
+		if err := playExternal(sess, s.Title+" - Trailer", url, audioURL, nil, onStart, nil); err != nil {
 			log.Printf("ERROR: PLAYER: %v", err)
 			postStatus("error: " + err.Error())
 		}
@@ -204,7 +211,7 @@ func onWatch(m bukanir.TMovie, s bukanir.TSummary, tab, btn iup.Ihandle) {
 				postStatus("Playing " + s.Title)
 			}
 		}
-		if err := playExternal(sess, s.Title, url, subs, onStart, onPause); err != nil {
+		if err := playExternal(sess, s.Title, url, "", subs, onStart, onPause); err != nil {
 			log.Printf("ERROR: PLAYER: %v", err)
 			postStatus("error: " + err.Error())
 		}
@@ -476,7 +483,7 @@ func stopSessions(tab iup.Ihandle) {
 }
 
 // playExternal opens an mpv window and plays url with any external subtitles.
-func playExternal(sess *session, title, url string, subtitles []string, onStart func(), onPause func(bool)) error {
+func playExternal(sess *session, title, url, audioURL string, subtitles []string, onStart func(), onPause func(bool)) error {
 	m := mpv.New()
 	m.SetOptionString("title", title)
 	m.SetOptionString("force-media-title", title)
@@ -521,7 +528,12 @@ func playExternal(sess *session, title, url string, subtitles []string, onStart 
 		case mpv.EventFileLoaded:
 			if !started {
 				started = true
-				// Add subtitles here; sub-add fails silently until the file is loaded.
+				// Add tracks here; sub-add and audio-add fail silently until the file is loaded.
+				if audioURL != "" {
+					if err := m.Command([]string{"audio-add", audioURL, "select"}); err != nil {
+						log.Printf("PLAYER: audio-add failed: %v", err)
+					}
+				}
 				for i, sub := range subtitles {
 					flag := "auto"
 					if i == 0 {
