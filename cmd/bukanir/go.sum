@@ -142,8 +142,8 @@ github.com/gen2brain/go-arti v0.1.0 h1:0D0lx3A+piPFd0OD3jrPT87j+h+o0LK/w7w83Xrm5
 github.com/gen2brain/go-arti v0.1.0/go.mod h1:s+wYCiEW2J//n8NRmdghZtq0es8fV3g0dOtE0fh2ciE=
 github.com/gen2brain/go-mpv v0.4.0 h1:sJkgo/C1NONwlN1MrSz8pArJL0s8i87+1grQwsBRDDM=
 github.com/gen2brain/go-mpv v0.4.0/go.mod h1:J7DM6g0sSZSgPN4v7Z5DD7l49eRgxhNYcxr+2KOApEE=
-github.com/gen2brain/iup-go/iup v0.32.1-0.20261016225519-9fbb697f3177 h1:ZZhGbV5SF65amSH3l0CHbJz3Zm6ky0vFBFcWSBxtiW4=
-github.com/gen2brain/iup-go/iup v0.32.1-0.20261016225519-9fbb697f3177/go.mod h1:RD2P7lG0OxKT/E28fS4fCwN+Q146oZ7WRlprSrScVSI=
+github.com/gen2brain/iup-go/iup v0.32.1-0.20261018213513-6292f42e4683 h1:1F/oV7bxvuB3Hq+QBJNh8Ot9ibREnZYrt52YhXdO3cE=
+github.com/gen2brain/iup-go/iup v0.32.1-0.20261018213513-6292f42e4683/go.mod h1:RD2P7lG0OxKT/E28fS4fCwN+Q146oZ7WRlprSrScVSI=
 github.com/glycerine/go-unsnap-stream v0.0.0-20180323001048-9f0cb55181dd/go.mod h1:/20jfyN9Y5QPEAprSgKAUr+glWDY39ZiUEAYOEv5dsE=
 github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2/go.mod h1:/20jfyN9Y5QPEAprSgKAUr+glWDY39ZiUEAYOEv5dsE=
 github.com/glycerine/go-unsnap-stream v0.0.0-20190901134440-81cf024a9e0a/go.mod h1:/20jfyN9Y5QPEAprSgKAUr+glWDY39ZiUEAYOEv5dsE=
