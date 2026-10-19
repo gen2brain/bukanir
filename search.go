@@ -1,10 +1,11 @@
 package bukanir
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"runtime"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -201,7 +202,7 @@ func (c *Client) latestSeasonEpisodes(ctx context.Context, id int) []episodeRef 
 }
 
 func finalizeMovies(movies []TMovie, opts SearchOptions) []TMovie {
-	sortMovies(movies, opts.SortBy)
+	SortMovies(movies, opts.SortBy)
 	if opts.Limit > 0 && len(movies) > opts.Limit {
 		movies = movies[:opts.Limit]
 	}
@@ -257,22 +258,48 @@ func dedupeMovies(movies []TMovie) []TMovie {
 	return out
 }
 
-func sortMovies(movies []TMovie, sortBy string) {
-	if sortBy == "episodes" {
-		sort.SliceStable(movies, func(i, j int) bool {
-			a, b := movies[i], movies[j]
-			if a.Season != b.Season {
-				return a.Season < b.Season
-			}
-			if a.Episode != b.Episode {
-				return a.Episode < b.Episode
-			}
-			return a.Seeders > b.Seeders
-		})
+// SortMovies orders movies by "seeders" (default) or "episodes". Episodes keeps each
+// title together, titles in seeders order, newest episode first within a title.
+func SortMovies(movies []TMovie, sortBy string) {
+	if sortBy != "episodes" {
+		slices.SortStableFunc(movies, func(a, b TMovie) int { return cmp.Compare(b.Seeders, a.Seeders) })
 		return
 	}
-	sort.SliceStable(movies, func(i, j int) bool {
-		return movies[i].Seeders > movies[j].Seeders
+	type title struct {
+		tv   bool
+		id   int
+		name string
+	}
+	keyOf := func(m TMovie) title {
+		if m.ID == 0 {
+			return title{tv: m.Category.IsTV(), name: m.Title}
+		}
+		return title{tv: m.Category.IsTV(), id: m.ID}
+	}
+	best := map[title]int{}
+	first := map[title]int{}
+	for i, m := range movies {
+		k := keyOf(m)
+		if _, seen := first[k]; !seen {
+			first[k] = i
+		}
+		best[k] = max(best[k], m.Seeders)
+	}
+	slices.SortStableFunc(movies, func(a, b TMovie) int {
+		ka, kb := keyOf(a), keyOf(b)
+		if ka != kb {
+			if c := cmp.Compare(best[kb], best[ka]); c != 0 {
+				return c
+			}
+			return cmp.Compare(first[ka], first[kb])
+		}
+		if c := cmp.Compare(b.Season, a.Season); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(b.Episode, a.Episode); c != 0 {
+			return c
+		}
+		return cmp.Compare(b.Seeders, a.Seeders)
 	})
 }
 

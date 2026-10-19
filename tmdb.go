@@ -525,7 +525,7 @@ func (c *Client) Category(ctx context.Context, category Category) ([]TMovie, err
 	})
 	preferRealSeeders(movies)
 	movies = dedupeMovies(movies)
-	sortMovies(movies, "seeders")
+	SortMovies(movies, "seeders")
 
 	if data, err := json.Marshal(movies); err == nil {
 		_ = c.cache.put(cacheKey, data)
@@ -582,7 +582,7 @@ func (c *Client) discover(ctx context.Context, with string, id, limit int) ([]TM
 	})
 	preferRealSeeders(movies)
 	movies = dedupeMovies(movies)
-	sortMovies(movies, "seeders")
+	SortMovies(movies, "seeders")
 
 	if data, err := json.Marshal(movies); err == nil {
 		_ = c.cache.put(cacheKey, data)

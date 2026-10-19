@@ -249,7 +249,13 @@ func fieldLabel(text string) iup.Ihandle {
 
 // openBrowse opens a new grid tab populated by load.
 func openBrowse(title string, load func(context.Context) ([]bukanir.TMovie, error)) {
+	openBrowseSorted(title, sortBy, load)
+}
+
+// openBrowseSorted is openBrowse with the tab's initial sort order.
+func openBrowseSorted(title, by string, load func(context.Context) ([]bukanir.TMovie, error)) {
 	holder := gridTab()
+	setSortable(holder, by)
 	addTab(title, holder)
 	reload := func() {
 		go func() {

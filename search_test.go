@@ -111,7 +111,7 @@ func TestSearchEpisodesMergesSources(t *testing.T) {
 	if len(movies) != 3 {
 		t.Fatalf("got %d episodes, want 3 (TPB + EZTV + Torrentio)", len(movies))
 	}
-	if movies[0].Episode != 14 || movies[1].Episode != 15 || movies[2].Episode != 16 {
+	if movies[0].Episode != 16 || movies[1].Episode != 15 || movies[2].Episode != 14 {
 		t.Errorf("episode sort wrong: %d, %d, %d", movies[0].Episode, movies[1].Episode, movies[2].Episode)
 	}
 	for _, m := range movies {
@@ -119,7 +119,7 @@ func TestSearchEpisodesMergesSources(t *testing.T) {
 			t.Errorf("tv result = %+v", m)
 		}
 	}
-	pack := movies[2]
+	pack := movies[0]
 	if !pack.Pack || pack.Source != "torrentio" || pack.FileIdx != 15 || pack.FileName != "Breaking.Bad.S05E16.1080p.BluRay.x264.mkv" {
 		t.Errorf("pack = %+v", pack)
 	}
@@ -222,9 +222,28 @@ func TestBoundedMap(t *testing.T) {
 
 func TestSortMoviesBySeeders(t *testing.T) {
 	movies := []TMovie{{Seeders: 5}, {Seeders: 50}, {Seeders: 20}}
-	sortMovies(movies, "seeders")
+	SortMovies(movies, "seeders")
 	if movies[0].Seeders != 50 || movies[2].Seeders != 5 {
 		t.Errorf("not sorted by seeders: %+v", movies)
+	}
+}
+
+func TestSortMoviesByEpisodes(t *testing.T) {
+	movies := []TMovie{
+		{ID: 1, Title: "A", Category: CategoryTV, Season: 1, Episode: 2, Seeders: 10},
+		{ID: 2, Title: "B", Category: CategoryTV, Season: 3, Episode: 1, Seeders: 90},
+		{ID: 1, Title: "A", Category: CategoryTV, Season: 2, Episode: 1, Seeders: 5},
+		{ID: 2, Title: "B", Category: CategoryTV, Season: 3, Episode: 4, Seeders: 20},
+		{ID: 1, Title: "A", Category: CategoryHDMovies, Seeders: 40},
+		{ID: 1, Title: "A", Category: CategoryTV, Season: 2, Episode: 1, Seeders: 30},
+	}
+	SortMovies(movies, "episodes")
+	type ep struct{ id, season, episode, seeders int }
+	want := []ep{{2, 3, 4, 20}, {2, 3, 1, 90}, {1, 0, 0, 40}, {1, 2, 1, 30}, {1, 2, 1, 5}, {1, 1, 2, 10}}
+	for i, m := range movies {
+		if got := (ep{m.ID, m.Season, m.Episode, m.Seeders}); got != want[i] {
+			t.Errorf("movies[%d] = %+v, want %+v", i, got, want[i])
+		}
 	}
 }
 

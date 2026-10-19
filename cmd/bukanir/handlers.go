@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -149,11 +150,54 @@ var reloaders = map[iup.Ihandle]func(){}
 
 func setReloader(tab iup.Ihandle, reload func()) { reloaders[tab] = reload }
 
+// tabSort is a browse tab's last results and the order they are shown in.
+type tabSort struct {
+	movies []bukanir.TMovie
+	sortBy string
+}
+
+// tabSorts holds the sort state of each open browse tab, keyed by the tab holder.
+var tabSorts = map[iup.Ihandle]*tabSort{}
+
+func setSortable(tab iup.Ihandle, by string) { tabSorts[tab] = &tabSort{sortBy: by} }
+
+// showSorted shows a browse tab's results in its order; other grids show results as given.
+func showSorted(tab iup.Ihandle, movies []bukanir.TMovie) {
+	ts := tabSorts[tab]
+	if ts == nil {
+		showMovies(tab, movies)
+		return
+	}
+	ts.movies = movies
+	sorted := slices.Clone(movies)
+	bukanir.SortMovies(sorted, ts.sortBy)
+	showMovies(tab, sorted)
+}
+
+// resortCurrentTab applies sortBy to the selected browse tab.
+func resortCurrentTab() {
+	tab := currentTab()
+	ts := tabSorts[tab]
+	if ts == nil || ts.sortBy == sortBy {
+		return
+	}
+	ts.sortBy = sortBy
+	if ts.movies != nil {
+		showSorted(tab, ts.movies)
+	}
+}
+
+// syncSortButton makes the Sort button show the order of tab, the selected one.
+func syncSortButton(tab iup.Ihandle) {
+	if ts := tabSorts[tab]; ts != nil && ts.sortBy != sortBy {
+		sortBy = ts.sortBy
+		setButtonTitle("btnSort", sortLabel())
+	}
+}
+
 // onRefreshClick reloads the content of the currently selected tab.
 func onRefreshClick() {
-	tabs := iup.GetHandle("tabs")
-	tab := iup.GetChild(tabs, tabs.GetInt("VALUEPOS"))
-	if r := reloaders[tab]; r != nil {
+	if r := reloaders[currentTab()]; r != nil {
 		r()
 	}
 }

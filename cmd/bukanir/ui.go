@@ -114,6 +114,7 @@ func sortMenu() iup.Ihandle {
 		mi := menuItemAction(o.label, func() {
 			sortBy = o.val
 			setButtonTitle("btnSort", sortLabel())
+			resortCurrentTab()
 		})
 		if sortBy == o.val {
 			mi.SetAttribute("VALUE", "ON")
@@ -396,8 +397,7 @@ func onKey(_ iup.Ihandle, c int) int {
 		if cls := iup.GetClassName(iup.GetFocus()); cls == "text" || cls == "list" {
 			return iup.CONTINUE
 		}
-		tabs := iup.GetHandle("tabs")
-		if f := watchActions[iup.GetChild(tabs, tabs.GetInt("VALUEPOS"))]; f != nil {
+		if f := watchActions[currentTab()]; f != nil {
 			f()
 			return iup.IGNORE
 		}
@@ -411,8 +411,7 @@ func onKey(_ iup.Ihandle, c int) int {
 		closeCurrentTab()
 		return iup.IGNORE
 	case iup.XKeyCtrl(iup.K_D):
-		tabs := iup.GetHandle("tabs")
-		if f := favoriteActions[iup.GetChild(tabs, tabs.GetInt("VALUEPOS"))]; f != nil {
+		if f := favoriteActions[currentTab()]; f != nil {
 			f()
 			return iup.IGNORE
 		}
@@ -425,8 +424,7 @@ func closeCurrentTab() {
 	if iup.GetChildCount(tabs) == 0 {
 		return
 	}
-	child := iup.GetChild(tabs, tabs.GetInt("VALUEPOS"))
-	iup.PostMessage(tabs, "close", 0, child) // defer destroy out of the key callback
+	iup.PostMessage(tabs, "close", 0, currentTab()) // defer destroy out of the key callback
 }
 
 func cycleTab(delta int) {
@@ -435,24 +433,40 @@ func cycleTab(delta int) {
 	if n <= 1 {
 		return
 	}
-	pos := (tabs.GetInt("VALUEPOS") + delta + n) % n
+	selectTab(tabs, (tabs.GetInt("VALUEPOS")+delta+n)%n)
+}
+
+func currentTab() iup.Ihandle {
+	tabs := iup.GetHandle("tabs")
+	return iup.GetChild(tabs, tabs.GetInt("VALUEPOS"))
+}
+
+// selectTab selects the tab at pos and shows its order on the Sort button.
+func selectTab(tabs iup.Ihandle, pos int) {
 	tabs.SetAttribute("VALUEPOS", strconv.Itoa(pos))
+	syncSortButton(iup.GetChild(tabs, pos))
 }
 
 // content is the tabbed browsing area; the first tab is the "Top" landing grid.
 func content() iup.Ihandle {
 	top := gridTab().SetHandle("content0").SetAttribute("TABTITLE", "Top HD Movies")
 	setReloader(top, startup)
+	setSortable(top, sortBy)
 	tabs := iup.Tabs(top).SetHandle("tabs").SetAttributes("EXPAND=YES, SHOWCLOSE=YES, ALLOWREORDER=YES")
 	tabs.SetCallback("TABCLOSE_CB", iup.TabCloseFunc(func(ih iup.Ihandle, pos int) int {
 		child := iup.GetChild(ih, pos)
 		stopSessions(child)
 		delete(reloaders, child)
+		delete(tabSorts, child)
 		delete(watchActions, child)
 		forgetFavoritesTab(child)
 		selectNeighborTab(ih, pos)
 		iup.PostMessage(ih, "gc", 0, nil) // GC after the page is destroyed
 		return iup.CONTINUE
+	}))
+	tabs.SetCallback("TABCHANGE_CB", iup.TabChangeFunc(func(_, tab, _ iup.Ihandle) int {
+		syncSortButton(tab)
+		return iup.DEFAULT
 	}))
 	tabs.SetCallback("POSTMESSAGE_CB", iup.PostMessageFunc(onTabMessage))
 	return tabs
@@ -485,7 +499,7 @@ func addTab(name string, child iup.Ihandle) {
 	pos := iup.GetChildCount(tabs) - 1
 	iup.Refresh(tabs)
 	tabs.SetAttribute("TABTIP"+strconv.Itoa(pos), name)
-	tabs.SetAttribute("VALUEPOS", strconv.Itoa(pos))
+	selectTab(tabs, pos)
 }
 
 // gridTab creates a tab container that renders a movie grid from PostMessage.
@@ -493,7 +507,7 @@ func gridTab() iup.Ihandle {
 	holder := iup.Vbox(loadingBox("Loading")).SetAttributes("EXPAND=YES")
 	holder.SetCallback("POSTMESSAGE_CB", iup.PostMessageFunc(func(ih iup.Ihandle, _ string, _ int, p any) int {
 		if movies, ok := p.([]bukanir.TMovie); ok {
-			showMovies(ih, movies)
+			showSorted(ih, movies)
 		}
 		return iup.DEFAULT
 	}))
@@ -533,6 +547,7 @@ func onTabMessage(tabs iup.Ihandle, msg string, delta int, p any) int {
 			selectNeighborTab(tabs, childPos(tabs, h))
 			stopSessions(h)
 			delete(reloaders, h)
+			delete(tabSorts, h)
 			delete(watchActions, h)
 			forgetFavoritesTab(h)
 			iup.Destroy(h)
@@ -621,7 +636,7 @@ func selectNeighborTab(tabs iup.Ihandle, pos int) {
 	if pos == 0 {
 		next = 1
 	}
-	tabs.SetAttribute("VALUEPOS", strconv.Itoa(next))
+	selectTab(tabs, next)
 }
 
 func childPos(parent, child iup.Ihandle) int {

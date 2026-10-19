@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"time"
 
 	"github.com/gen2brain/bukanir"
@@ -180,7 +179,7 @@ func forgetFavoritesTab(tab iup.Ihandle) {
 func openFavorites() {
 	tabs := iup.GetHandle("tabs")
 	if reload, open := reloaders[favoritesTab]; open && favoritesTab != 0 {
-		tabs.SetAttribute("VALUEPOS", strconv.Itoa(iup.GetChildPos(tabs, favoritesTab)))
+		selectTab(tabs, iup.GetChildPos(tabs, favoritesTab))
 		reload()
 		return
 	}
@@ -196,19 +195,12 @@ func openFavorites() {
 // openShow lists the episodes of a favorite show, newest first.
 func openShow(m bukanir.TMovie) {
 	title, id := m.Title, m.ID
-	openBrowse(title, func(ctx context.Context) ([]bukanir.TMovie, error) {
+	openBrowseSorted(title, "episodes", func(ctx context.Context) ([]bukanir.TMovie, error) {
 		found, err := client.Search(ctx, title, bukanir.SearchOptions{Media: "episodes"})
 		if err != nil {
 			return nil, err
 		}
-		episodes := slices.DeleteFunc(found, func(e bukanir.TMovie) bool { return e.ID != id || !e.Category.IsTV() })
-		slices.SortStableFunc(episodes, func(a, b bukanir.TMovie) int {
-			if a.Season != b.Season {
-				return b.Season - a.Season
-			}
-			return b.Episode - a.Episode
-		})
-		return episodes, nil
+		return slices.DeleteFunc(found, func(e bukanir.TMovie) bool { return e.ID != id || !e.Category.IsTV() }), nil
 	})
 }
 
