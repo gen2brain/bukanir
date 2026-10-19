@@ -123,12 +123,20 @@ var iconTorOff []byte
 //go:embed images/log.png
 var iconLog []byte
 
+//go:embed images/star.png
+var iconStar []byte
+
+//go:embed images/star-outline.png
+var iconStarOutline []byte
+
 // monoIcons are recolored to the dialog text color; monoButtons maps toolbar buttons to their icon.
 var (
 	monoIcons = map[string]image.Image{
-		"refresh":  nil,
-		"settings": nil,
-		"log":      nil,
+		"refresh":      nil,
+		"settings":     nil,
+		"log":          nil,
+		"star":         nil,
+		"star-outline": nil,
 	}
 	monoButtons = map[iup.Ihandle]string{}
 )
@@ -153,9 +161,11 @@ func retintIcons() {
 // loadIcons decodes the embedded PNGs into named IUP images.
 func loadIcons() {
 	mono := map[string][]byte{
-		"refresh":  iconRefresh,
-		"settings": iconSettings,
-		"log":      iconLog,
+		"refresh":      iconRefresh,
+		"settings":     iconSettings,
+		"log":          iconLog,
+		"star":         iconStar,
+		"star-outline": iconStarOutline,
 	}
 	colored := map[string][]byte{
 		"tor":     iconTor,

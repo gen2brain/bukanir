@@ -109,7 +109,7 @@ func onTrailer(s bukanir.TSummary, tab, btn iup.Ihandle) {
 // onWatch streams the movie's torrent to a local HTTP server and plays it in mpv.
 func onWatch(m bukanir.TMovie, s bukanir.TSummary, tab, btn iup.Ihandle) {
 	if m.Magnet == "" {
-		postStatus("No magnet for this title")
+		postStatus("No torrent found for this title right now")
 		return
 	}
 	disablePlayButton(btn)

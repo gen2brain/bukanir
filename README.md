@@ -10,6 +10,7 @@ Features
 
 * Watch movies and TV shows on your desktop, played with libmpv
 * Browse top, popular and top rated titles, by year or by genre, or search by title, cast or director
+* Favorite movies and shows; a favorite show lists its newest episodes
 * Embedded Tor for privacy
 * Subtitles in many languages from OpenSubtitles, SubDL, YIFY, Gestdown and MovieSubtitles
 * Dark, light or system appearance

@@ -55,6 +55,7 @@ func main() {
 	iup.SetGlobal("APPID", "io.github.gen2brain.bukanir")
 	initDirs()
 	settings = loadSettings()
+	loadFavorites()
 	iup.SetGlobal("APPEARANCE", settings.appearance())
 
 	loadIcons()

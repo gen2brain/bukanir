@@ -17,11 +17,14 @@ const summaryPosterW, summaryPosterH = 600, 900
 
 // openSummary opens a detail tab for a movie and loads its metadata.
 func openSummary(m bukanir.TMovie) {
+	if isShowEntry(m) {
+		openShow(m)
+		return
+	}
 	holder := iup.Vbox(loadingBox("Loading")).SetAttributes("EXPAND=YES")
-	movie := m
 	holder.SetCallback("POSTMESSAGE_CB", iup.PostMessageFunc(func(ih iup.Ihandle, _ string, _ int, p any) int {
-		if s, ok := p.(bukanir.TSummary); ok {
-			showSummary(ih, movie, s)
+		if r, ok := p.(summaryResult); ok {
+			showSummary(ih, r.movie, r.summary)
 		}
 		return iup.DEFAULT
 	}))
@@ -29,16 +32,27 @@ func openSummary(m bukanir.TMovie) {
 
 	reload := func() {
 		go func() {
-			s, err := client.Summary(context.Background(), m.ID, m.Category, m.Season, m.Episode)
+			ctx := context.Background()
+			s, err := client.Summary(ctx, m.ID, m.Category, m.Season, m.Episode)
 			if err != nil {
 				iup.PostMessage(iup.GetHandle("status"), "error: "+err.Error(), 0, nil)
 				return
 			}
-			iup.PostMessage(holder, "", 0, s)
+			movie := m
+			if movie.Magnet == "" && !movie.Category.IsTV() {
+				movie, _ = findTorrent(ctx, m)
+			}
+			iup.PostMessage(holder, "", 0, summaryResult{movie, s})
 		}()
 	}
 	setReloader(holder, reload)
 	reload()
+}
+
+// summaryResult is a title's details with the torrent it will play.
+type summaryResult struct {
+	movie   bukanir.TMovie
+	summary bukanir.TSummary
 }
 
 // showSummary renders the movie detail layout into holder.
@@ -79,6 +93,23 @@ func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 		playButton(trailer, func() { onTrailer(s, holder, trailer) })
 		actions = append(actions, trailer)
 	}
+	if old, ok := favoriteButtons[holder]; ok {
+		delete(monoButtons, old.button)
+	}
+	star := iup.Button("Favorite").SetAttributes("PADDING=22x8")
+	setFavoriteIcon(star, isFavorite(m))
+	if m.Category.IsTV() {
+		star.SetAttribute("TIP", "Add or remove the show from favorites (Ctrl+D)")
+	} else {
+		star.SetAttribute("TIP", "Add or remove the movie from favorites (Ctrl+D)")
+	}
+	star.SetCallback("ACTION", iup.ActionFunc(func(iup.Ihandle) int {
+		toggleFavorite(m)
+		return iup.DEFAULT
+	}))
+	favoriteActions[holder] = func() { toggleFavorite(m) }
+	favoriteButtons[holder] = favoriteButton{star, m}
+	actions = append(actions, iup.Fill(), star)
 
 	top := []iup.Ihandle{title, meta, genres}
 	if m.Release != "" {

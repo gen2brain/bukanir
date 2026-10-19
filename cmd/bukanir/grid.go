@@ -181,7 +181,11 @@ func borderedPoster(src image.Image, thickness int) *image.RGBA {
 func showMovies(holder iup.Ihandle, movies []bukanir.TMovie) {
 	clearChildren(holder)
 	if len(movies) == 0 {
-		lbl := placeholder("No results")
+		text := holder.GetAttribute("EMPTYTEXT")
+		if text == "" {
+			text = "No results"
+		}
+		lbl := placeholder(text)
 		iup.Append(holder, lbl)
 		iup.Map(lbl)
 		iup.Refresh(holder)
@@ -339,6 +343,7 @@ func posterCell(m bukanir.TMovie) (cell, target iup.Ihandle) {
 			scrollToShowCell(iup.GetParent(iup.GetParent(cell)), cell)
 		},
 		func() { selectCell(title, poster); openSummary(movie) },
+		func() { favoriteMenu(movie) },
 	)
 	target = poster
 	poster.SetAttribute("TIP", m.Title)
@@ -349,13 +354,20 @@ func posterCell(m bukanir.TMovie) (cell, target iup.Ihandle) {
 }
 
 // posterView returns an image Label sized to its poster, filled via PostMessage.
-func posterView(w, h int, onSelect, onOpen func()) iup.Ihandle {
+func posterView(w, h int, onSelect, onOpen, onMenu func()) iup.Ihandle {
 	name := "poster" + strconv.FormatInt(posterSeq.Add(1), 10)
 
 	poster := iup.Label("").SetAttribute("IMAGE", blankPoster(w, h))
 	trackTarget(poster, "BASEIMG", "SELIMG")
-	if onSelect != nil || onOpen != nil {
+	if onSelect != nil || onOpen != nil || onMenu != nil {
 		poster.SetCallback("BUTTON_CB", iup.ButtonFunc(func(_ iup.Ihandle, button, pressed, _, _ int, status string) int {
+			if button == iup.BUTTON3 && pressed == 1 && onMenu != nil {
+				if onSelect != nil {
+					onSelect()
+				}
+				onMenu()
+				return iup.DEFAULT
+			}
 			if button != iup.BUTTON1 || pressed != 1 {
 				return iup.DEFAULT
 			}
@@ -405,7 +417,7 @@ func blankPoster(w, h int) string {
 
 func movieSubtitle(m bukanir.TMovie) string {
 	s := strconv.Itoa(m.Year)
-	if m.Category.IsTV() {
+	if m.Category.IsTV() && !isShowEntry(m) {
 		s = fmt.Sprintf("S%02dE%02d", m.Season, m.Episode)
 	}
 	if q := qualityLabel(m.Quality); q != "" {

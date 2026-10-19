@@ -37,6 +37,7 @@ func toolbar() iup.Ihandle {
 		menuButton("Top Rated ▾", "", topRatedMenu),
 		menuButton("Genre ▾", "", genreMenu),
 		iup.Fill(),
+		iconButton("star", openFavorites).SetAttributes("TIP=Favorites"),
 		iconButton("log", showLogView).SetAttributes("TIP=Log"),
 		iconButton("settings", onSettings).SetAttributes("TIP=Settings"),
 		logoButton(),
@@ -409,6 +410,12 @@ func onKey(_ iup.Ihandle, c int) int {
 	case iup.XKeyCtrl(iup.K_W), iup.XKeyCtrl(iup.K_F4):
 		closeCurrentTab()
 		return iup.IGNORE
+	case iup.XKeyCtrl(iup.K_D):
+		tabs := iup.GetHandle("tabs")
+		if f := favoriteActions[iup.GetChild(tabs, tabs.GetInt("VALUEPOS"))]; f != nil {
+			f()
+			return iup.IGNORE
+		}
 	}
 	return iup.CONTINUE
 }
@@ -442,6 +449,7 @@ func content() iup.Ihandle {
 		stopSessions(child)
 		delete(reloaders, child)
 		delete(watchActions, child)
+		forgetFavoritesTab(child)
 		selectNeighborTab(ih, pos)
 		iup.PostMessage(ih, "gc", 0, nil) // GC after the page is destroyed
 		return iup.CONTINUE
@@ -526,6 +534,7 @@ func onTabMessage(tabs iup.Ihandle, msg string, delta int, p any) int {
 			stopSessions(h)
 			delete(reloaders, h)
 			delete(watchActions, h)
+			forgetFavoritesTab(h)
 			iup.Destroy(h)
 			updateNoTabs()
 			releaseImages()

@@ -53,6 +53,7 @@ func showShortcuts(parent iup.Ihandle) {
 			"Ctrl+Tab", "Next tab",
 			"Ctrl+Shift+Tab", "Previous tab",
 			"Ctrl+W", "Close the tab",
+			"Ctrl+D", "Add or remove the title from favorites on a details tab",
 		),
 	)
 	player := frame("Player (mpv)",

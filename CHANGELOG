@@ -4,6 +4,7 @@ v3.0:
     * Library is pure Go: anacrolix/torrent replaces libtorrent, Tor is embedded through go-arti
     * Subtitles from OpenSubtitles, SubDL, YIFY, Gestdown and MovieSubtitles
     * Episodes from Torrentio next to EZTV, including the episode file of season packs
+    * Favorites for movies and shows
     * OpenSubtitles and SubDL keys are read from the environment
     * Android app is removed
 
