@@ -122,9 +122,11 @@ func TestTransportTorErrorCached(t *testing.T) {
 }
 
 func TestTransportCloseDuringBootstrap(t *testing.T) {
+	started := make(chan struct{})
 	release := make(chan struct{})
 	fake := &fakeTor{client: &http.Client{}}
 	swapTorProvider(t, func(context.Context, string, int, io.Writer) (torProvider, error) {
+		close(started)
 		<-release
 		return fake, nil
 	})
@@ -132,6 +134,10 @@ func TestTransportCloseDuringBootstrap(t *testing.T) {
 	tr := newTransport(context.Background(), Config{Tor: true, TorInstances: 1}, "")
 	done := make(chan error, 1)
 	go func() { done <- tr.ensureTor() }()
+	<-started
+	if st, _ := tr.torStatus(); st != TorStarting {
+		t.Errorf("state while bootstrapping = %d, want TorStarting", st)
+	}
 
 	if err := tr.Close(); err != nil {
 		t.Fatal(err)
@@ -142,6 +148,55 @@ func TestTransportCloseDuringBootstrap(t *testing.T) {
 	}
 	if !fake.closed {
 		t.Error("provider finished after Close was not closed")
+	}
+	<-tr.done
+}
+
+func TestTransportTorStatus(t *testing.T) {
+	fail := errors.New("no network")
+	for _, tc := range []struct {
+		name string
+		err  error
+		want TorState
+	}{
+		{"ready", nil, TorReady},
+		{"failed", fail, TorFailed},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			swapTorProvider(t, func(context.Context, string, int, io.Writer) (torProvider, error) {
+				if tc.err != nil {
+					return nil, tc.err
+				}
+				return &fakeTor{client: &http.Client{}}, nil
+			})
+			tr := newTransport(context.Background(), Config{Tor: true, TorInstances: 1}, "")
+			if st, _ := tr.torStatus(); st != TorOff {
+				t.Errorf("state before start = %d, want TorOff", st)
+			}
+			tr.ensureTor()
+			<-tr.done
+			st, err := tr.torStatus()
+			if st != tc.want || !errors.Is(err, tc.err) {
+				t.Errorf("state = %d, %v; want %d, %v", st, err, tc.want, tc.err)
+			}
+			tr.Close()
+			if st, _ := tr.torStatus(); st != TorOff {
+				t.Errorf("state after Close = %d, want TorOff", st)
+			}
+		})
+	}
+}
+
+func TestTransportDoneWithoutStart(t *testing.T) {
+	tr := newTransport(context.Background(), Config{Tor: true}, "")
+	tr.Close()
+	select {
+	case <-tr.done:
+	default:
+		t.Fatal("done not closed by Close of an unstarted transport")
+	}
+	if err := tr.ensureTor(); !errors.Is(err, errTransportClosed) {
+		t.Errorf("ensureTor after Close = %v, want errTransportClosed", err)
 	}
 }
 

@@ -354,12 +354,13 @@ func yearMenu() iup.Ihandle {
 
 // statusBar shows a status message, a progress bar, and the Tor status icon.
 func statusBar() iup.Ihandle {
-	status := iup.Label("Ready").SetHandle("status").SetAttributes("EXPAND=HORIZONTAL")
+	status := iup.Label("Ready").SetHandle("status").SetAttributes("EXPAND=HORIZONTAL, ELLIPSIS=YES, RASTERSIZE=1x")
 	status.SetCallback("POSTMESSAGE_CB", iup.PostMessageFunc(func(ih iup.Ihandle, s string, _ int, _ any) int {
 		ih.SetAttribute("TITLE", plainText(s))
 		return iup.DEFAULT
 	}))
 	tor := iup.Label("").SetHandle("torStatus").SetAttributes("IMAGE=tor-off, TIP=\"Tor is off\"")
+	tor.SetCallback("POSTMESSAGE_CB", iup.PostMessageFunc(onTorDone))
 	progress := iup.ProgressBar().SetHandle("progress").SetAttributes("RASTERSIZE=180x16, VISIBLE=NO")
 	progress.SetCallback("POSTMESSAGE_CB", iup.PostMessageFunc(func(ih iup.Ihandle, s string, i int, _ any) int {
 		if s == "hide" {

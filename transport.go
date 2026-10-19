@@ -44,12 +44,15 @@ type transport struct {
 
 	direct *http.Client
 
-	once   sync.Once
-	mu     sync.Mutex
-	closed bool
-	tor    torProvider
-	torc   *http.Client
-	err    error
+	once     sync.Once
+	mu       sync.Mutex
+	closed   bool
+	starting bool
+	finish   sync.Once
+	done     chan struct{}
+	tor      torProvider
+	torc     *http.Client
+	err      error
 }
 
 // newTransport builds a transport; torCacheDir persists the Tor dir cache, empty uses a temp dir.
@@ -64,6 +67,7 @@ func newTransport(ctx context.Context, cfg Config, torCacheDir string) *transpor
 		cfg:       cfg,
 		ctx:       ctx,
 		cancel:    cancel,
+		done:      make(chan struct{}),
 		cacheDir:  torCacheDir,
 		instances: instances,
 		direct: &http.Client{
@@ -85,23 +89,50 @@ func newTransport(ctx context.Context, cfg Config, torCacheDir string) *transpor
 // ensureTor bootstraps the Tor provider once and caches it (or the error).
 func (t *transport) ensureTor() error {
 	t.once.Do(func() {
+		defer t.finishTor()
+		t.mu.Lock()
+		if t.closed {
+			t.err = errTransportClosed
+			t.mu.Unlock()
+			return
+		}
+		t.starting = true
+		t.mu.Unlock()
+
 		p, err := newTorProvider(t.ctx, t.cacheDir, t.instances, t.cfg.TorLog)
 		t.mu.Lock()
 		defer t.mu.Unlock()
-		if err != nil {
+		switch {
+		case err != nil:
 			t.err = err
-			return
-		}
-		if t.closed {
+		case t.closed:
 			p.Close()
 			t.err = errTransportClosed
-			return
+		default:
+			c := p.HTTPClient()
+			c.Timeout = t.cfg.HTTPTimeout
+			t.tor, t.torc = p, c
 		}
-		c := p.HTTPClient()
-		c.Timeout = t.cfg.HTTPTimeout
-		t.tor, t.torc = p, c
 	})
 	return t.err
+}
+
+func (t *transport) finishTor() { t.finish.Do(func() { close(t.done) }) }
+
+func (t *transport) torStatus() (TorState, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	switch {
+	case t.closed:
+		return TorOff, nil
+	case t.tor != nil:
+		return TorReady, nil
+	case t.err != nil:
+		return TorFailed, t.err
+	case t.starting:
+		return TorStarting, nil
+	}
+	return TorOff, nil
 }
 
 // client is the HTTP client for non-.onion metadata: always direct.
@@ -142,6 +173,9 @@ func (t *transport) Close() error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.closed = true
+	if !t.starting {
+		t.finishTor()
+	}
 	if t.tor != nil {
 		return t.tor.Close()
 	}

@@ -94,7 +94,7 @@ func main() {
 
 	iup.Map(dlg)
 	iup.ShowXY(dlg, iup.CENTER, iup.CENTER)
-	updateTorStatus()
+	watchTor(client)
 	startup()
 	loadMenus()
 	iup.MainLoop()

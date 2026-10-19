@@ -400,18 +400,45 @@ func applySettings(next *Settings) {
 		setStatus("Settings applied, client reload failed: " + err.Error())
 	}
 
-	updateTorStatus()
+	watchTor(client)
 	setStatus("Settings saved")
+}
+
+// watchTor shows c's Tor state now and again when its Tor client finishes starting.
+func watchTor(c *bukanir.Client) {
+	updateTorStatus()
+	tor := iup.GetHandle("torStatus")
+	go func() {
+		<-c.TorDone()
+		iup.PostMessage(tor, "", 0, c)
+	}()
+}
+
+// onTorDone updates the Tor icon for the current client and reports a failed start.
+func onTorDone(_ iup.Ihandle, _ string, _ int, p any) int {
+	if c, ok := p.(*bukanir.Client); !ok || c != client {
+		return iup.DEFAULT
+	}
+	updateTorStatus()
+	if st, err := client.TorStatus(); st == bukanir.TorFailed {
+		setStatus("Tor error: " + err.Error())
+	}
+	return iup.DEFAULT
 }
 
 func updateTorStatus() {
 	icon, tip := "tor-off", "Tor is off"
-	if settings.UseTor {
-		icon, tip = "tor", "Tor is on"
+	switch st, err := client.TorStatus(); st {
+	case bukanir.TorStarting:
+		icon, tip = "tor-starting", "Tor is starting"
+	case bukanir.TorReady:
+		icon, tip = "tor", "Tor is connected"
+	case bukanir.TorFailed:
+		icon, tip = "tor-failed", "Tor failed: "+err.Error()
 	}
 	tor := iup.GetHandle("torStatus")
 	tor.SetAttribute("IMAGE", icon)
-	tor.SetAttribute("TIP", tip)
+	tor.SetAttribute("TIP", plainText(tip))
 }
 
 // settingsPage is one sidebar entry of the settings dialog.

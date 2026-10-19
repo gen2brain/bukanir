@@ -181,6 +181,12 @@ func loadIcons() {
 			iup.ImageFromImage(resizeIcon(img, iconSize)).SetHandle(name)
 		}
 	}
+	if img, err := png.Decode(bytes.NewReader(iconTor)); err == nil {
+		iup.ImageFromImage(fadeIcon(resizeIcon(img, iconSize), 0.4)).SetHandle("tor-starting")
+	}
+	if img, err := png.Decode(bytes.NewReader(iconTorOff)); err == nil {
+		iup.ImageFromImage(reddenIcon(resizeIcon(img, iconSize))).SetHandle("tor-failed")
+	}
 
 	if img, err := png.Decode(bytes.NewReader(iconLogo)); err == nil {
 		iup.ImageFromImage(resizeIcon(img, 48)).SetHandle("appicon")
@@ -190,6 +196,25 @@ func loadIcons() {
 	if img, err := png.Decode(bytes.NewReader(iconLogoGray)); err == nil {
 		iup.ImageFromImage(resizeIcon(img, iconSize)).SetHandle("logo-gray")
 	}
+}
+
+// fadeIcon scales the alpha of img by f.
+func fadeIcon(img *image.RGBA, f float64) *image.RGBA {
+	for i := 3; i < len(img.Pix); i += 4 {
+		for j := i - 3; j <= i; j++ {
+			img.Pix[j] = uint8(float64(img.Pix[j]) * f)
+		}
+	}
+	return img
+}
+
+// reddenIcon keeps the red channel of img and darkens green and blue.
+func reddenIcon(img *image.RGBA) *image.RGBA {
+	for i := 0; i < len(img.Pix); i += 4 {
+		img.Pix[i+1] = img.Pix[i+1] / 3
+		img.Pix[i+2] = img.Pix[i+2] / 3
+	}
+	return img
 }
 
 // resizeIcon scales src to a square of the given size.

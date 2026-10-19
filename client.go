@@ -102,6 +102,22 @@ func (c *Client) PeerDialer() (PeerDialer, error) {
 	return c.tr.dialer()
 }
 
+// TorState is the state of the embedded Tor client.
+type TorState int
+
+const (
+	TorOff TorState = iota
+	TorStarting
+	TorReady
+	TorFailed
+)
+
+// TorStatus returns the state of the embedded Tor client and, for TorFailed, its error.
+func (c *Client) TorStatus() (TorState, error) { return c.tr.torStatus() }
+
+// TorDone is closed when the embedded Tor client has finished starting or the Client is closed.
+func (c *Client) TorDone() <-chan struct{} { return c.tr.done }
+
 // StartTor bootstraps the embedded Tor client in the background, so a later PeerDialer finds it ready.
 func (c *Client) StartTor() {
 	if c.cfg.Tor {
