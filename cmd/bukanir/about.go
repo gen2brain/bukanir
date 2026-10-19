@@ -33,6 +33,7 @@ func showAbout() {
 	closeBtn := iup.Button("Close").SetAttributes("PADDING=14x4")
 	body := iup.Vbox(
 		iup.Hbox(logo, text).SetAttributes("GAP=16, ALIGNMENT=ACENTER"),
+		iup.Label("").SetAttribute("SEPARATOR", "HORIZONTAL"),
 		tmdb,
 		iup.Hbox(iup.Fill(), help, closeBtn).SetAttributes("GAP=8"),
 	).SetAttributes("NMARGIN=14x14, GAP=14")
