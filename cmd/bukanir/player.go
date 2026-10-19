@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -64,9 +65,18 @@ func onTrailer(s bukanir.TSummary, tab, btn iup.Ihandle) {
 		defer enableControl(btn)
 		defer phase.end()
 		defer sess.end()
-		video, audio, err := client.TrailerStreams(sess.ctx, s.TrailerKey)
+		keys := s.TrailerKeys
+		if len(keys) == 0 {
+			keys = []string{s.TrailerKey}
+		}
+		video, audio, err := client.TrailerStreams(sess.ctx, keys...)
 		if err != nil {
-			if sess.ctx.Err() == nil {
+			switch {
+			case sess.ctx.Err() != nil:
+			case errors.Is(err, bukanir.ErrTrailerUnavailable):
+				log.Printf("PLAYER: trailer %q: %v", s.Title, err)
+				postStatus("Trailer unavailable: YouTube does not allow it to be played here")
+			default:
 				postStatus("error: " + err.Error())
 			}
 			return

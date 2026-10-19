@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"sync"
 
@@ -13,6 +15,12 @@ import (
 
 // trailerMaxHeight is the tallest trailer video picked.
 const trailerMaxHeight = 720
+
+// trailerMaxAttempts caps how many trailer videos one request tries; YouTube rate limits a burst of lookups.
+const trailerMaxAttempts = 3
+
+// ErrTrailerUnavailable means YouTube does not serve the trailer's streams to this app.
+var ErrTrailerUnavailable = errors.New("bukanir: YouTube does not allow this trailer to be played here")
 
 // trailerClient is the YouTube player client used for trailers; Android is refused the 720p streams of most videos.
 var trailerClient = youtube.ClientInfo{
@@ -44,25 +52,50 @@ func (c *Client) Trailer(ctx context.Context, videoID string) (videoURL, audioUR
 		a.Body.Close()
 		vf, af = choice.video, choice.audio
 	}
+	if vf == nil {
+		return "", "", ErrTrailerUnavailable
+	}
 	if videoURL, err = yt.GetStreamURLContext(ctx, video, vf); err != nil {
-		return "", "", err
+		return "", "", trailerError(err)
 	}
 	if af != nil {
 		if audioURL, err = yt.GetStreamURLContext(ctx, video, af); err != nil {
-			return "", "", err
+			return "", "", trailerError(err)
 		}
 	}
 	return videoURL, audioURL, nil
 }
 
-// TrailerStreams opens a trailer's video stream and, for a video-only format, its audio stream.
-func (c *Client) TrailerStreams(ctx context.Context, videoID string) (TrailerMedia, *TrailerMedia, error) {
+// TrailerStreams opens the video, and separate audio if any, of the first trailer YouTube serves; else ErrTrailerUnavailable.
+func (c *Client) TrailerStreams(ctx context.Context, videoIDs ...string) (TrailerMedia, *TrailerMedia, error) {
+	err := ErrTrailerUnavailable
+	for i, id := range videoIDs {
+		if i == trailerMaxAttempts {
+			break
+		}
+		v, a, e := c.trailerStreams(ctx, id)
+		if e == nil {
+			return v, a, nil
+		}
+		if !errors.Is(e, ErrTrailerUnavailable) {
+			return TrailerMedia{}, nil, e
+		}
+		logf("TRAILER: %s: %v", id, e)
+		err = e
+	}
+	return TrailerMedia{}, nil, err
+}
+
+func (c *Client) trailerStreams(ctx context.Context, videoID string) (TrailerMedia, *TrailerMedia, error) {
 	yt, video, choice, err := c.trailerFormats(ctx, videoID)
 	if err != nil {
 		return TrailerMedia{}, nil, err
 	}
 	if v, a, ok := c.openTrailerPair(ctx, yt, video, choice); ok {
 		return v, &a, nil
+	}
+	if choice.muxed == nil {
+		return TrailerMedia{}, nil, ErrTrailerUnavailable
 	}
 	v, err := openTrailerMedia(ctx, yt, video, choice.muxed)
 	return v, nil, err
@@ -80,13 +113,13 @@ func (c *Client) openTrailerPair(ctx context.Context, yt youtube.Client, video *
 	}
 	v, err := openTrailerMedia(ctx, yt, video, choice.video)
 	if err != nil {
-		logf("TRAILER: %dp video unavailable, using muxed: %v", choice.video.Height, err)
+		logf("TRAILER: %dp video unavailable: %v", choice.video.Height, err)
 		return TrailerMedia{}, TrailerMedia{}, false
 	}
 	a, err := openTrailerMedia(ctx, yt, video, choice.audio)
 	if err != nil {
 		v.Body.Close()
-		logf("TRAILER: audio unavailable, using muxed: %v", err)
+		logf("TRAILER: audio unavailable: %v", err)
 		return TrailerMedia{}, TrailerMedia{}, false
 	}
 	return v, a, true
@@ -94,17 +127,14 @@ func (c *Client) openTrailerPair(ctx context.Context, yt youtube.Client, video *
 
 // openTrailerMedia opens one format and reads ahead, since a refused stream fails on its first read.
 func openTrailerMedia(ctx context.Context, yt youtube.Client, video *youtube.Video, f *youtube.Format) (TrailerMedia, error) {
-	if f == nil {
-		return TrailerMedia{}, errors.New("bukanir: no playable trailer format")
-	}
 	body, size, err := yt.GetStreamContext(ctx, video, f)
 	if err != nil {
-		return TrailerMedia{}, err
+		return TrailerMedia{}, trailerError(err)
 	}
 	br := bufio.NewReaderSize(body, 32<<10)
 	if _, err := br.Peek(1); err != nil {
 		body.Close()
-		return TrailerMedia{}, err
+		return TrailerMedia{}, trailerError(err)
 	}
 	return TrailerMedia{Body: peekedBody{br, body}, Size: size, MimeType: trailerMime(f)}, nil
 }
@@ -124,20 +154,39 @@ func (c *Client) trailerFormats(ctx context.Context, videoID string) (youtube.Cl
 	yt := youtube.Client{HTTPClient: hc}
 	video, err := yt.GetVideoContext(ctx, videoID)
 	if err != nil {
-		return yt, nil, trailerChoice{}, err
+		return yt, nil, trailerChoice{}, trailerError(err)
 	}
 	choice := pickTrailerFormats(video.Formats)
 	if choice.muxed == nil && (choice.video == nil || choice.audio == nil) {
-		return yt, nil, trailerChoice{}, errors.New("bukanir: no playable trailer format")
+		return yt, nil, trailerChoice{}, ErrTrailerUnavailable
 	}
 	return yt, video, choice, nil
 }
 
-// pickTrailerFormats picks H.264 video up to trailerMaxHeight with the best AAC track, and the tallest muxed format.
+// trailerError marks the errors YouTube gives for a video it does not serve to this app as ErrTrailerUnavailable.
+func trailerError(err error) error {
+	var playability youtube.ErrPlayabiltyStatus
+	var status youtube.ErrUnexpectedStatusCode
+	switch {
+	case errors.Is(err, youtube.ErrCipherNotFound),
+		errors.Is(err, youtube.ErrNotPlayableInEmbed),
+		errors.Is(err, youtube.ErrLoginRequired),
+		errors.Is(err, youtube.ErrVideoPrivate),
+		errors.As(err, &playability),
+		errors.As(err, &status) && int(status) == http.StatusForbidden:
+		return fmt.Errorf("%w: %v", ErrTrailerUnavailable, err)
+	}
+	return err
+}
+
+// pickTrailerFormats picks H.264 video up to trailerMaxHeight with the best AAC track and the tallest muxed format.
 func pickTrailerFormats(formats youtube.FormatList) trailerChoice {
 	var choice trailerChoice
 	for i := range formats {
 		f := &formats[i]
+		if f.URL == "" && f.Cipher == "" {
+			continue
+		}
 		switch {
 		case f.AudioChannels == 0 && strings.HasPrefix(f.MimeType, "video/mp4") && strings.Contains(f.MimeType, "avc1") && f.Height <= trailerMaxHeight:
 			if choice.video == nil || f.Height > choice.video.Height || (f.Height == choice.video.Height && f.Bitrate > choice.video.Bitrate) {

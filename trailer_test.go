@@ -2,6 +2,7 @@ package bukanir
 
 import (
 	"context"
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -84,14 +85,14 @@ func TestTrailerStream(t *testing.T) {
 
 func TestPickTrailerFormats(t *testing.T) {
 	formats := youtube.FormatList{
-		{ItagNo: 137, MimeType: `video/mp4; codecs="avc1.640028"`, Height: 1080, Bitrate: 4351220},
-		{ItagNo: 247, MimeType: `video/webm; codecs="vp9"`, Height: 720, Bitrate: 1562786},
-		{ItagNo: 136, MimeType: `video/mp4; codecs="avc1.4D401F"`, Height: 720, Bitrate: 1441705},
-		{ItagNo: 398, MimeType: `video/mp4; codecs="av01.0.05M.08"`, Height: 720, Bitrate: 1111264},
-		{ItagNo: 18, MimeType: `video/mp4; codecs="avc1.42001E, mp4a.40.2"`, Height: 360, Bitrate: 665745, AudioChannels: 2},
-		{ItagNo: 140, MimeType: `audio/mp4; codecs="mp4a.40.2"`, Bitrate: 130470, AudioChannels: 2},
-		{ItagNo: 251, MimeType: `audio/webm; codecs="opus"`, Bitrate: 126232, AudioChannels: 2},
-		{ItagNo: 139, MimeType: `audio/mp4; codecs="mp4a.40.5"`, Bitrate: 49886, AudioChannels: 2},
+		{ItagNo: 137, URL: "u", MimeType: `video/mp4; codecs="avc1.640028"`, Height: 1080, Bitrate: 4351220},
+		{ItagNo: 247, URL: "u", MimeType: `video/webm; codecs="vp9"`, Height: 720, Bitrate: 1562786},
+		{ItagNo: 136, URL: "u", MimeType: `video/mp4; codecs="avc1.4D401F"`, Height: 720, Bitrate: 1441705},
+		{ItagNo: 398, URL: "u", MimeType: `video/mp4; codecs="av01.0.05M.08"`, Height: 720, Bitrate: 1111264},
+		{ItagNo: 18, URL: "u", MimeType: `video/mp4; codecs="avc1.42001E, mp4a.40.2"`, Height: 360, Bitrate: 665745, AudioChannels: 2},
+		{ItagNo: 140, URL: "u", MimeType: `audio/mp4; codecs="mp4a.40.2"`, Bitrate: 130470, AudioChannels: 2},
+		{ItagNo: 251, URL: "u", MimeType: `audio/webm; codecs="opus"`, Bitrate: 126232, AudioChannels: 2},
+		{ItagNo: 139, URL: "u", MimeType: `audio/mp4; codecs="mp4a.40.5"`, Bitrate: 49886, AudioChannels: 2},
 	}
 	choice := pickTrailerFormats(formats)
 	if choice.video == nil || choice.video.ItagNo != 136 || choice.audio == nil || choice.audio.ItagNo != 140 {
@@ -111,5 +112,33 @@ func TestPickTrailerFormats(t *testing.T) {
 
 	if choice := pickTrailerFormats(nil); choice.video != nil || choice.audio != nil || choice.muxed != nil {
 		t.Errorf("empty list picked %+v", choice)
+	}
+
+	noURL := youtube.FormatList{
+		{ItagNo: 136, MimeType: `video/mp4; codecs="avc1.4D401F"`, Height: 720},
+		{ItagNo: 140, MimeType: `audio/mp4; codecs="mp4a.40.2"`, AudioChannels: 2},
+	}
+	if choice := pickTrailerFormats(noURL); choice.video != nil || choice.audio != nil {
+		t.Errorf("formats without a URL or cipher picked %+v", choice)
+	}
+}
+
+func TestTrailerError(t *testing.T) {
+	for _, err := range []error{youtube.ErrCipherNotFound, youtube.ErrUnexpectedStatusCode(403), youtube.ErrPlayabiltyStatus{Status: "UNPLAYABLE"}} {
+		if !errors.Is(trailerError(err), ErrTrailerUnavailable) {
+			t.Errorf("trailerError(%v) is not ErrTrailerUnavailable", err)
+		}
+	}
+	for _, err := range []error{youtube.ErrUnexpectedStatusCode(500), context.DeadlineExceeded} {
+		if errors.Is(trailerError(err), ErrTrailerUnavailable) {
+			t.Errorf("trailerError(%v) wrongly marked unavailable", err)
+		}
+	}
+}
+
+func TestTrailerStreamsNoVideos(t *testing.T) {
+	c := testClient(t)
+	if _, _, err := c.TrailerStreams(context.Background()); !errors.Is(err, ErrTrailerUnavailable) {
+		t.Errorf("no video ids: err = %v", err)
 	}
 }

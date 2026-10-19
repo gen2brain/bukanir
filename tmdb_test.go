@@ -188,6 +188,24 @@ func TestTrailerKeyFallback(t *testing.T) {
 	}
 }
 
+func TestTrailerKeys(t *testing.T) {
+	v := tmdbVideos{Results: []tmdbVideo{
+		{Key: "clip", Site: "YouTube", Type: "Clip"},
+		{Key: "teaser", Site: "YouTube", Type: "Teaser"},
+		{Key: "final", Site: "YouTube", Type: "Trailer"},
+		{Key: "vimeo", Site: "Vimeo", Type: "Trailer"},
+		{Key: "official", Site: "YouTube", Type: "Trailer"},
+	}}
+	got := v.trailerKeys()
+	want := []string{"final", "official", "teaser"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("trailerKeys = %v, want %v", got, want)
+	}
+	if v.trailerKey() != "final" {
+		t.Errorf("trailerKey = %q", v.trailerKey())
+	}
+}
+
 func mockBrowse(t *testing.T) *Client {
 	t.Helper()
 	mux := http.NewServeMux()

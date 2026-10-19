@@ -69,20 +69,21 @@ type TMovie struct {
 
 // TSummary is the detailed metadata for a movie or episode.
 type TSummary struct {
-	ID         int      `json:"id"`
-	Title      string   `json:"title"`
-	Year       int      `json:"year"`
-	Overview   string   `json:"overview"`
-	Tagline    string   `json:"tagline"`
-	Rating     float64  `json:"rating"`
-	Runtime    int      `json:"runtime"`
-	Cast       []string `json:"cast"`
-	CastIDs    []int    `json:"castIds"`
-	Genres     []string `json:"genres"`
-	Director   string   `json:"director"`
-	DirectorID int      `json:"directorId"`
-	TrailerKey string   `json:"trailerKey"` // YouTube video key
-	IMDbID     string   `json:"imdbId"`
+	ID          int      `json:"id"`
+	Title       string   `json:"title"`
+	Year        int      `json:"year"`
+	Overview    string   `json:"overview"`
+	Tagline     string   `json:"tagline"`
+	Rating      float64  `json:"rating"`
+	Runtime     int      `json:"runtime"`
+	Cast        []string `json:"cast"`
+	CastIDs     []int    `json:"castIds"`
+	Genres      []string `json:"genres"`
+	Director    string   `json:"director"`
+	DirectorID  int      `json:"directorId"`
+	TrailerKey  string   `json:"trailerKey"`            // YouTube video key
+	TrailerKeys []string `json:"trailerKeys,omitempty"` // TrailerKey first, then the other trailers and teasers
+	IMDbID      string   `json:"imdbId"`
 }
 
 // TItem is a lightweight title suggestion.
@@ -422,19 +423,34 @@ func parseYear(dates ...string) int {
 
 // trailerKey returns the YouTube key of the first trailer.
 func (v tmdbVideos) trailerKey() string {
-	var fallback string
+	if keys := v.trailerKeys(); len(keys) > 0 {
+		return keys[0]
+	}
+	return ""
+}
+
+// trailerKeys returns the YouTube keys of the trailers, then the teasers, or else of the first YouTube video.
+func (v tmdbVideos) trailerKeys() []string {
+	var trailers, teasers []string
+	fallback := ""
 	for _, vid := range v.Results {
-		if !strings.EqualFold(vid.Site, "YouTube") {
+		if !strings.EqualFold(vid.Site, "YouTube") || vid.Key == "" {
 			continue
 		}
-		if strings.EqualFold(vid.Type, "Trailer") {
-			return vid.Key
-		}
-		if fallback == "" {
+		switch {
+		case strings.EqualFold(vid.Type, "Trailer"):
+			trailers = append(trailers, vid.Key)
+		case strings.EqualFold(vid.Type, "Teaser"):
+			teasers = append(teasers, vid.Key)
+		case fallback == "":
 			fallback = vid.Key
 		}
 	}
-	return fallback
+	keys := append(trailers, teasers...)
+	if len(keys) == 0 && fallback != "" {
+		keys = []string{fallback}
+	}
+	return keys
 }
 
 func (cr tmdbCredits) director() (name string, id int) {
@@ -725,19 +741,20 @@ func summaryFromDetails(d *tmdbDetails) TSummary {
 		title = d.Name
 	}
 	return TSummary{
-		ID:         d.ID,
-		Title:      title,
-		Year:       parseYear(d.ReleaseDate, d.FirstAirDate),
-		Overview:   d.Overview,
-		Tagline:    d.Tagline,
-		Rating:     d.VoteAverage,
-		Runtime:    d.Runtime,
-		Cast:       castNames(d.Credits.Cast),
-		CastIDs:    castIDs(d.Credits.Cast),
-		Genres:     genreNames(d.Genres),
-		Director:   name,
-		DirectorID: dirID,
-		TrailerKey: d.Videos.trailerKey(),
-		IMDbID:     d.ImdbID,
+		ID:          d.ID,
+		Title:       title,
+		Year:        parseYear(d.ReleaseDate, d.FirstAirDate),
+		Overview:    d.Overview,
+		Tagline:     d.Tagline,
+		Rating:      d.VoteAverage,
+		Runtime:     d.Runtime,
+		Cast:        castNames(d.Credits.Cast),
+		CastIDs:     castIDs(d.Credits.Cast),
+		Genres:      genreNames(d.Genres),
+		Director:    name,
+		DirectorID:  dirID,
+		TrailerKey:  d.Videos.trailerKey(),
+		TrailerKeys: d.Videos.trailerKeys(),
+		IMDbID:      d.ImdbID,
 	}
 }
