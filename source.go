@@ -76,11 +76,8 @@ func humanizeBytes(n int64) string {
 // DefaultTPBHost is the apibay API host used when Config.TPBHost is empty.
 const DefaultTPBHost = "apibay.org"
 
-// tpbBaseURL builds the API root for host.
-func tpbBaseURL(host string) string {
-	if host == "" {
-		host = DefaultTPBHost
-	}
+// hostBaseURL builds the API root for host: http for .onion, https otherwise.
+func hostBaseURL(host string) string {
 	if strings.HasSuffix(host, ".onion") {
 		return "http://" + host
 	}
@@ -177,17 +174,6 @@ func parseTPB(body []byte) ([]torrentResult, error) {
 // DefaultYTSHost is the YTS API host used when Config.YTSHost is empty.
 const DefaultYTSHost = "yts.gg"
 
-// ytsBaseURL builds the API root for host.
-func ytsBaseURL(host string) string {
-	if host == "" {
-		host = DefaultYTSHost
-	}
-	if strings.HasSuffix(host, ".onion") {
-		return "http://" + host
-	}
-	return "https://" + host
-}
-
 type ytsResponse struct {
 	Status string `json:"status"`
 	Data   struct {
@@ -273,8 +259,8 @@ func parseYTS(body []byte) ([]torrentResult, error) {
 	return results, nil
 }
 
-// eztvBaseURL is the EZTV API root.
-const eztvBaseURL = "https://eztvx.to"
+// DefaultEZTVHost is the EZTV API host used when Config.EZTVHost is empty.
+const DefaultEZTVHost = "eztvx.to"
 
 // eztvTorrent is one entry of an EZTV get-torrents response.
 type eztvTorrent struct {

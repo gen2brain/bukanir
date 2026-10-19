@@ -34,6 +34,7 @@ type Settings struct {
 	UseTor       bool   `json:"useTor"`
 	TPBHost      string `json:"tpbHost"`
 	YTSHost      string `json:"ytsHost"`
+	EZTVHost     string `json:"eztvHost"`
 	DownloadRate int    `json:"downloadRate"`
 	UploadRate   int    `json:"uploadRate"`
 	Port         int    `json:"port"`
@@ -43,6 +44,9 @@ type Settings struct {
 
 // tpbOnion is ThePirateBay's onion address, offered as a Tor-only TPB host.
 const tpbOnion = "piratebayo3klnzokct3wt5yyxb2vpebbuyjl7m623iaxmqhsd52coid.onion"
+
+// eztvMirrors are EZTV hosts that serve the same API.
+var eztvMirrors = []string{bukanir.DefaultEZTVHost, "eztv1.xyz", "eztv.wf", "eztv.tf", "eztv.yt"}
 
 // defaultSettings returns the settings used on first run.
 func defaultSettings() *Settings {
@@ -59,6 +63,7 @@ func defaultSettings() *Settings {
 		UseTor:           false,
 		TPBHost:          bukanir.DefaultTPBHost,
 		YTSHost:          bukanir.DefaultYTSHost,
+		EZTVHost:         bukanir.DefaultEZTVHost,
 		DownloadRate:     0,
 		UploadRate:       0,
 		Port:             0,
@@ -117,6 +122,7 @@ func (s *Settings) toConfig() bukanir.Config {
 	cfg.TorLog = logs
 	cfg.TPBHost = s.TPBHost
 	cfg.YTSHost = s.YTSHost
+	cfg.EZTVHost = s.EZTVHost
 	return cfg
 }
 
@@ -218,6 +224,7 @@ func onSettings() {
 	useTor := toggle(s.UseTor)
 	tpbHost := editableChoice(s.TPBHost, []string{bukanir.DefaultTPBHost, tpbOnion})
 	ytsHost := editableChoice(s.YTSHost, []string{bukanir.DefaultYTSHost})
+	eztvHost := editableChoice(s.EZTVHost, eztvMirrors)
 	dlRate := choiceList(rateChoices, s.DownloadRate, rateLabel)
 	ulRate := choiceList(rateChoices, s.UploadRate, rateLabel)
 	port := iup.Text().SetAttributes(map[string]string{
@@ -276,6 +283,7 @@ func onSettings() {
 				frame("Sources", formRows(
 					"TPB host", tpbHost,
 					"YTS host", ytsHost,
+					"EZTV host", eztvHost,
 				)),
 			)},
 		{"Torrents", "Transfer limits, peer port and files.",
@@ -359,6 +367,7 @@ func onSettings() {
 		next.DownloadDir = dlDir.GetAttribute("VALUE")
 		next.TPBHost = strings.TrimSpace(choiceText(tpbHost))
 		next.YTSHost = strings.TrimSpace(choiceText(ytsHost))
+		next.EZTVHost = strings.TrimSpace(choiceText(eztvHost))
 
 		applySettings(&next)
 		saved = true

@@ -39,6 +39,8 @@ type Config struct {
 	TPBHost string
 	// YTSHost is the YTS API host.
 	YTSHost string
+	// EZTVHost is the EZTV API host.
+	EZTVHost string
 
 	// Tor routes torrent peer connections through the embedded Tor client.
 	Tor bool
@@ -84,6 +86,13 @@ func (c *Config) ytsHost() string {
 		return c.YTSHost
 	}
 	return DefaultYTSHost
+}
+
+func (c *Config) eztvHost() string {
+	if c.EZTVHost != "" {
+		return c.EZTVHost
+	}
+	return DefaultEZTVHost
 }
 
 func (c *Config) tmdbKey() string {

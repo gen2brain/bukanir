@@ -106,3 +106,17 @@ func TestBuiltin(t *testing.T) {
 		t.Errorf("builtin(garbage) = %q", got)
 	}
 }
+
+func TestSourceHosts(t *testing.T) {
+	var def Config
+	if def.tpbHost() != DefaultTPBHost || def.ytsHost() != DefaultYTSHost || def.eztvHost() != DefaultEZTVHost {
+		t.Errorf("defaults = %q, %q, %q", def.tpbHost(), def.ytsHost(), def.eztvHost())
+	}
+	cfg := Config{EZTVHost: "eztv.wf"}
+	if got := hostBaseURL(cfg.eztvHost()); got != "https://eztv.wf" {
+		t.Errorf("eztv base = %q", got)
+	}
+	if got := hostBaseURL("example.onion"); got != "http://example.onion" {
+		t.Errorf("onion base = %q", got)
+	}
+}
