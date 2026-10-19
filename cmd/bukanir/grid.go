@@ -327,7 +327,7 @@ func scrollToShowCell(scroll, cell iup.Ihandle) {
 // posterCell builds a grid cell (poster + title + subtitle) and its image target.
 func posterCell(m bukanir.TMovie) (cell, target iup.Ihandle) {
 	titleAttr := fmt.Sprintf("ALIGNMENT=ACENTER, WORDWRAP=YES, RASTERSIZE=%dx", posterW)
-	title := iup.Label(elide(m.Title, 40)).SetAttributes(titleAttr)
+	title := iup.Label(plainText(elide(m.Title, 40))).SetAttributes(titleAttr)
 	sub := setThemed(iup.Label(movieSubtitle(m)).SetAttributes(fmt.Sprintf("ALIGNMENT=ACENTER, RASTERSIZE=%dx", posterW)), "FGCOLOR", roleSubtle)
 	movie := m
 

@@ -354,7 +354,7 @@ func yearMenu() iup.Ihandle {
 func statusBar() iup.Ihandle {
 	status := iup.Label("Ready").SetHandle("status").SetAttributes("EXPAND=HORIZONTAL")
 	status.SetCallback("POSTMESSAGE_CB", iup.PostMessageFunc(func(ih iup.Ihandle, s string, _ int, _ any) int {
-		ih.SetAttribute("TITLE", s)
+		ih.SetAttribute("TITLE", plainText(s))
 		return iup.DEFAULT
 	}))
 	tor := iup.Label("").SetHandle("torStatus").SetAttributes("IMAGE=tor-off, TIP=\"Tor is off\"")
@@ -376,7 +376,12 @@ func statusBar() iup.Ihandle {
 }
 
 func setStatus(s string) {
-	iup.GetHandle("status").SetAttribute("TITLE", s)
+	iup.GetHandle("status").SetAttribute("TITLE", plainText(s))
+}
+
+// plainText doubles "&" so IUP shows it instead of taking it as a mnemonic.
+func plainText(s string) string {
+	return strings.ReplaceAll(s, "&", "&&")
 }
 
 // watchActions starts the current detail tab's playback on Enter, keyed by the tab.
@@ -465,8 +470,7 @@ func updateNoTabs() {
 // addTab appends child as a new tab, maps it, and switches to it.
 func addTab(name string, child iup.Ihandle) {
 	tabs := iup.GetHandle("tabs")
-	title := elide(name, 16)
-	child.SetAttribute("TABTITLE", title)
+	child.SetAttribute("TABTITLE", plainText(elide(name, 16)))
 	iup.Append(tabs, child)
 	updateNoTabs()
 	iup.Map(child)
