@@ -7,6 +7,7 @@ import (
 const (
 	projectURL = "https://github.com/gen2brain/bukanir"
 	licenseURL = "https://www.gnu.org/licenses/gpl-3.0.txt"
+	tmdbURL    = "https://www.themoviedb.org"
 )
 
 // showAbout opens the modal About dialog with a Help button for the shortcuts.
@@ -20,12 +21,21 @@ func showAbout() {
 		link(licenseURL, "GNU General Public License version 3"),
 	).SetAttributes("GAP=6")
 
+	tmdb := iup.Hbox(
+		iup.Label("").SetAttribute("IMAGE", "tmdb"),
+		iup.Vbox(
+			iup.Label("This product uses the TMDB API but is not endorsed or certified by TMDB."),
+			link(tmdbURL, tmdbURL),
+		).SetAttributes("GAP=2"),
+	).SetAttributes("GAP=12, ALIGNMENT=ACENTER")
+
 	help := iup.Button("Help").SetAttributes("PADDING=14x4")
 	closeBtn := iup.Button("Close").SetAttributes("PADDING=14x4")
 	body := iup.Vbox(
 		iup.Hbox(logo, text).SetAttributes("GAP=16, ALIGNMENT=ACENTER"),
+		tmdb,
 		iup.Hbox(iup.Fill(), help, closeBtn).SetAttributes("GAP=8"),
-	).SetAttributes("MARGIN=14x14, GAP=14")
+	).SetAttributes("NMARGIN=14x14, GAP=14")
 	dlg := iup.Dialog(body).SetAttributes(map[string]string{
 		"TITLE": "About", "DIALOGFRAME": "YES", "MINBOX": "NO", "MAXBOX": "NO",
 	})
@@ -83,7 +93,7 @@ func showShortcuts(parent iup.Ihandle) {
 	body := iup.Vbox(
 		iup.Hbox(app, player).SetAttributes("GAP=10, ALIGNMENT=ATOP"),
 		iup.Hbox(iup.Fill(), closeBtn),
-	).SetAttributes("MARGIN=10x10, GAP=10")
+	).SetAttributes("NMARGIN=10x10, GAP=10")
 	dlg := iup.Dialog(body).SetAttributes(map[string]string{
 		"TITLE": "Shortcuts", "DIALOGFRAME": "YES", "MINBOX": "NO", "MAXBOX": "NO",
 	})

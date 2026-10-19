@@ -129,6 +129,9 @@ var iconStar []byte
 //go:embed images/star-outline.png
 var iconStarOutline []byte
 
+//go:embed images/tmdb.png
+var iconTMDB []byte
+
 // monoIcons are recolored to the dialog text color; monoButtons maps toolbar buttons to their icon.
 var (
 	monoIcons = map[string]image.Image{
@@ -195,6 +198,9 @@ func loadIcons() {
 	}
 	if img, err := png.Decode(bytes.NewReader(iconLogoGray)); err == nil {
 		iup.ImageFromImage(resizeIcon(img, iconSize)).SetHandle("logo-gray")
+	}
+	if img, err := png.Decode(bytes.NewReader(iconTMDB)); err == nil {
+		iup.ImageFromImage(img).SetHandle("tmdb")
 	}
 }
 
