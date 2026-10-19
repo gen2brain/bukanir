@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"image"
-	_ "image/jpeg"
 	"io"
 	"net/http"
 	"os"
@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/gen2brain/iup-go/iup"
+	_ "github.com/gen2brain/jpegn"
+	_ "github.com/gen2brain/vpx/webp"
 	xdraw "golang.org/x/image/draw"
 )
 
@@ -23,27 +25,30 @@ const (
 
 var posterHTTP = &http.Client{Timeout: 20 * time.Second}
 
-// loadPoster fetches, decodes, and resizes a poster, delivering it via PostMessage.
-func loadPoster(url string, target iup.Ihandle) {
-	loadPosterSized(url, target, posterW, posterH)
+// loadPoster resizes the first of urls that loads and delivers it via PostMessage.
+func loadPoster(target iup.Ihandle, urls ...string) {
+	loadPosterSized(target, posterW, posterH, urls...)
 }
 
-func loadPosterSized(url string, target iup.Ihandle, w, h int) {
-	if url == "" {
+func loadPosterSized(target iup.Ihandle, w, h int, urls ...string) {
+	for _, url := range urls {
+		if url == "" {
+			continue
+		}
+		data, err := fetchPoster(url)
+		if err != nil {
+			continue
+		}
+		src, _, err := image.Decode(bytes.NewReader(data))
+		if err != nil {
+			continue
+		}
+		dst := image.NewRGBA(image.Rect(0, 0, w, h))
+		xdraw.CatmullRom.Scale(dst, dst.Bounds(), src, src.Bounds(), xdraw.Over, nil)
+		if targetAlive(target) {
+			iup.PostMessage(target, "", 0, dst)
+		}
 		return
-	}
-	data, err := fetchPoster(url)
-	if err != nil {
-		return
-	}
-	src, _, err := image.Decode(bytes.NewReader(data))
-	if err != nil {
-		return
-	}
-	dst := image.NewRGBA(image.Rect(0, 0, w, h))
-	xdraw.CatmullRom.Scale(dst, dst.Bounds(), src, src.Bounds(), xdraw.Over, nil)
-	if targetAlive(target) {
-		iup.PostMessage(target, "", 0, dst)
 	}
 }
 
@@ -60,6 +65,9 @@ func fetchPoster(url string) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("poster: %s", resp.Status)
+	}
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err

@@ -145,7 +145,7 @@ func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 	}
 	iup.Refresh(holder)
 
-	go loadPosterSized(posterPref(m), poster, summaryPosterW, summaryPosterH)
+	go loadPosterSized(poster, summaryPosterW, summaryPosterH, m.PosterXLarge, m.PosterLarge, m.PosterMedium)
 }
 
 var summaryPosterSeq atomic.Int64
@@ -304,11 +304,4 @@ func runtimeStr(min int) string {
 		return ""
 	}
 	return fmt.Sprintf("%dmin", min)
-}
-
-func posterPref(m bukanir.TMovie) string {
-	if m.PosterXLarge != "" {
-		return m.PosterXLarge
-	}
-	return m.PosterLarge
 }

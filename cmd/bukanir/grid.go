@@ -220,7 +220,7 @@ func showMovies(holder iup.Ihandle, movies []bukanir.TMovie) {
 	iup.SetFocus(scroll)
 
 	for i, m := range movies {
-		go loadPoster(m.PosterLarge, targets[i])
+		go loadPoster(targets[i], m.PosterLarge, m.PosterXLarge, m.PosterMedium)
 	}
 }
 
