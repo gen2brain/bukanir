@@ -114,6 +114,7 @@ func (s *Settings) toConfig() bukanir.Config {
 	}
 	cfg.CacheDir = cacheDir
 	cfg.Tor = s.UseTor
+	cfg.TorLog = logs
 	cfg.TPBHost = s.TPBHost
 	cfg.YTSHost = s.YTSHost
 	return cfg
@@ -385,6 +386,7 @@ func applySettings(next *Settings) {
 		if old != nil {
 			old.Close()
 		}
+		client.StartTor()
 	} else {
 		setStatus("Settings applied, client reload failed: " + err.Error())
 	}

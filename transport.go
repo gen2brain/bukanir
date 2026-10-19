@@ -3,6 +3,7 @@ package bukanir
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -15,6 +16,8 @@ import (
 
 // DefaultTorInstances is the number of Tor instances used when Config.TorInstances is zero.
 const DefaultTorInstances = 4
+
+var errTransportClosed = errors.New("bukanir: client closed")
 
 type torProvider interface {
 	HTTPClient() *http.Client
@@ -35,15 +38,18 @@ var newTorProvider = func(ctx context.Context, cacheDir string, instances int, s
 type transport struct {
 	cfg       Config
 	ctx       context.Context
+	cancel    context.CancelFunc
 	cacheDir  string
 	instances int
 
 	direct *http.Client
 
-	once sync.Once
-	tor  torProvider
-	torc *http.Client
-	err  error
+	once   sync.Once
+	mu     sync.Mutex
+	closed bool
+	tor    torProvider
+	torc   *http.Client
+	err    error
 }
 
 // newTransport builds a transport; torCacheDir persists the Tor dir cache, empty uses a temp dir.
@@ -53,9 +59,11 @@ func newTransport(ctx context.Context, cfg Config, torCacheDir string) *transpor
 	if instances < 1 {
 		instances = DefaultTorInstances
 	}
+	ctx, cancel := context.WithCancel(ctx)
 	return &transport{
 		cfg:       cfg,
 		ctx:       ctx,
+		cancel:    cancel,
 		cacheDir:  torCacheDir,
 		instances: instances,
 		direct: &http.Client{
@@ -78,8 +86,15 @@ func newTransport(ctx context.Context, cfg Config, torCacheDir string) *transpor
 func (t *transport) ensureTor() error {
 	t.once.Do(func() {
 		p, err := newTorProvider(t.ctx, t.cacheDir, t.instances, t.cfg.TorLog)
+		t.mu.Lock()
+		defer t.mu.Unlock()
 		if err != nil {
 			t.err = err
+			return
+		}
+		if t.closed {
+			p.Close()
+			t.err = errTransportClosed
 			return
 		}
 		c := p.HTTPClient()
@@ -121,7 +136,12 @@ func (t *transport) dialer() (PeerDialer, error) {
 	return t.tor, nil
 }
 
+// Close closes the Tor provider and aborts a bootstrap in progress.
 func (t *transport) Close() error {
+	t.cancel()
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.closed = true
 	if t.tor != nil {
 		return t.tor.Close()
 	}

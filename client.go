@@ -102,6 +102,13 @@ func (c *Client) PeerDialer() (PeerDialer, error) {
 	return c.tr.dialer()
 }
 
+// StartTor bootstraps the embedded Tor client in the background, so a later PeerDialer finds it ready.
+func (c *Client) StartTor() {
+	if c.cfg.Tor {
+		go c.tr.ensureTor()
+	}
+}
+
 // Close releases resources, including the embedded Tor client.
 func (c *Client) Close() error {
 	return c.tr.Close()

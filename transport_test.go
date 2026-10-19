@@ -121,6 +121,30 @@ func TestTransportTorErrorCached(t *testing.T) {
 	}
 }
 
+func TestTransportCloseDuringBootstrap(t *testing.T) {
+	release := make(chan struct{})
+	fake := &fakeTor{client: &http.Client{}}
+	swapTorProvider(t, func(context.Context, string, int, io.Writer) (torProvider, error) {
+		<-release
+		return fake, nil
+	})
+
+	tr := newTransport(context.Background(), Config{Tor: true, TorInstances: 1}, "")
+	done := make(chan error, 1)
+	go func() { done <- tr.ensureTor() }()
+
+	if err := tr.Close(); err != nil {
+		t.Fatal(err)
+	}
+	close(release)
+	if err := <-done; !errors.Is(err, errTransportClosed) {
+		t.Fatalf("ensureTor after Close = %v, want errTransportClosed", err)
+	}
+	if !fake.closed {
+		t.Error("provider finished after Close was not closed")
+	}
+}
+
 func TestTransportInstancesFromConfig(t *testing.T) {
 	swapTorProvider(t, func(_ context.Context, _ string, n int, _ io.Writer) (torProvider, error) {
 		if n != 5 {

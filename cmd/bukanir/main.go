@@ -63,7 +63,6 @@ func main() {
 	registerTabIndicators()
 
 	cfg := settings.toConfig()
-	cfg.TorLog = logs
 	logs.setRedactor(bukanir.SecretValues(cfg))
 
 	c, err := bukanir.New(context.Background(), cfg)
@@ -75,6 +74,7 @@ func main() {
 	bukanir.SetVerbose(true)
 
 	client = c
+	client.StartTor()
 	defer client.Close()
 
 	dlg := iup.Dialog(layout()).SetAttributes(map[string]string{

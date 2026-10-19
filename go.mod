@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/PuerkitoBio/goquery v1.13.0
 	github.com/anacrolix/torrent v1.61.1-0.20260927071845-d913b30f520e
-	github.com/gen2brain/go-arti v0.1.0
+	github.com/gen2brain/go-arti v0.1.1
 	github.com/huin/goupnp v1.3.0
 	github.com/kkdai/youtube/v2 v2.10.6
 	golang.org/x/time v0.16.0

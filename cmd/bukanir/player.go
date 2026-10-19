@@ -123,7 +123,7 @@ func onWatch(m bukanir.TMovie, s bukanir.TSummary, tab, btn iup.Ihandle) {
 		defer sess.end()
 		var dialer bukanir.PeerDialer
 		if settings.UseTor {
-			postStatus("Starting Tor...")
+			postStatus("Starting Tor, the first start can take a minute...")
 			d, err := client.PeerDialer()
 			if err != nil {
 				postStatus("Tor error: " + err.Error())
