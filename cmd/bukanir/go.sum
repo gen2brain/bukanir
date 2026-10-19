@@ -142,8 +142,8 @@ github.com/gen2brain/go-arti v0.1.1 h1:LTLzns9HENbkX7XGu3ddhGCQmnpgJkv54nQyDz9Jz
 github.com/gen2brain/go-arti v0.1.1/go.mod h1:s+wYCiEW2J//n8NRmdghZtq0es8fV3g0dOtE0fh2ciE=
 github.com/gen2brain/go-mpv v0.4.0 h1:sJkgo/C1NONwlN1MrSz8pArJL0s8i87+1grQwsBRDDM=
 github.com/gen2brain/go-mpv v0.4.0/go.mod h1:J7DM6g0sSZSgPN4v7Z5DD7l49eRgxhNYcxr+2KOApEE=
-github.com/gen2brain/iup-go/iup v0.32.1-0.20261018213513-6292f42e4683 h1:1F/oV7bxvuB3Hq+QBJNh8Ot9ibREnZYrt52YhXdO3cE=
-github.com/gen2brain/iup-go/iup v0.32.1-0.20261018213513-6292f42e4683/go.mod h1:RD2P7lG0OxKT/E28fS4fCwN+Q146oZ7WRlprSrScVSI=
+github.com/gen2brain/iup-go/iup v0.32.1-0.20261019100717-128cb25f6d1c h1:gMXalNyqR1WSAfu8O3VIdxr2+3cVCHCY8A+JhE6xpEM=
+github.com/gen2brain/iup-go/iup v0.32.1-0.20261019100717-128cb25f6d1c/go.mod h1:RD2P7lG0OxKT/E28fS4fCwN+Q146oZ7WRlprSrScVSI=
 github.com/gen2brain/jpegn v0.6.1 h1:S+Em15BvqCl/cTvebB6JU67ndDVdFWPhB0GbxNkWlOE=
 github.com/gen2brain/jpegn v0.6.1/go.mod h1:43hks+w5VNTUDU34uk0tsXYJ97nbYL2idAlZF0D66+A=
 github.com/gen2brain/vpx v0.2.1 h1:UD6tibcs/zlaIOKNFXeVyZuHBEaW9GYfxKSxvAN9cc8=
