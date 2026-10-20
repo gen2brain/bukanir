@@ -1,3 +1,5 @@
+//go:build media
+
 package main
 
 import (
@@ -7,6 +9,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -20,11 +23,10 @@ type Settings struct {
 	CacheDays  int    `json:"cacheDays"`
 	Appearance string `json:"appearance"`
 
-	Fullscreen      bool   `json:"fullscreen"`
-	StopScreensaver bool   `json:"stopScreensaver"`
-	VolumeMax       int    `json:"volumeMax"`
-	MPVConfig       bool   `json:"mpvConfig"`
-	MPVOptions      string `json:"mpvOptions"`
+	Engine     string `json:"engine"`
+	Fullscreen bool   `json:"fullscreen"`
+	MPVConfig  bool   `json:"mpvConfig"`
+	MPVOptions string `json:"mpvOptions"`
 
 	SubtitlesEnabled bool    `json:"subtitlesEnabled"`
 	SubLanguage      string  `json:"subLanguage"`
@@ -53,9 +55,8 @@ func defaultSettings() *Settings {
 	return &Settings{
 		CacheDays:        1,
 		Appearance:       "dark",
+		Engine:           "AUTO",
 		Fullscreen:       false,
-		StopScreensaver:  true,
-		VolumeMax:        130,
 		SubtitlesEnabled: true,
 		SubLanguage:      "en",
 		SubScale:         1.0,
@@ -200,21 +201,31 @@ func onSettings() {
 		return iup.DEFAULT
 	}))
 
+	engines := append([]string{"AUTO"}, availableEngines(false)...)
+	engine := iup.List().SetAttributes("DROPDOWN=YES")
+	engine.SetAttribute("VALUE", "1")
+	for i, e := range engines {
+		engine.SetAttribute(strconv.Itoa(i+1), engineName(e))
+		if e == s.Engine {
+			engine.SetAttribute("VALUE", strconv.Itoa(i+1))
+		}
+	}
 	fullscreen := toggle(s.Fullscreen)
-	stopSaver := toggle(s.StopScreensaver)
-	volume := iup.Val("HORIZONTAL").SetAttributes(map[string]string{
-		"MIN": "100", "MAX": "200", "VALUE": strconv.Itoa(s.VolumeMax), "EXPAND": "HORIZONTAL",
-	})
-	volumeLabel := iup.Label(fmt.Sprintf("%d%%", s.VolumeMax)).SetAttributes("RASTERSIZE=44x")
-	volume.SetCallback("VALUECHANGED_CB", iup.ValueChangedFunc(func(ih iup.Ihandle) int {
-		v, _ := strconv.ParseFloat(ih.GetAttribute("VALUE"), 64)
-		volumeLabel.SetAttribute("TITLE", fmt.Sprintf("%d%%", int(v)))
-		return iup.DEFAULT
-	}))
 
 	mpvConfig := toggle(s.MPVConfig)
-	mpvOptions := iup.Text().SetAttributes("VISIBLECOLUMNS=20, CUEBANNER=\"hwdec=auto vo=gpu\"")
+	mpvOptions := iup.Text().SetAttributes("VISIBLECOLUMNS=20, CUEBANNER=\"hwdec=auto\"")
 	mpvOptions.SetAttribute("VALUE", s.MPVOptions)
+	updateMPV := func() {
+		e := engines[listIndex(engine)]
+		setActive(e == "MPV" || (e == "AUTO" && slices.Contains(engines, "MPV")), mpvConfig, mpvOptions)
+	}
+	updateMPV()
+	engine.SetCallback("ACTION", iup.ListActionFunc(func(_ iup.Ihandle, _ string, _, state int) int {
+		if state == 1 {
+			updateMPV()
+		}
+		return iup.DEFAULT
+	}))
 
 	subsEnabled := toggle(s.SubtitlesEnabled)
 	subLang := languageList(s.subtitleLanguage())
@@ -254,12 +265,11 @@ func onSettings() {
 				frame("Interface", formRows("Appearance", appearance)),
 				frame("Cache", formRows("Days to keep cache", cacheDays)),
 			)},
-		{"Player", "Playback window, volume and mpv.",
+		{"Player", "Playback engine, window and mpv.",
 			page(
 				frame("Playback", formRows(
+					"Engine", engine,
 					"Fullscreen", fullscreen,
-					"Stop screensaver", stopSaver,
-					"Maximum volume", iup.Hbox(volume, volumeLabel).SetAttributes("ALIGNMENT=ACENTER, GAP=6"),
 				)),
 				frame("mpv", formRows(
 					"Load configuration files", mpvConfig,
@@ -350,9 +360,8 @@ func onSettings() {
 		next := *s
 		next.CacheDays = cacheDayChoices[listIndex(cacheDays)]
 		next.Appearance = appearanceChoices[listIndex(appearance)].Value
+		next.Engine = engines[listIndex(engine)]
 		next.Fullscreen = isOn(fullscreen)
-		next.StopScreensaver = isOn(stopSaver)
-		next.VolumeMax = atoiDefault(volume.GetAttribute("VALUE"), s.VolumeMax)
 		next.MPVConfig = isOn(mpvConfig)
 		next.MPVOptions = strings.TrimSpace(mpvOptions.GetAttribute("VALUE"))
 		next.SubtitlesEnabled = isOn(subsEnabled)

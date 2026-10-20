@@ -1,3 +1,5 @@
+//go:build media
+
 package main
 
 import (
@@ -67,28 +69,22 @@ func showShortcuts(parent iup.Ihandle) {
 			"Ctrl+D", "Add or remove the title from favorites on a details tab",
 		),
 	)
-	player := frame("Player (mpv)",
+	player := frame("Player",
 		keyRows(
 			"Space, p", "Pause / resume",
 			"f", "Toggle fullscreen",
+			"Esc", "Leave fullscreen",
+			"Double click", "Toggle fullscreen",
 			"m", "Mute / unmute audio",
-			"A", "Cycle aspect ratio",
 			"q", "Quit",
 			"v", "Show / hide subtitles",
 			"j / J", "Next / previous subtitle",
-			"r / t", "Move subtitles up / down",
 			"z / x", "Decrease / increase subtitle delay",
-			"Ctrl++ / Ctrl+-", "Increase / decrease audio delay",
 			"Right / Left", "Seek 5 seconds",
 			"Up / Down", "Seek 60 seconds",
-			"1 / 2", "Decrease / increase contrast",
-			"3 / 4", "Decrease / increase brightness",
-			"5 / 6", "Decrease / increase gamma",
-			"7 / 8", "Decrease / increase saturation",
 			"9 / 0", "Decrease / increase volume",
 		),
 	)
-
 	closeBtn := iup.Button("Close").SetAttributes("PADDING=14x4")
 	closeBtn.SetCallback("ACTION", iup.ActionFunc(func(iup.Ihandle) int { return iup.CLOSE }))
 	body := iup.Vbox(

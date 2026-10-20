@@ -1,6 +1,7 @@
 v3.0:
 
     * Desktop app is rewritten on IUP
+    * Built-in player with a choice of mpv, VLC, GStreamer or the system player, subtitle tracks and delay
     * Library is pure Go: anacrolix/torrent replaces libtorrent, Tor is embedded through go-arti
     * Subtitles from OpenSubtitles, SubDL, YIFY, Gestdown and MovieSubtitles
     * Episodes from Torrentio next to EZTV, including the episode file of season packs

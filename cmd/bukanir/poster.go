@@ -1,3 +1,5 @@
+//go:build media
+
 package main
 
 import (

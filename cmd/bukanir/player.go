@@ -1,3 +1,5 @@
+//go:build media
+
 package main
 
 import (
@@ -6,19 +8,16 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	"runtime/debug"
-	"strconv"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/gen2brain/bukanir"
-	"github.com/gen2brain/go-mpv"
 	"github.com/gen2brain/iup-go/iup"
 )
 
@@ -54,8 +53,15 @@ func humanRate(n int64) string {
 	return fmt.Sprintf("%d B", n)
 }
 
-// onTrailer downloads the trailer, serves it over a local HTTP server, plays it in mpv.
+// onTrailer streams the trailer from YouTube through a local HTTP server into a player window.
 func onTrailer(s bukanir.TSummary, tab, btn iup.Ihandle) {
+	engines := playbackEngines(false)
+	var audioEngines []string
+	for _, e := range availableEngines(true) {
+		if slices.Contains(engines, e) {
+			audioEngines = append(audioEngines, e)
+		}
+	}
 	disablePlayButton(btn)
 	phase := beginPlayback(tab)
 	postStatus("Loading trailer...")
@@ -69,7 +75,7 @@ func onTrailer(s bukanir.TSummary, tab, btn iup.Ihandle) {
 		if len(keys) == 0 {
 			keys = []string{s.TrailerKey}
 		}
-		video, audio, err := client.TrailerStreams(sess.ctx, keys...)
+		video, audio, err := client.TrailerStreams(sess.ctx, len(audioEngines) > 0, keys...)
 		if err != nil {
 			switch {
 			case sess.ctx.Err() != nil:
@@ -83,14 +89,22 @@ func onTrailer(s bukanir.TSummary, tab, btn iup.Ihandle) {
 		}
 		defer video.Body.Close()
 
-		url, stop := serveStream(video.Body, video.Size, video.MimeType)
+		url, stop, err := serveStream(video.Body, video.Size, video.MimeType)
+		if err != nil {
+			postStatus("error: " + err.Error())
+			return
+		}
 		defer stop()
 		audioURL := ""
 		if audio != nil {
 			defer audio.Body.Close()
 			var stopAudio func()
-			audioURL, stopAudio = serveStream(audio.Body, audio.Size, audio.MimeType)
+			if audioURL, stopAudio, err = serveStream(audio.Body, audio.Size, audio.MimeType); err != nil {
+				postStatus("error: " + err.Error())
+				return
+			}
 			defer stopAudio()
+			engines = audioEngines
 		}
 
 		onStart := func() {
@@ -98,20 +112,23 @@ func onTrailer(s bukanir.TSummary, tab, btn iup.Ihandle) {
 			postStatus("Playing trailer...")
 			log.Printf("PLAYER: trailer %q", s.Title)
 		}
-		if err := playExternal(sess, s.Title+" - Trailer", url, audioURL, nil, onStart, nil); err != nil {
+		pb := playback{title: s.Title + " - Trailer", url: url, audioURL: audioURL, engines: engines, onStart: onStart}
+		if err := playVideo(sess, pb); err != nil {
 			log.Printf("ERROR: PLAYER: %v", err)
 			postStatus("error: " + err.Error())
+			return
 		}
 		postStatus("Ready")
 	}()
 }
 
-// onWatch streams the movie's torrent to a local HTTP server and plays it in mpv.
+// onWatch streams the movie's torrent through a local HTTP server into a player window.
 func onWatch(m bukanir.TMovie, s bukanir.TSummary, tab, btn iup.Ihandle) {
 	if m.Magnet == "" {
 		postStatus("No torrent found for this title right now")
 		return
 	}
+	engines := playbackEngines(false)
 	disablePlayButton(btn)
 	phase := beginPlayback(tab)
 	postStatus("Starting torrent...")
@@ -179,7 +196,7 @@ func onWatch(m bukanir.TMovie, s bukanir.TSummary, tab, btn iup.Ihandle) {
 			return
 		}
 
-		subsCh := make(chan []string, 1)
+		subsCh := make(chan []subtitleFile, 1)
 		go func() {
 			if !settings.SubtitlesEnabled {
 				log.Println("SUBTITLES: disabled in settings")
@@ -221,7 +238,8 @@ func onWatch(m bukanir.TMovie, s bukanir.TSummary, tab, btn iup.Ihandle) {
 				postStatus("Playing " + s.Title)
 			}
 		}
-		if err := playExternal(sess, s.Title, url, "", subs, onStart, onPause); err != nil {
+		pb := playback{title: s.Title, url: url, subtitles: subs, engines: engines, onStart: onStart, onPause: onPause}
+		if err := playVideo(sess, pb); err != nil {
 			log.Printf("ERROR: PLAYER: %v", err)
 			postStatus("error: " + err.Error())
 		}
@@ -231,8 +249,8 @@ func onWatch(m bukanir.TMovie, s bukanir.TSummary, tab, btn iup.Ihandle) {
 	}()
 }
 
-func torrentSubtitles(parent context.Context, tr *bukanir.Torrent) []string {
-	var paths []string
+func torrentSubtitles(parent context.Context, tr *bukanir.Torrent) []subtitleFile {
+	var subs []subtitleFile
 	for _, f := range tr.Files() {
 		if !isSubtitle(f.Path) {
 			continue
@@ -250,15 +268,15 @@ func torrentSubtitles(parent context.Context, tr *bukanir.Torrent) []string {
 			continue
 		}
 		if p := writeTempSub(filepath.Base(f.Path), data); p != "" {
-			paths = append(paths, p)
+			subs = append(subs, subtitleFile{path: p, name: filepath.Base(f.Path)})
 		}
 	}
-	return paths
+	return subs
 }
 
 func isSubtitle(p string) bool {
 	switch strings.ToLower(filepath.Ext(p)) {
-	case ".srt", ".sub", ".ass", ".ssa", ".vtt":
+	case ".srt", ".vtt":
 		return true
 	}
 	return false
@@ -267,7 +285,7 @@ func isSubtitle(p string) bool {
 // fetchSubtitles downloads the best-matching subtitles and returns their temp paths.
 const maxSubtitles = 2
 
-func fetchSubtitles(parent context.Context, s bukanir.TSummary, m bukanir.TMovie) []string {
+func fetchSubtitles(parent context.Context, s bukanir.TSummary, m bukanir.TMovie) []subtitleFile {
 	ctx, cancel := context.WithTimeout(parent, 30*time.Second)
 	defer cancel()
 
@@ -288,10 +306,10 @@ func fetchSubtitles(parent context.Context, s bukanir.TSummary, m bukanir.TMovie
 	}
 	log.Printf("SUBTITLES: %d candidates for %q (lang=%s) from %s", len(subs), s.Title, lang, providerCounts(subs))
 
-	var paths []string
+	var files []subtitleFile
 	openSubUsed := false
 	for _, sub := range subs {
-		if len(paths) >= maxSubtitles {
+		if len(files) >= maxSubtitles {
 			break
 		}
 		if sub.Provider == "opensubtitles" && openSubUsed {
@@ -302,6 +320,10 @@ func fetchSubtitles(parent context.Context, s bukanir.TSummary, m bukanir.TMovie
 			log.Printf("SUBTITLES: download from %s failed: %v", sub.Provider, err)
 			continue
 		}
+		if !isSubtitle(name) {
+			log.Printf("SUBTITLES: skipped %q from %s: not SRT or WebVTT", name, sub.Provider)
+			continue
+		}
 		p := writeTempSub(name, data)
 		if p == "" {
 			continue
@@ -310,9 +332,13 @@ func fetchSubtitles(parent context.Context, s bukanir.TSummary, m bukanir.TMovie
 			openSubUsed = true
 		}
 		log.Printf("SUBTITLES: downloaded %q from %s (score=%.2f)", name, sub.Provider, sub.Score)
-		paths = append(paths, p)
+		release := sub.Release
+		if release == "" {
+			release = strings.TrimSuffix(name, filepath.Ext(name))
+		}
+		files = append(files, subtitleFile{path: p, name: sub.Provider + ": " + release})
 	}
-	return paths
+	return files
 }
 
 func providerCounts(subs []bukanir.Subtitle) string {
@@ -352,9 +378,9 @@ func writeTempSub(name string, data []byte) string {
 	return f.Name()
 }
 
-func removeFiles(paths []string) {
-	for _, p := range paths {
-		os.Remove(p)
+func removeFiles(subs []subtitleFile) {
+	for _, s := range subs {
+		os.Remove(s.path)
 	}
 }
 
@@ -404,32 +430,12 @@ func waitForBuffer(ctx context.Context, tr *bukanir.Torrent) {
 	}
 }
 
-// serveStream serves r once over a local HTTP server and returns its URL and a stop func.
-func serveStream(r io.Reader, size int64, contentType string) (url string, stop func()) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return "", func() {}
-	}
-	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Set("Content-Type", contentType)
-		if size > 0 {
-			w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
-		}
-		if req.Method == http.MethodHead {
-			return
-		}
-		io.Copy(w, r)
-	})}
-	go srv.Serve(ln)
-	return "http://" + ln.Addr().String() + "/", func() { srv.Close() }
-}
-
 type session struct {
 	tab    iup.Ihandle
 	ctx    context.Context
 	cancel context.CancelFunc
 	mu     sync.Mutex
-	player *mpv.Mpv
+	player *videoPlayer
 }
 
 var (
@@ -462,23 +468,20 @@ func (s *session) end() {
 	}
 }
 
-func (s *session) setPlayer(m *mpv.Mpv) {
+func (s *session) setPlayer(p *videoPlayer) {
 	s.mu.Lock()
-	s.player = m
-	cancelled := s.ctx.Err() != nil
+	s.player = p
 	s.mu.Unlock()
-	if cancelled {
-		m.Command([]string{"quit"})
-	}
 }
 
+// quit cancels the session and closes its player window; called on the main loop.
 func (s *session) quit() {
 	s.cancel()
 	s.mu.Lock()
-	m := s.player
+	p := s.player
 	s.mu.Unlock()
-	if m != nil {
-		m.Command([]string{"quit"})
+	if p != nil {
+		p.close()
 	}
 }
 
@@ -489,119 +492,6 @@ func stopSessions(tab iup.Ihandle) {
 	sessionsMu.Unlock()
 	for _, s := range list {
 		s.quit()
-	}
-}
-
-// playExternal opens an mpv window and plays url with any external subtitles.
-func playExternal(sess *session, title, url, audioURL string, subtitles []string, onStart func(), onPause func(bool)) error {
-	m := mpv.New()
-	m.SetOptionString("title", title)
-	m.SetOptionString("force-media-title", title)
-	m.SetOptionString("force-window", "yes")
-	m.SetOptionString("geometry", "50%:50%")
-	m.SetOptionString("input-default-bindings", "yes")
-	m.SetOptionString("input-vo-keyboard", "yes")
-	m.SetOption("osc", mpv.FormatFlag, true)
-	m.SetOptionString("idle", "no")
-	m.SetOptionString("keep-open", "no")
-	// Bound the demuxer RAM cache; the torrent already buffers to disk.
-	m.SetOptionString("demuxer-max-bytes", "48MiB")
-	m.SetOptionString("demuxer-max-back-bytes", "24MiB")
-	if settings.MPVConfig {
-		m.SetOptionString("config", "yes")
-	}
-
-	if err := m.Initialize(); err != nil {
-		m.TerminateDestroy()
-		return err
-	}
-	defer m.TerminateDestroy()
-	m.SetPropertyString("ytdl", "no")
-	applyPlayerSettings(m)
-	applyPlayerOptions(m, settings.MPVOptions)
-	sess.setPlayer(m)
-	m.ObserveProperty(0, "pause", mpv.FormatFlag)
-
-	if err := m.Command([]string{"loadfile", url}); err != nil {
-		return err
-	}
-
-	started := false
-	for {
-		e := m.WaitEvent(1)
-		if e == nil {
-			continue
-		}
-		switch e.EventID {
-		case mpv.EventShutdown:
-			return nil
-		case mpv.EventFileLoaded:
-			if !started {
-				started = true
-				// Add tracks here; sub-add and audio-add fail silently until the file is loaded.
-				if audioURL != "" {
-					if err := m.Command([]string{"audio-add", audioURL, "select"}); err != nil {
-						log.Printf("PLAYER: audio-add failed: %v", err)
-					}
-				}
-				for i, sub := range subtitles {
-					flag := "auto"
-					if i == 0 {
-						flag = "select"
-					}
-					if err := m.Command([]string{"sub-add", sub, flag}); err != nil {
-						log.Printf("SUBTITLES: sub-add %q failed: %v", sub, err)
-					} else {
-						log.Printf("SUBTITLES: loaded %s", sub)
-					}
-				}
-				if onStart != nil {
-					onStart()
-				}
-			}
-		case mpv.EventPropertyChange:
-			if !started || onPause == nil {
-				continue
-			}
-			if p := e.Property(); p.Name == "pause" {
-				if v, ok := p.Data.(int); ok {
-					onPause(v != 0)
-				}
-			}
-		}
-	}
-}
-
-// applyPlayerSettings applies the user's player preferences to an initialized mpv instance.
-func applyPlayerSettings(m *mpv.Mpv) {
-	if settings.Fullscreen {
-		m.SetPropertyString("fullscreen", "yes")
-	}
-	m.SetPropertyString("stop-screensaver", strings.ToLower(yesNo(settings.StopScreensaver)))
-	if settings.VolumeMax >= 100 {
-		m.SetPropertyString("volume-max", strconv.Itoa(settings.VolumeMax))
-	}
-	if settings.SubScale > 0 {
-		m.SetPropertyString("sub-scale", strconv.FormatFloat(settings.SubScale, 'f', 2, 64))
-	}
-	if settings.SubColor != "" {
-		m.SetPropertyString("sub-color", settings.SubColor)
-	}
-}
-
-// applyPlayerOptions applies space-separated "name=value" or "--name=value" options from the settings.
-func applyPlayerOptions(m *mpv.Mpv, opts string) {
-	for _, f := range strings.Fields(opts) {
-		name, value, found := strings.Cut(strings.TrimPrefix(f, "--"), "=")
-		if !found {
-			value = "yes"
-			if rest, ok := strings.CutPrefix(name, "no-"); ok {
-				name, value = rest, "no"
-			}
-		}
-		if err := m.SetPropertyString(name, value); err != nil {
-			log.Printf("PLAYER: option %s=%s: %v", name, value, err)
-		}
 	}
 }
 

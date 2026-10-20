@@ -8,7 +8,7 @@ Bukanir streams movies and TV shows from bittorrent magnet links.
 Features
 --------
 
-* Watch movies and TV shows on your desktop, played with libmpv
+* Watch movies and TV shows in a built-in player, with mpv, VLC, GStreamer or the system player
 * Browse top, popular and top rated titles, by year or by genre, or search by title, cast or director
 * Favorite movies and shows; a favorite show lists its newest episodes
 * Embedded Tor for privacy

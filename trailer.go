@@ -66,14 +66,15 @@ func (c *Client) Trailer(ctx context.Context, videoID string) (videoURL, audioUR
 	return videoURL, audioURL, nil
 }
 
-// TrailerStreams opens the video, and separate audio if any, of the first trailer YouTube serves; else ErrTrailerUnavailable.
-func (c *Client) TrailerStreams(ctx context.Context, videoIDs ...string) (TrailerMedia, *TrailerMedia, error) {
+// TrailerStreams opens the video of the first trailer YouTube serves, else ErrTrailerUnavailable.
+// With separateAudio it prefers a video-only stream with a separate audio stream, otherwise it opens the muxed stream.
+func (c *Client) TrailerStreams(ctx context.Context, separateAudio bool, videoIDs ...string) (TrailerMedia, *TrailerMedia, error) {
 	err := ErrTrailerUnavailable
 	for i, id := range videoIDs {
 		if i == trailerMaxAttempts {
 			break
 		}
-		v, a, e := c.trailerStreams(ctx, id)
+		v, a, e := c.trailerStreams(ctx, id, separateAudio)
 		if e == nil {
 			return v, a, nil
 		}
@@ -86,13 +87,15 @@ func (c *Client) TrailerStreams(ctx context.Context, videoIDs ...string) (Traile
 	return TrailerMedia{}, nil, err
 }
 
-func (c *Client) trailerStreams(ctx context.Context, videoID string) (TrailerMedia, *TrailerMedia, error) {
+func (c *Client) trailerStreams(ctx context.Context, videoID string, separateAudio bool) (TrailerMedia, *TrailerMedia, error) {
 	yt, video, choice, err := c.trailerFormats(ctx, videoID)
 	if err != nil {
 		return TrailerMedia{}, nil, err
 	}
-	if v, a, ok := c.openTrailerPair(ctx, yt, video, choice); ok {
-		return v, &a, nil
+	if separateAudio {
+		if v, a, ok := c.openTrailerPair(ctx, yt, video, choice); ok {
+			return v, &a, nil
+		}
 	}
 	if choice.muxed == nil {
 		return TrailerMedia{}, nil, ErrTrailerUnavailable

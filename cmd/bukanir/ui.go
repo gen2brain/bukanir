@@ -1,3 +1,5 @@
+//go:build media
+
 package main
 
 import (
@@ -204,7 +206,7 @@ var suggestTitles []string
 
 // searchBox is the query field driving the autocomplete list.
 func searchBox() iup.Ihandle {
-	search := iup.Text().SetAttributes("CUEBANNER=Search, VISIBLECOLUMNS=22").SetHandle("search")
+	search := iup.Text().SetAttributes("CUEBANNER=Search, VISIBLECOLUMNS=18").SetHandle("search")
 	search.SetCallback("VALUECHANGED_CB", iup.ValueChangedFunc(func(ih iup.Ihandle) int {
 		onSearchChanged(ih.GetAttribute("VALUE"))
 		return iup.DEFAULT
@@ -532,6 +534,10 @@ func clearChildren(h iup.Ihandle) {
 
 // onTabMessage dispatches tabs-area messages: "gc", "enable", "load", "play".
 func onTabMessage(tabs iup.Ihandle, msg string, delta int, p any) int {
+	if fn, ok := p.(func()); ok && msg == "run" {
+		fn()
+		return iup.DEFAULT
+	}
 	if msg == "gc" {
 		updateNoTabs()
 		releaseImages()

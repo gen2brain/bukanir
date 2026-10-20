@@ -1,3 +1,5 @@
+//go:build media
+
 package main
 
 import (
@@ -132,14 +134,38 @@ var iconStarOutline []byte
 //go:embed images/tmdb.png
 var iconTMDB []byte
 
+//go:embed images/player-play.png
+var iconPlayerPlay []byte
+
+//go:embed images/player-pause.png
+var iconPlayerPause []byte
+
+//go:embed images/player-fullscreen.png
+var iconPlayerFullscreen []byte
+
+//go:embed images/player-subtitles.png
+var iconPlayerSubtitles []byte
+
+//go:embed images/player-volume.png
+var iconPlayerVolume []byte
+
+//go:embed images/player-volume-off.png
+var iconPlayerVolumeOff []byte
+
 // monoIcons are recolored to the dialog text color; monoButtons maps toolbar buttons to their icon.
 var (
 	monoIcons = map[string]image.Image{
-		"refresh":      nil,
-		"settings":     nil,
-		"log":          nil,
-		"star":         nil,
-		"star-outline": nil,
+		"refresh":           nil,
+		"settings":          nil,
+		"log":               nil,
+		"star":              nil,
+		"star-outline":      nil,
+		"player-play":       nil,
+		"player-pause":      nil,
+		"player-fullscreen": nil,
+		"player-subtitles":  nil,
+		"player-volume":     nil,
+		"player-volume-off": nil,
 	}
 	monoButtons = map[iup.Ihandle]string{}
 )
@@ -164,11 +190,17 @@ func retintIcons() {
 // loadIcons decodes the embedded PNGs into named IUP images.
 func loadIcons() {
 	mono := map[string][]byte{
-		"refresh":      iconRefresh,
-		"settings":     iconSettings,
-		"log":          iconLog,
-		"star":         iconStar,
-		"star-outline": iconStarOutline,
+		"refresh":           iconRefresh,
+		"settings":          iconSettings,
+		"log":               iconLog,
+		"star":              iconStar,
+		"star-outline":      iconStarOutline,
+		"player-play":       iconPlayerPlay,
+		"player-pause":      iconPlayerPause,
+		"player-fullscreen": iconPlayerFullscreen,
+		"player-subtitles":  iconPlayerSubtitles,
+		"player-volume":     iconPlayerVolume,
+		"player-volume-off": iconPlayerVolumeOff,
 	}
 	colored := map[string][]byte{
 		"tor":     iconTor,

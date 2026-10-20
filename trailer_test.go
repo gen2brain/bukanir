@@ -60,7 +60,7 @@ func TestTrailerStream(t *testing.T) {
 	}
 
 	start = time.Now()
-	video, audio, err := c.TrailerStreams(ctx, s.TrailerKey)
+	video, audio, err := c.TrailerStreams(ctx, true, s.TrailerKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestTrailerError(t *testing.T) {
 
 func TestTrailerStreamsNoVideos(t *testing.T) {
 	c := testClient(t)
-	if _, _, err := c.TrailerStreams(context.Background()); !errors.Is(err, ErrTrailerUnavailable) {
+	if _, _, err := c.TrailerStreams(context.Background(), true); !errors.Is(err, ErrTrailerUnavailable) {
 		t.Errorf("no video ids: err = %v", err)
 	}
 }

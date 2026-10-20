@@ -1,3 +1,5 @@
+//go:build media
+
 // Command bukanir is the desktop GUI for the bukanir movie/TV streaming library.
 package main
 
@@ -7,7 +9,6 @@ import (
 	"runtime/debug"
 
 	"github.com/gen2brain/bukanir"
-	"github.com/gen2brain/go-mpv"
 	"github.com/gen2brain/iup-go/iup"
 )
 
@@ -47,9 +48,7 @@ var settings *Settings
 func main() {
 	iup.Open()
 	defer iup.Close()
-
-	// libmpv requires LC_NUMERIC=C; iup/GTK changes the locale on Open.
-	mpv.SetLocale(mpv.LCNumeric, "C")
+	iup.MediaOpen()
 
 	iup.SetGlobal("APPNAME", "bukanir")
 	iup.SetGlobal("APPID", "io.github.gen2brain.bukanir")
