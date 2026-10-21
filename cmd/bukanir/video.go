@@ -53,6 +53,31 @@ func playbackEngines(separateAudio bool) []string {
 	return engines
 }
 
+// audioDevices returns the names of the audio outputs of engine, without the default output.
+func audioDevices(engine string) []string {
+	v := iup.Video()
+	defer v.Destroy()
+	v.SetAttribute("BACKEND", engine)
+	var names []string
+	for i, count := 1, v.GetInt("AUDIODEVICECOUNT"); i < count; i++ {
+		names = append(names, v.GetAttribute("AUDIODEVICENAME"+strconv.Itoa(i)))
+	}
+	return names
+}
+
+// audioDeviceIndex returns the AUDIODEVICE index of the output named name, or 0 for the default output.
+func audioDeviceIndex(v iup.Ihandle, name string) int {
+	if name == "" {
+		return 0
+	}
+	for i, count := 1, v.GetInt("AUDIODEVICECOUNT"); i < count; i++ {
+		if v.GetAttribute("AUDIODEVICENAME"+strconv.Itoa(i)) == name {
+			return i
+		}
+	}
+	return 0
+}
+
 // engineName is the label of an engine in the settings and the player.
 func engineName(engine string) string {
 	switch engine {
@@ -208,6 +233,7 @@ func (p *videoPlayer) load() {
 	engine := p.pb.engines[p.engine]
 	p.video.SetAttribute("URL", nil)
 	p.video.SetAttribute("BACKEND", engine)
+	p.video.SetAttribute("AUDIODEVICE", strconv.Itoa(audioDeviceIndex(p.video, settings.AudioDevice)))
 	if p.pb.audioURL != "" {
 		p.video.SetAttribute("AUDIOURL", p.pb.audioURL)
 	}
@@ -477,6 +503,13 @@ func (p *videoPlayer) setVolume(volume int) {
 	p.notify(fmt.Sprintf("Volume %d%%", volume))
 }
 
+// adjust changes a picture adjustment for this playback, like the mpv keys 1 to 8.
+func (p *videoPlayer) adjust(attribute, label string, delta int) {
+	value := min(max(p.video.GetInt(attribute)+delta, -100), 100)
+	p.video.SetAttribute(attribute, strconv.Itoa(value))
+	p.notify(fmt.Sprintf("%s %d", label, value))
+}
+
 func (p *videoPlayer) addDelay(delta float64) {
 	p.delay = math.Round((p.delay+delta)*10) / 10
 	p.video.SetAttribute("SUBTITLEDELAY", strconv.FormatFloat(p.delay, 'f', 1, 64))
@@ -521,6 +554,22 @@ func (p *videoPlayer) onKey(_ iup.Ihandle, key int) int {
 		p.setVolume(p.volume.GetInt("VALUE") - 2)
 	case iup.K_0:
 		p.setVolume(p.volume.GetInt("VALUE") + 2)
+	case iup.K_1:
+		p.adjust("CONTRAST", "Contrast", -1)
+	case iup.K_2:
+		p.adjust("CONTRAST", "Contrast", 1)
+	case iup.K_3:
+		p.adjust("BRIGHTNESS", "Brightness", -1)
+	case iup.K_4:
+		p.adjust("BRIGHTNESS", "Brightness", 1)
+	case iup.K_5:
+		p.adjust("GAMMA", "Gamma", -1)
+	case iup.K_6:
+		p.adjust("GAMMA", "Gamma", 1)
+	case iup.K_7:
+		p.adjust("SATURATION", "Saturation", -1)
+	case iup.K_8:
+		p.adjust("SATURATION", "Saturation", 1)
 	default:
 		return iup.CONTINUE
 	}

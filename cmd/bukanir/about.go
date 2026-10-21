@@ -83,6 +83,10 @@ func showShortcuts(parent iup.Ihandle) {
 			"Right / Left", "Seek 5 seconds",
 			"Up / Down", "Seek 60 seconds",
 			"9 / 0", "Decrease / increase volume",
+			"1 / 2", "Decrease / increase contrast",
+			"3 / 4", "Decrease / increase brightness",
+			"5 / 6", "Decrease / increase gamma",
+			"7 / 8", "Decrease / increase saturation",
 		),
 	)
 	closeBtn := iup.Button("Close").SetAttributes("PADDING=14x4")

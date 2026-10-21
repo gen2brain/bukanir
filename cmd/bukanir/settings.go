@@ -28,6 +28,8 @@ type Settings struct {
 	MPVConfig  bool   `json:"mpvConfig"`
 	MPVOptions string `json:"mpvOptions"`
 
+	AudioDevice string `json:"audioDevice"`
+
 	SubtitlesEnabled bool    `json:"subtitlesEnabled"`
 	SubLanguage      string  `json:"subLanguage"`
 	SubScale         float64 `json:"subScale"`
@@ -220,9 +222,31 @@ func onSettings() {
 		setActive(e == "MPV" || (e == "AUTO" && slices.Contains(engines, "MPV")), mpvConfig, mpvOptions)
 	}
 	updateMPV()
+	audioOutput := iup.List().SetAttributes("DROPDOWN=YES, VISIBLECOLUMNS=16")
+	var audioNames []string
+	fillAudio := func(current string) {
+		audioNames = audioDevices(engines[listIndex(engine)])
+		audioOutput.SetAttribute("REMOVEITEM", "ALL")
+		audioOutput.SetAttribute("1", "Default")
+		audioOutput.SetAttribute("VALUE", "1")
+		for i, name := range audioNames {
+			audioOutput.SetAttribute(strconv.Itoa(i+2), name)
+			if name == current {
+				audioOutput.SetAttribute("VALUE", strconv.Itoa(i+2))
+			}
+		}
+	}
+	selectedAudio := func() string {
+		if i := listIndex(audioOutput); i > 0 && i <= len(audioNames) {
+			return audioNames[i-1]
+		}
+		return ""
+	}
+	fillAudio(s.AudioDevice)
 	engine.SetCallback("ACTION", iup.ListActionFunc(func(_ iup.Ihandle, _ string, _, state int) int {
 		if state == 1 {
 			updateMPV()
+			fillAudio(selectedAudio())
 		}
 		return iup.DEFAULT
 	}))
@@ -265,11 +289,12 @@ func onSettings() {
 				frame("Interface", formRows("Appearance", appearance)),
 				frame("Cache", formRows("Days to keep cache", cacheDays)),
 			)},
-		{"Player", "Playback engine, window and mpv.",
+		{"Player", "Playback engine, window, audio and mpv.",
 			page(
 				frame("Playback", formRows(
 					"Engine", engine,
 					"Fullscreen", fullscreen,
+					"Audio output", audioOutput,
 				)),
 				frame("mpv", formRows(
 					"Load configuration files", mpvConfig,
@@ -364,6 +389,7 @@ func onSettings() {
 		next.Fullscreen = isOn(fullscreen)
 		next.MPVConfig = isOn(mpvConfig)
 		next.MPVOptions = strings.TrimSpace(mpvOptions.GetAttribute("VALUE"))
+		next.AudioDevice = selectedAudio()
 		next.SubtitlesEnabled = isOn(subsEnabled)
 		next.SubLanguage = subtitleLanguages[listIndex(subLang)].Code
 		next.SubScale = parseFloatDefault(subScale.GetAttribute("VALUE"), s.SubScale)
