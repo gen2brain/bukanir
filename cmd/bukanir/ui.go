@@ -363,7 +363,7 @@ func statusBar() iup.Ihandle {
 	}))
 	tor := iup.Label("").SetHandle("torStatus").SetAttributes("IMAGE=tor-off, TIP=\"Tor is off\"")
 	tor.SetCallback("POSTMESSAGE_CB", iup.PostMessageFunc(onTorDone))
-	progress := iup.ProgressBar().SetHandle("progress").SetAttributes("RASTERSIZE=180x16, VISIBLE=NO")
+	progress := iup.ProgressBar().SetHandle("progress").SetAttributes("RASTERSIZE=180x16, VISIBLE=NO").SetAttribute("FGCOLOR", accentColor)
 	progress.SetCallback("POSTMESSAGE_CB", iup.PostMessageFunc(func(ih iup.Ihandle, s string, i int, _ any) int {
 		if s == "hide" {
 			ih.SetAttribute("VISIBLE", "NO")
