@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -145,7 +146,8 @@ func parseTPB(body []byte) ([]torrentResult, error) {
 		cat64, _ := t.Category.Int64()
 		category := Category(cat64)
 
-		rel := parseRelease(t.Name)
+		name := html.UnescapeString(t.Name)
+		rel := parseRelease(name)
 		if rel.Title == "" {
 			continue
 		}
@@ -155,9 +157,9 @@ func parseTPB(body []byte) ([]torrentResult, error) {
 
 		results = append(results, torrentResult{
 			Source:    "tpb",
-			Name:      t.Name,
+			Name:      name,
 			Title:     rel.Title,
-			Magnet:    magnetLink(t.InfoHash, t.Name),
+			Magnet:    magnetLink(t.InfoHash, name),
 			Year:      rel.Year,
 			Size:      size,
 			SizeHuman: humanizeBytes(size),

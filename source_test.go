@@ -112,6 +112,17 @@ func TestTPBTop(t *testing.T) {
 	}
 }
 
+func TestParseTPBUnescapesNames(t *testing.T) {
+	body := []byte(`[{"id":"1","name":"Minions &amp; Monsters (2026) [1080p]","info_hash":"ABC","seeders":"5","size":"1000","category":"207"}]`)
+	results, err := parseTPB(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 || results[0].Name != "Minions & Monsters (2026) [1080p]" || strings.Contains(results[0].Title, "amp") {
+		t.Fatalf("results = %+v", results)
+	}
+}
+
 func TestParseTPBBadJSON(t *testing.T) {
 	if _, err := parseTPB([]byte("not json")); err == nil {
 		t.Fatal("expected error on bad JSON")
