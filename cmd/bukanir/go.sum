@@ -140,8 +140,8 @@ github.com/frankban/quicktest v1.14.6/go.mod h1:4ptaffx2x8+WTWXmUCuVU6aPUX1/Mz7z
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/gen2brain/go-arti v0.1.2 h1:h/hZ7o9jUvWW2yg+SHuMkBChE072GW4Tq3bqJXBWHXk=
 github.com/gen2brain/go-arti v0.1.2/go.mod h1:s+wYCiEW2J//n8NRmdghZtq0es8fV3g0dOtE0fh2ciE=
-github.com/gen2brain/iup-go/iup v0.32.1-0.20261020214642-1e2432ac9cf9 h1:DI27PyfbZQutCJsySeuQs7WEpL2GBlURb7gIdceosxY=
-github.com/gen2brain/iup-go/iup v0.32.1-0.20261020214642-1e2432ac9cf9/go.mod h1:RD2P7lG0OxKT/E28fS4fCwN+Q146oZ7WRlprSrScVSI=
+github.com/gen2brain/iup-go/iup v0.32.1-0.20261021100303-554f97a35d9a h1:2RlnGOfCxYeeATYS+zXyQfr+OG9RUABSNLkoNVnc7ug=
+github.com/gen2brain/iup-go/iup v0.32.1-0.20261021100303-554f97a35d9a/go.mod h1:RD2P7lG0OxKT/E28fS4fCwN+Q146oZ7WRlprSrScVSI=
 github.com/gen2brain/jpegn v0.6.1 h1:S+Em15BvqCl/cTvebB6JU67ndDVdFWPhB0GbxNkWlOE=
 github.com/gen2brain/jpegn v0.6.1/go.mod h1:43hks+w5VNTUDU34uk0tsXYJ97nbYL2idAlZF0D66+A=
 github.com/gen2brain/vpx v0.2.1 h1:UD6tibcs/zlaIOKNFXeVyZuHBEaW9GYfxKSxvAN9cc8=

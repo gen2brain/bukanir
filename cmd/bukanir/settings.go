@@ -9,7 +9,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -27,6 +26,8 @@ type Settings struct {
 	Fullscreen bool   `json:"fullscreen"`
 	MPVConfig  bool   `json:"mpvConfig"`
 	MPVOptions string `json:"mpvOptions"`
+	VLCConfig  bool   `json:"vlcConfig"`
+	VLCOptions string `json:"vlcOptions"`
 
 	AudioDevice string `json:"audioDevice"`
 
@@ -212,10 +213,18 @@ func onSettings() {
 	}))
 
 	engines := append([]string{"AUTO"}, availableEngines(false)...)
+	autoEngine := ""
+	if len(engines) > 1 {
+		autoEngine = engines[1]
+	}
 	engine := iup.List().SetAttributes("DROPDOWN=YES")
 	engine.SetAttribute("VALUE", "1")
 	for i, e := range engines {
-		engine.SetAttribute(strconv.Itoa(i+1), engineName(e))
+		name := engineName(e)
+		if e == "AUTO" && autoEngine != "" {
+			name += " (" + engineName(autoEngine) + ")"
+		}
+		engine.SetAttribute(strconv.Itoa(i+1), name)
 		if e == s.Engine {
 			engine.SetAttribute("VALUE", strconv.Itoa(i+1))
 		}
@@ -225,11 +234,18 @@ func onSettings() {
 	mpvConfig := toggle(s.MPVConfig)
 	mpvOptions := iup.Text().SetAttributes("VISIBLECOLUMNS=20, CUEBANNER=\"hwdec=auto\"")
 	mpvOptions.SetAttribute("VALUE", s.MPVOptions)
-	updateMPV := func() {
+	vlcConfig := toggle(s.VLCConfig)
+	vlcOptions := iup.Text().SetAttributes("VISIBLECOLUMNS=20, CUEBANNER=\"avcodec-hw=any\"")
+	vlcOptions.SetAttribute("VALUE", s.VLCOptions)
+	updateEngineOptions := func() {
 		e := engines[listIndex(engine)]
-		setActive(e == "MPV" || (e == "AUTO" && slices.Contains(engines, "MPV")), mpvConfig, mpvOptions)
+		if e == "AUTO" {
+			e = autoEngine
+		}
+		setActive(e == "MPV", mpvConfig, mpvOptions)
+		setActive(e == "VLC", vlcConfig, vlcOptions)
 	}
-	updateMPV()
+	updateEngineOptions()
 	audioOutput := iup.List().SetAttributes("DROPDOWN=YES, VISIBLECOLUMNS=16")
 	var audioNames []string
 	fillAudio := func(current string) {
@@ -253,7 +269,7 @@ func onSettings() {
 	fillAudio(s.AudioDevice)
 	engine.SetCallback("ACTION", iup.ListActionFunc(func(_ iup.Ihandle, _ string, _, state int) int {
 		if state == 1 {
-			updateMPV()
+			updateEngineOptions()
 			fillAudio(selectedAudio())
 		}
 		return iup.DEFAULT
@@ -304,7 +320,7 @@ func onSettings() {
 				frame("Interface", formRows("Appearance", appearance)),
 				frame("Cache", formRows("Days to keep cache", cacheDays)),
 			)},
-		{"Player", "Playback engine, window, audio and mpv.",
+		{"Player", "Playback engine, window, audio, mpv and VLC.",
 			page(
 				frame("Playback", formRows(
 					"Engine", engine,
@@ -314,6 +330,10 @@ func onSettings() {
 				frame("mpv", formRows(
 					"Load configuration files", mpvConfig,
 					"Extra options", mpvOptions,
+				)),
+				frame("VLC", formRows(
+					"Load configuration files", vlcConfig,
+					"Extra options", vlcOptions,
 				)),
 			)},
 		{"Subtitles", "Subtitle download and style.",
@@ -407,6 +427,8 @@ func onSettings() {
 		next.Fullscreen = isOn(fullscreen)
 		next.MPVConfig = isOn(mpvConfig)
 		next.MPVOptions = strings.TrimSpace(mpvOptions.GetAttribute("VALUE"))
+		next.VLCConfig = isOn(vlcConfig)
+		next.VLCOptions = strings.TrimSpace(vlcOptions.GetAttribute("VALUE"))
 		next.AudioDevice = selectedAudio()
 		next.SubtitlesEnabled = isOn(subsEnabled)
 		next.SubLanguage = subtitleLanguages[listIndex(subLang)].Code

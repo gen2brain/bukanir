@@ -165,9 +165,13 @@ func (p *videoPlayer) build() {
 		"SUBTITLEFONTSIZE": strconv.Itoa(int(math.Round(18 * settings.SubScale))),
 		"SUBTITLECOLOR":    fmt.Sprintf("%d %d %d", r, g, b),
 		"MPVCONFIG":        yesNo(settings.MPVConfig),
+		"VLCCONFIG":        yesNo(settings.VLCConfig),
 	})
 	if settings.MPVOptions != "" {
 		p.video.SetAttribute("MPVOPTIONS", settings.MPVOptions)
+	}
+	if settings.VLCOptions != "" {
+		p.video.SetAttribute("VLCOPTIONS", settings.VLCOptions)
 	}
 	p.video.SetCallback("STATECHANGED_CB", iup.StateChangedFunc(p.onState))
 	p.video.SetCallback("ERROR_CB", iup.ErrorFunc(p.onError))
