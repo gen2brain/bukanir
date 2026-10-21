@@ -175,8 +175,8 @@ func TestShowForQueryStripsEpisode(t *testing.T) {
 	if !ok {
 		t.Fatal("no show")
 	}
-	if query != "Breaking Bad" {
-		t.Errorf("TMDB query = %q, want %q", query, "Breaking Bad")
+	if query != "breaking bad" {
+		t.Errorf("TMDB query = %q, want %q", query, "breaking bad")
 	}
 	if show.name != "Breaking Bad" || show.imdbID != "tt0903747" || show.season != 2 || show.episode != 3 {
 		t.Errorf("show = %+v", show)

@@ -43,7 +43,7 @@ type sdFile struct {
 
 func (p subdlProvider) search(ctx context.Context, q SubtitleQuery) ([]Subtitle, error) {
 	key := p.c.cfg.subdlKey()
-	if key == "" {
+	if key == "" || (q.IMDbID == "" && q.TMDBID == 0 && strings.TrimSpace(q.Title) == "") {
 		return nil, nil
 	}
 	vals := url.Values{}

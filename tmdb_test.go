@@ -430,6 +430,33 @@ func TestTMDBLookupsMemoized(t *testing.T) {
 	}
 }
 
+func TestTMDBSearchSharesCaseVariants(t *testing.T) {
+	var hits int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&hits, 1)
+		if got := r.URL.Query().Get("query"); got != "the terror" {
+			t.Errorf("query = %q, want %q", got, "the terror")
+		}
+		w.Write([]byte(`{"results":[{"id":1399,"name":"The Terror","first_air_date":"2018-03-25"}]}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	c, err := New(context.Background(), Config{CacheDir: t.TempDir(), CacheTTL: time.Hour, TMDBKey: "testkey"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { c.Close() })
+	c.tmdbBase = srv.URL
+	for _, q := range []string{"The Terror", "the terror", " the  Terror "} {
+		if _, err := c.tmdbSearchTV(context.Background(), q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if hits != 1 {
+		t.Errorf("search hits = %d, want 1", hits)
+	}
+}
+
 func TestTMDBLookupSurvivesCanceledLeader(t *testing.T) {
 	var hits int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

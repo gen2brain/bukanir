@@ -315,8 +315,10 @@ func (c *Client) tmdbSearchTV(ctx context.Context, query string) (*tmdbSearchRes
 	return c.tmdbSearch(ctx, "/search/tv", query)
 }
 
+// tmdbSearch queries a TMDB search endpoint with the query lowercased and its spaces collapsed.
 func (c *Client) tmdbSearch(ctx context.Context, path, query string) (*tmdbSearchResponse, error) {
 	var out tmdbSearchResponse
+	query = strings.ToLower(strings.Join(strings.Fields(query), " "))
 	err := c.tmdbGetJSON(ctx, c.tmdbURL(path, url.Values{"query": {query}}), &out)
 	return &out, err
 }
