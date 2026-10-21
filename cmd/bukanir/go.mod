@@ -31,7 +31,7 @@ require (
 	github.com/anacrolix/multiless v0.4.0 // indirect
 	github.com/anacrolix/stm v0.5.0 // indirect
 	github.com/anacrolix/sync v0.6.0 // indirect
-	github.com/anacrolix/torrent v1.61.1-0.20260927071845-d913b30f520e // indirect
+	github.com/anacrolix/torrent v1.61.1-0.20261019092134-92ad51490479 // indirect
 	github.com/anacrolix/upnp v0.1.4 // indirect
 	github.com/andybalholm/cascadia v1.3.5 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
