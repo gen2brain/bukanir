@@ -15,7 +15,10 @@ import (
 )
 
 // DefaultTorInstances is the number of Tor instances used when Config.TorInstances is zero.
-const DefaultTorInstances = 4
+const DefaultTorInstances = 2
+
+// DefaultTorCircuits is the number of isolated circuits each Tor instance spreads connections over.
+const DefaultTorCircuits = 2
 
 var errTransportClosed = errors.New("bukanir: client closed")
 
@@ -27,7 +30,7 @@ type torProvider interface {
 
 // newTorProvider builds a bootstrapped Tor provider.
 var newTorProvider = func(ctx context.Context, cacheDir string, instances int, stderr io.Writer) (torProvider, error) {
-	var opts []arti.Option
+	opts := []arti.Option{arti.WithCircuits(DefaultTorCircuits)}
 	if stderr != nil {
 		opts = append(opts, arti.WithStderr(stderr))
 	}

@@ -48,7 +48,7 @@ require (
 	github.com/ebitengine/purego v0.11.1 // indirect
 	github.com/edsrzf/mmap-go v1.2.0 // indirect
 	github.com/felixge/fgprof v0.9.5 // indirect
-	github.com/gen2brain/go-arti v0.1.1 // indirect
+	github.com/gen2brain/go-arti v0.1.2 // indirect
 	github.com/go-llsqlite/adapter v0.2.0 // indirect
 	github.com/go-llsqlite/crawshaw v0.7.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
