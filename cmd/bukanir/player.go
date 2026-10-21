@@ -54,6 +54,13 @@ func humanRate(n int64) string {
 }
 
 // onTrailer streams the trailer from YouTube through a local HTTP server into a player window.
+func playerTitle(s bukanir.TSummary) string {
+	if s.Year > 0 {
+		return fmt.Sprintf("%s (%d)", s.Title, s.Year)
+	}
+	return s.Title
+}
+
 func onTrailer(s bukanir.TSummary, tab, btn iup.Ihandle) {
 	engines := playbackEngines(false)
 	var audioEngines []string
@@ -112,7 +119,7 @@ func onTrailer(s bukanir.TSummary, tab, btn iup.Ihandle) {
 			postStatus("Playing trailer...")
 			log.Printf("PLAYER: trailer %q", s.Title)
 		}
-		pb := playback{title: s.Title + " - Trailer", url: url, audioURL: audioURL, engines: engines, onStart: onStart}
+		pb := playback{title: playerTitle(s) + " - Trailer", url: url, audioURL: audioURL, engines: engines, onStart: onStart}
 		if err := playVideo(sess, pb); err != nil {
 			log.Printf("ERROR: PLAYER: %v", err)
 			postStatus("error: " + err.Error())
@@ -238,7 +245,7 @@ func onWatch(m bukanir.TMovie, s bukanir.TSummary, tab, btn iup.Ihandle) {
 				postStatus("Playing " + s.Title)
 			}
 		}
-		pb := playback{title: s.Title, url: url, subtitles: subs, engines: engines, onStart: onStart, onPause: onPause}
+		pb := playback{title: playerTitle(s), url: url, subtitles: subs, engines: engines, onStart: onStart, onPause: onPause}
 		if err := playVideo(sess, pb); err != nil {
 			log.Printf("ERROR: PLAYER: %v", err)
 			postStatus("error: " + err.Error())
