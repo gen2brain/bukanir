@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -77,13 +78,64 @@ func defaultSettings() *Settings {
 	}
 }
 
-// App folders under IUP's per-user directories, resolved once on the main thread by initDirs.
+// App folders under IUP's per-user directories, resolved once on the main thread by initDirs; tmpDir is this run's temp dir.
 var cacheDir, configDir, tmpDir string
 
 func initDirs() {
 	cacheDir = filepath.Join(iup.GetGlobal("CACHEDIR"), "bukanir")
 	configDir = filepath.Join(iup.GetGlobal("CONFIGDIR"), "bukanir")
-	tmpDir = filepath.Join(iup.GetGlobal("TMPDIR"), "bukanir")
+}
+
+// A run refreshes its temp dir every tempHeartbeat; a temp dir older than tempStale belongs to a run that is gone.
+const (
+	tempHeartbeat = time.Minute
+	tempStale     = 5 * time.Minute
+)
+
+var runTempName = regexp.MustCompile(`^bukanir-[0-9]+$`)
+
+// initTemp removes temp dirs left by runs that are gone and creates this run's temp dir; the returned func removes it.
+func initTemp() (func(), error) {
+	base := iup.GetGlobal("TMPDIR")
+	sweepTemp(base)
+	dir, err := os.MkdirTemp(base, "bukanir-*")
+	if err != nil {
+		return nil, err
+	}
+	tmpDir = dir
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(tempHeartbeat)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case now := <-ticker.C:
+				os.Chtimes(dir, now, now)
+			}
+		}
+	}()
+	return func() {
+		close(done)
+		os.RemoveAll(dir)
+	}, nil
+}
+
+func sweepTemp(base string) {
+	os.RemoveAll(filepath.Join(base, "bukanir"))
+	entries, err := os.ReadDir(base)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if !e.IsDir() || !runTempName.MatchString(e.Name()) {
+			continue
+		}
+		if info, err := e.Info(); err == nil && time.Since(info.ModTime()) > tempStale {
+			os.RemoveAll(filepath.Join(base, e.Name()))
+		}
+	}
 }
 
 // settingsPath is the on-disk location of the settings file.
@@ -136,6 +188,7 @@ func (s *Settings) toConfig() bukanir.Config {
 func (s *Settings) toTorrentConfig(dialer bukanir.PeerDialer) bukanir.TorrentConfig {
 	return bukanir.TorrentConfig{
 		DownloadDir:       s.DownloadDir,
+		TempDir:           tmpDir,
 		ListenPort:        s.Port,
 		DownloadRate:      s.DownloadRate,
 		UploadRate:        s.UploadRate,

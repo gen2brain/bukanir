@@ -625,9 +625,6 @@ func serveStream(r io.Reader, size int64, contentType string) (url string, stop 
 	if size <= 0 {
 		return "", nil, errors.New("stream size is unknown")
 	}
-	if err := os.MkdirAll(tmpDir, 0o700); err != nil {
-		return "", nil, err
-	}
 	f, err := os.CreateTemp(tmpDir, "stream-*")
 	if err != nil {
 		return "", nil, err

@@ -72,8 +72,10 @@ func onTrailer(s bukanir.TSummary, tab, btn iup.Ihandle) {
 	disablePlayButton(btn)
 	phase := beginPlayback(tab)
 	postStatus("Loading trailer...")
+	sess := newSession(tab)
+	playbacks.Add(1)
 	go func() {
-		sess := newSession(tab)
+		defer playbacks.Done()
 		defer releaseMemory()
 		defer enableControl(btn)
 		defer phase.end()
@@ -139,8 +141,10 @@ func onWatch(m bukanir.TMovie, s bukanir.TSummary, tab, btn iup.Ihandle) {
 	disablePlayButton(btn)
 	phase := beginPlayback(tab)
 	postStatus("Starting torrent...")
+	sess := newSession(tab)
+	playbacks.Add(1)
 	go func() {
-		sess := newSession(tab)
+		defer playbacks.Done()
 		defer releaseMemory()
 		defer enableControl(btn)
 		defer phase.end()
@@ -372,9 +376,7 @@ func writeTempSub(name string, data []byte) string {
 	if ext == "" {
 		ext = ".srt"
 	}
-	base := tmpDir
-	os.MkdirAll(base, 0o700)
-	f, err := os.CreateTemp(base, "sub-*"+ext)
+	f, err := os.CreateTemp(tmpDir, "sub-*"+ext)
 	if err != nil {
 		return ""
 	}
@@ -448,6 +450,7 @@ type session struct {
 var (
 	sessionsMu sync.Mutex
 	sessions   = map[iup.Ihandle][]*session{}
+	playbacks  sync.WaitGroup
 )
 
 func newSession(tab iup.Ihandle) *session {
@@ -489,6 +492,19 @@ func (s *session) quit() {
 	s.mu.Unlock()
 	if p != nil {
 		p.close()
+	}
+}
+
+// stopAllSessions cancels every playback and quits the players that run.
+func stopAllSessions() {
+	sessionsMu.Lock()
+	var list []*session
+	for _, l := range sessions {
+		list = append(list, l...)
+	}
+	sessionsMu.Unlock()
+	for _, s := range list {
+		s.quit()
 	}
 }
 

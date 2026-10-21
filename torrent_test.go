@@ -29,7 +29,7 @@ func (nopDialer) DialContext(context.Context, string, string) (net.Conn, error) 
 
 func TestTorrentNoMetadata(t *testing.T) {
 	magnet := "magnet:?xt=urn:btih:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&dn=test"
-	tr, err := NewTorrent(magnet, TorrentConfig{DownloadDir: t.TempDir(), Dialer: nopDialer{}})
+	tr, err := NewTorrent(magnet, TorrentConfig{TempDir: t.TempDir(), Dialer: nopDialer{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestTorrentStreamLocal(t *testing.T) {
 	}
 	seeder, magnet := seedFile(t, "movie.bin", content)
 
-	tr, err := NewTorrent(magnet, TorrentConfig{DownloadDir: t.TempDir()})
+	tr, err := NewTorrent(magnet, TorrentConfig{TempDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,6 +167,65 @@ func TestTorrentStreamLocal(t *testing.T) {
 	files := tr.Files()
 	if len(files) != 1 || files[0].Path != "movie.bin" || files[0].Size != int64(len(content)) {
 		t.Errorf("files = %+v", files)
+	}
+}
+
+func TestTorrentKeepFiles(t *testing.T) {
+	if testing.Short() {
+		t.Skip("spins up two torrent clients; skipped under -short")
+	}
+	for _, tc := range []struct {
+		name     string
+		keep     bool
+		download bool
+	}{
+		{"temp", false, false},
+		{"download dir only", false, true},
+		{"keep without download dir", true, false},
+		{"keep", true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			content := bytes.Repeat([]byte(t.Name()), 4096)
+			seeder, magnet := seedFile(t, "movie.bin", content)
+			tempDir, downloadDir := t.TempDir(), ""
+			if tc.download {
+				downloadDir = t.TempDir()
+			}
+			tr, err := NewTorrent(magnet, TorrentConfig{DownloadDir: downloadDir, TempDir: tempDir, KeepFiles: tc.keep})
+			if err != nil {
+				t.Fatal(err)
+			}
+			tr.t.AddClientPeer(seeder)
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			if err := tr.WaitForMetadata(ctx); err != nil {
+				t.Fatalf("metadata: %v", err)
+			}
+			url, err := tr.Serve()
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp, err := http.Get(url)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if err != nil || !bytes.Equal(got, content) {
+				t.Fatalf("streamed %d bytes, err %v", len(got), err)
+			}
+			tr.Close()
+
+			if entries, _ := os.ReadDir(tempDir); len(entries) != 0 {
+				t.Errorf("temp dir keeps %d entries after Close", len(entries))
+			}
+			if tc.download {
+				_, err := os.Stat(filepath.Join(downloadDir, "movie.bin"))
+				if kept := err == nil; kept != tc.keep {
+					t.Errorf("movie.bin kept in download dir = %v, want %v", kept, tc.keep)
+				}
+			}
+		})
 	}
 }
 
@@ -218,7 +277,7 @@ func TestTorrentEncryption(t *testing.T) {
 				}
 			})
 
-			tr, err := NewTorrent(magnet, TorrentConfig{DownloadDir: t.TempDir(), RequireEncryption: tc.require})
+			tr, err := NewTorrent(magnet, TorrentConfig{TempDir: t.TempDir(), RequireEncryption: tc.require})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -272,7 +331,7 @@ func TestTorrentPreferFile(t *testing.T) {
 	}
 	seeder, magnet := seedPath(t, dir, "Show.S01")
 
-	tr, err := NewTorrent(magnet, TorrentConfig{DownloadDir: t.TempDir()})
+	tr, err := NewTorrent(magnet, TorrentConfig{TempDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -334,7 +393,7 @@ func TestTorrentStreamViaDialer(t *testing.T) {
 	seeder, magnet := seedFile(t, "movie.bin", content)
 
 	dialer := &countingDialer{}
-	tr, err := NewTorrent(magnet, TorrentConfig{DownloadDir: t.TempDir(), Dialer: dialer})
+	tr, err := NewTorrent(magnet, TorrentConfig{TempDir: t.TempDir(), Dialer: dialer})
 	if err != nil {
 		t.Fatal(err)
 	}

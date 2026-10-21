@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,8 +30,10 @@ type PeerDialer interface {
 
 // TorrentConfig configures a streaming Torrent session.
 type TorrentConfig struct {
-	// DownloadDir stores torrent data; empty uses a temp dir removed on Close.
+	// DownloadDir stores torrent data that KeepFiles keeps.
 	DownloadDir string
+	// TempDir holds the temp data dir; empty uses the system temp dir.
+	TempDir string
 	// ListenPort is the BitTorrent peer port. Zero picks a free one.
 	ListenPort int
 	// HTTPHost/HTTPPort bind the streaming server.
@@ -43,7 +44,7 @@ type TorrentConfig struct {
 	// DownloadRate/UploadRate cap throughput in KiB/s. Zero is unlimited.
 	DownloadRate int
 	UploadRate   int
-	// KeepFiles keeps downloaded data after Close.
+	// KeepFiles keeps downloaded data in DownloadDir after Close; otherwise data goes to a temp dir removed on Close.
 	KeepFiles bool
 	// Seed keeps uploading after the download completes.
 	Seed bool
@@ -107,12 +108,8 @@ type Torrent struct {
 // NewTorrent creates a streaming session for a magnet link.
 func NewTorrent(magnet string, cfg TorrentConfig) (*Torrent, error) {
 	dir, tmp := cfg.DownloadDir, ""
-	if dir == "" {
-		base := filepath.Join(os.TempDir(), "bukanir")
-		if err := os.MkdirAll(base, 0o700); err != nil {
-			return nil, err
-		}
-		d, err := os.MkdirTemp(base, "torrent-*")
+	if dir == "" || !cfg.KeepFiles {
+		d, err := os.MkdirTemp(cfg.TempDir, "bukanir-torrent-*")
 		if err != nil {
 			return nil, err
 		}
@@ -447,9 +444,7 @@ func (t *Torrent) Close() error {
 	}
 	t.client.Close()
 	t.store.Close()
-	if !t.cfg.KeepFiles {
-		removeTemp(t.tmpDir)
-	}
+	removeTemp(t.tmpDir)
 	return nil
 }
 

@@ -6,7 +6,11 @@ package main
 import (
 	"context"
 	"log"
+	"os"
+	"os/signal"
 	"runtime/debug"
+	"syscall"
+	"time"
 
 	"github.com/gen2brain/bukanir"
 	"github.com/gen2brain/iup-go/iup"
@@ -53,6 +57,11 @@ func main() {
 	iup.SetGlobal("APPNAME", "bukanir")
 	iup.SetGlobal("APPID", "io.github.gen2brain.bukanir")
 	initDirs()
+	removeTemp, err := initTemp()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer removeTemp()
 	settings = loadSettings()
 	loadFavorites()
 	iup.SetGlobal("APPEARANCE", settings.appearance())
@@ -84,7 +93,10 @@ func main() {
 	}).SetHandle("dlg")
 	dlg.SetCallback("K_ANY", iup.KAnyFunc(onKey))
 	dlg.SetCallback("THEMECHANGED_CB", iup.ThemeChangedFunc(onThemeChanged))
-	dlg.SetCallback("CLOSE_CB", iup.CloseFunc(func(iup.Ihandle) int { return iup.CLOSE })) // end the loop; iup.Close then destroys child dialogs
+	dlg.SetCallback("CLOSE_CB", iup.CloseFunc(func(iup.Ihandle) int {
+		quitApp()
+		return iup.IGNORE
+	}))
 	// A MultiBox reports its wrapped height one layout pass late; refresh again after a resize.
 	dlg.SetCallback("RESIZE_CB", iup.ResizeFunc(func(ih iup.Ihandle, _, _ int) int {
 		iup.Refresh(ih)
@@ -94,9 +106,50 @@ func main() {
 	iup.Map(dlg)
 	iup.ShowXY(dlg, iup.CENTER, iup.CENTER)
 	watchTor(client)
+	quitOnSignal()
 	startup()
 	loadMenus()
 	iup.MainLoop()
+}
+
+// quitWait bounds how long quitting waits for playbacks to clean up.
+const quitWait = 10 * time.Second
+
+var quitting bool
+
+// quitApp stops every playback and ends the main loop once their cleanup is done; iup.Close then destroys the dialogs.
+func quitApp() {
+	if quitting {
+		return
+	}
+	quitting = true
+	iup.SetGlobal("LOCKLOOP", "YES")
+	iup.Hide(iup.GetHandle("dlg"))
+	stopAllSessions()
+	go func() {
+		done := make(chan struct{})
+		go func() {
+			playbacks.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(quitWait):
+			log.Println("QUIT: playbacks did not stop in time")
+		}
+		runOnMain(iup.ExitLoop)
+	}()
+}
+
+// quitOnSignal quits like closing the window on an interrupt or terminate signal; a second signal kills the process.
+func quitOnSignal() {
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sig
+		signal.Stop(sig)
+		runOnMain(quitApp)
+	}()
 }
 
 // startup kicks off the initial content load in the background.
