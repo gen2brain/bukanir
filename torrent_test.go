@@ -17,6 +17,7 @@ import (
 	atorrent "github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
+	"github.com/anacrolix/torrent/mse"
 )
 
 // nopDialer disables real networking (TCP/uTP/DHT) so a session stays offline.
@@ -62,17 +63,17 @@ func TestTorrentNoMetadata(t *testing.T) {
 }
 
 // seedFile seeds content from a fresh client and returns it with the magnet link.
-func seedFile(t *testing.T, name string, content []byte) (*atorrent.Client, string) {
+func seedFile(t *testing.T, name string, content []byte, opts ...func(*atorrent.ClientConfig)) (*atorrent.Client, string) {
 	t.Helper()
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, name), content, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	return seedPath(t, dir, name)
+	return seedPath(t, dir, name, opts...)
 }
 
 // seedPath seeds the file or directory name inside dir and returns the client with the magnet link.
-func seedPath(t *testing.T, dir, name string) (*atorrent.Client, string) {
+func seedPath(t *testing.T, dir, name string, opts ...func(*atorrent.ClientConfig)) (*atorrent.Client, string) {
 	t.Helper()
 	info := metainfo.Info{PieceLength: 64 * 1024}
 	if err := info.BuildFromFilePath(filepath.Join(dir, name)); err != nil {
@@ -92,6 +93,9 @@ func seedPath(t *testing.T, dir, name string) (*atorrent.Client, string) {
 	cfg.NoDHT = true
 	cfg.DisableUTP = true
 	cfg.ListenPort = port
+	for _, o := range opts {
+		o(cfg)
+	}
 	cl, err := atorrent.NewClient(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -163,6 +167,83 @@ func TestTorrentStreamLocal(t *testing.T) {
 	files := tr.Files()
 	if len(files) != 1 || files[0].Path != "movie.bin" || files[0].Size != int64(len(content)) {
 		t.Errorf("files = %+v", files)
+	}
+}
+
+func TestCryptoSelector(t *testing.T) {
+	for _, tc := range []struct {
+		require  bool
+		provided mse.CryptoMethod
+		want     mse.CryptoMethod
+	}{
+		{false, mse.AllSupportedCrypto, mse.CryptoMethodRC4},
+		{false, mse.CryptoMethodRC4, mse.CryptoMethodRC4},
+		{false, mse.CryptoMethodPlaintext, mse.CryptoMethodPlaintext},
+		{true, mse.AllSupportedCrypto, mse.CryptoMethodRC4},
+		{true, mse.CryptoMethodPlaintext, 0},
+	} {
+		if got := cryptoSelector(tc.require)(tc.provided); got != tc.want {
+			t.Errorf("require=%v provided=%d: got %d, want %d", tc.require, tc.provided, got, tc.want)
+		}
+	}
+}
+
+func TestTorrentEncryption(t *testing.T) {
+	if testing.Short() {
+		t.Skip("spins up torrent clients; skipped under -short")
+	}
+	for _, tc := range []struct {
+		name    string
+		require bool
+		plain   bool
+		connect bool
+	}{
+		{"prefer", false, false, true},
+		{"prefer plain peer", false, true, true},
+		{"require", true, false, true},
+		{"require plain peer", true, true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var rc4Only atomic.Bool
+			seeder, magnet := seedFile(t, "movie.bin", bytes.Repeat([]byte(t.Name()), 4096), func(cc *atorrent.ClientConfig) {
+				if tc.plain {
+					cc.HeaderObfuscationPolicy = atorrent.HeaderObfuscationPolicy{Preferred: false, RequirePreferred: true}
+				}
+				sel := cc.CryptoSelector
+				cc.CryptoSelector = func(p mse.CryptoMethod) mse.CryptoMethod {
+					if p == mse.CryptoMethodRC4 {
+						rc4Only.Store(true)
+					}
+					return sel(p)
+				}
+			})
+
+			tr, err := NewTorrent(magnet, TorrentConfig{DownloadDir: t.TempDir(), RequireEncryption: tc.require})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tr.Close()
+			if n := tr.t.AddClientPeer(seeder); n == 0 {
+				t.Fatal("no seeder peers added")
+			}
+
+			timeout := 30 * time.Second
+			if !tc.connect {
+				timeout = 5 * time.Second
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+			err = tr.WaitForMetadata(ctx)
+			if tc.connect && err != nil {
+				t.Fatalf("metadata: %v", err)
+			}
+			if !tc.connect && err == nil {
+				t.Fatal("got metadata from a plain peer with encryption required")
+			}
+			if tc.connect && !tc.plain && !rc4Only.Load() {
+				t.Error("client did not offer RC4 only")
+			}
+		})
 	}
 }
 

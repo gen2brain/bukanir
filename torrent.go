@@ -18,6 +18,7 @@ import (
 	"time"
 
 	atorrent "github.com/anacrolix/torrent"
+	"github.com/anacrolix/torrent/mse"
 	"github.com/anacrolix/torrent/storage"
 	"github.com/huin/goupnp/dcps/internetgateway2"
 	"golang.org/x/time/rate"
@@ -46,6 +47,8 @@ type TorrentConfig struct {
 	KeepFiles bool
 	// Seed keeps uploading after the download completes.
 	Seed bool
+	// RequireEncryption drops peers that do not encrypt the whole connection; otherwise they connect in plain.
+	RequireEncryption bool
 	// Dialer, when set, carries outgoing TCP peers (e.g. Tor); uTP/DHT/incoming direct.
 	Dialer PeerDialer
 }
@@ -124,6 +127,9 @@ func NewTorrent(magnet string, cfg TorrentConfig) (*Torrent, error) {
 	cc.Seed = cfg.Seed
 	cc.NoDefaultPortForwarding = true
 	cc.Slogger = slog.New(slog.DiscardHandler)
+	cc.HeaderObfuscationPolicy = atorrent.HeaderObfuscationPolicy{Preferred: true, RequirePreferred: cfg.RequireEncryption}
+	cc.CryptoProvides = mse.CryptoMethodRC4
+	cc.CryptoSelector = cryptoSelector(cfg.RequireEncryption)
 	if cfg.MaxConns > 0 {
 		cc.EstablishedConnsPerTorrent = cfg.MaxConns
 	}
@@ -456,6 +462,19 @@ func removeTemp(dir string) {
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// cryptoSelector picks RC4 for incoming encrypted peers, falling back to plaintext unless encryption is required.
+func cryptoSelector(require bool) mse.CryptoSelector {
+	return func(provided mse.CryptoMethod) mse.CryptoMethod {
+		if provided&mse.CryptoMethodRC4 != 0 {
+			return mse.CryptoMethodRC4
+		}
+		if require {
+			return 0
+		}
+		return mse.CryptoMethodPlaintext
+	}
 }
 
 // FreePort returns a TCP port that is free on host at the moment of the call.

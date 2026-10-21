@@ -42,6 +42,7 @@ type Settings struct {
 	DownloadRate int    `json:"downloadRate"`
 	UploadRate   int    `json:"uploadRate"`
 	Port         int    `json:"port"`
+	Encryption   string `json:"encryption"`
 	KeepFiles    bool   `json:"keepFiles"`
 	DownloadDir  string `json:"downloadDir"`
 }
@@ -70,6 +71,7 @@ func defaultSettings() *Settings {
 		DownloadRate:     0,
 		UploadRate:       0,
 		Port:             0,
+		Encryption:       "prefer",
 		KeepFiles:        false,
 	}
 }
@@ -132,13 +134,19 @@ func (s *Settings) toConfig() bukanir.Config {
 // toTorrentConfig builds the streaming TorrentConfig from the settings.
 func (s *Settings) toTorrentConfig(dialer bukanir.PeerDialer) bukanir.TorrentConfig {
 	return bukanir.TorrentConfig{
-		DownloadDir:  s.DownloadDir,
-		ListenPort:   s.Port,
-		DownloadRate: s.DownloadRate,
-		UploadRate:   s.UploadRate,
-		KeepFiles:    s.KeepFiles,
-		Dialer:       dialer,
+		DownloadDir:       s.DownloadDir,
+		ListenPort:        s.Port,
+		DownloadRate:      s.DownloadRate,
+		UploadRate:        s.UploadRate,
+		KeepFiles:         s.KeepFiles,
+		Dialer:            dialer,
+		RequireEncryption: s.Encryption == "require",
 	}
+}
+
+// encryptionChoices are the peer encryption modes offered in the dialog, in list order.
+var encryptionChoices = []struct{ Value, Name string }{
+	{"prefer", "Prefer"}, {"require", "Require"},
 }
 
 // appearanceChoices are the APPEARANCE values offered in the dialog, in list order.
@@ -266,6 +274,13 @@ func onSettings() {
 		"SPIN": "YES", "SPINMIN": "0", "SPINMAX": "65535", "SPININC": "1",
 		"VALUE": strconv.Itoa(s.Port), "VISIBLECOLUMNS": "8",
 	})
+	encryption := iup.List().SetAttributes("DROPDOWN=YES, VALUE=1")
+	for i, e := range encryptionChoices {
+		encryption.SetAttribute(strconv.Itoa(i+1), e.Name)
+		if e.Value == s.Encryption {
+			encryption.SetAttribute("VALUE", strconv.Itoa(i+1))
+		}
+	}
 	keepFiles := toggle(s.KeepFiles)
 	dlDir := iup.Text().SetAttributes("VISIBLECOLUMNS=24")
 	dlDir.SetAttribute("VALUE", s.DownloadDir)
@@ -321,12 +336,15 @@ func onSettings() {
 					"EZTV host", eztvHost,
 				)),
 			)},
-		{"Torrents", "Transfer limits, peer port and files.",
+		{"Torrents", "Transfer limits, peers and files.",
 			page(
 				frame("Limits", formRows(
 					"Max download rate", dlRate,
 					"Max upload rate", ulRate,
+				)),
+				frame("Peers", formRows(
 					"Peer port (0 = auto)", port,
+					"Encryption", encryption,
 				)),
 				frame("Files", formRows(
 					"Keep downloaded files", keepFiles,
@@ -398,6 +416,7 @@ func onSettings() {
 		next.DownloadRate = rateChoices[listIndex(dlRate)]
 		next.UploadRate = rateChoices[listIndex(ulRate)]
 		next.Port = atoiDefault(port.GetAttribute("VALUE"), s.Port)
+		next.Encryption = encryptionChoices[listIndex(encryption)].Value
 		next.KeepFiles = isOn(keepFiles)
 		next.DownloadDir = dlDir.GetAttribute("VALUE")
 		next.TPBHost = strings.TrimSpace(choiceText(tpbHost))
