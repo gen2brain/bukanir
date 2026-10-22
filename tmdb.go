@@ -673,9 +673,21 @@ func (c *Client) Genres(ctx context.Context) ([]TGenre, error) {
 	return out, nil
 }
 
-// Autocomplete returns movie and TV title suggestions, prefix matches first, then by popularity.
-func (c *Client) Autocomplete(ctx context.Context, query string) ([]TItem, error) {
-	resp, err := c.tmdbSearchMulti(ctx, query)
+// Autocomplete returns title suggestions for media ("all", "movies" or "episodes"), prefix matches first, then by popularity.
+func (c *Client) Autocomplete(ctx context.Context, query, media string) ([]TItem, error) {
+	var resp *tmdbSearchResponse
+	var err error
+	mediaType := ""
+	switch media {
+	case "movies":
+		resp, err = c.tmdbSearchMovie(ctx, query)
+		mediaType = "movie"
+	case "episodes":
+		resp, err = c.tmdbSearchTV(ctx, query)
+		mediaType = "tv"
+	default:
+		resp, err = c.tmdbSearchMulti(ctx, query)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -688,6 +700,9 @@ func (c *Client) Autocomplete(ctx context.Context, query string) ([]TItem, error
 	}
 	var hits []scored
 	for _, r := range resp.Results {
+		if mediaType != "" {
+			r.MediaType = mediaType
+		}
 		if r.MediaType != "movie" && r.MediaType != "tv" {
 			continue
 		}

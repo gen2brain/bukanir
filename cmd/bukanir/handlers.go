@@ -58,6 +58,7 @@ func onSearchChanged(query string) {
 		hideSuggestions()
 		return
 	}
+	media := media
 	go func() {
 		time.Sleep(220 * time.Millisecond)
 		if acGen.Load() != gen {
@@ -65,9 +66,12 @@ func onSearchChanged(query string) {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		items, err := client.Autocomplete(ctx, query)
+		items, err := client.Autocomplete(ctx, query, media)
 		if err != nil || acGen.Load() != gen {
 			return
+		}
+		if len(items) > autocompleteLimit {
+			items = items[:autocompleteLimit]
 		}
 		iup.PostMessage(iup.GetHandle("suggest"), "", 0, items)
 	}()

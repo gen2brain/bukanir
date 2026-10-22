@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"runtime"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -298,12 +297,6 @@ func suggestLabel(it bukanir.TItem) string {
 // onSuggestions fills the floating suggestion list and positions it under the search field.
 func onSuggestions(ih iup.Ihandle, _ string, _ int, p any) int {
 	items, _ := p.([]bukanir.TItem)
-	items = slices.DeleteFunc(slices.Clone(items), func(it bukanir.TItem) bool {
-		return (media == "movies" && it.Media != "movie") || (media == "episodes" && it.Media != "tv")
-	})
-	if len(items) > autocompleteLimit {
-		items = items[:autocompleteLimit]
-	}
 	search := iup.GetHandle("search")
 	if len(items) == 0 || iup.GetFocus() != search {
 		hideSuggestions()

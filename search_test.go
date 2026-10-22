@@ -266,6 +266,12 @@ func TestListsAndAutocomplete(t *testing.T) {
 			`{"id":3,"media_type":"movie","title":"Matrix","release_date":"1999-01-01","popularity":10},` +
 			`{"id":6,"media_type":"tv","name":"Matrix Show","first_air_date":"2005-01-01","popularity":50}]}`))
 	})
+	mux.HandleFunc("/search/movie", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"results":[{"id":3,"title":"Matrix","release_date":"1999-01-01","popularity":10}]}`))
+	})
+	mux.HandleFunc("/search/tv", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"results":[{"id":6,"name":"Matrix Show","first_air_date":"2005-01-01","popularity":50}]}`))
+	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
@@ -287,14 +293,22 @@ func TestListsAndAutocomplete(t *testing.T) {
 	if err != nil || len(genres) != 1 || genres[0].Name != "Action" {
 		t.Fatalf("genres = %+v, %v", genres, err)
 	}
-	ac, err := c.Autocomplete(context.Background(), "matr")
-	want := []TItem{
-		{Title: "Matrix Show", Year: 2005, Media: "tv"},
-		{Title: "Matrix", Year: 1999, Media: "movie"},
-		{Title: "Enter the Matrix", Year: 2003, Media: "movie"},
-	}
-	if err != nil || !slices.Equal(ac, want) {
-		t.Fatalf("autocomplete = %+v, %v", ac, err)
+	for _, tc := range []struct {
+		media string
+		want  []TItem
+	}{
+		{"all", []TItem{
+			{Title: "Matrix Show", Year: 2005, Media: "tv"},
+			{Title: "Matrix", Year: 1999, Media: "movie"},
+			{Title: "Enter the Matrix", Year: 2003, Media: "movie"},
+		}},
+		{"movies", []TItem{{Title: "Matrix", Year: 1999, Media: "movie"}}},
+		{"episodes", []TItem{{Title: "Matrix Show", Year: 2005, Media: "tv"}}},
+	} {
+		ac, err := c.Autocomplete(context.Background(), "matr", tc.media)
+		if err != nil || !slices.Equal(ac, tc.want) {
+			t.Fatalf("autocomplete %s = %+v, %v", tc.media, ac, err)
+		}
 	}
 }
 
