@@ -121,6 +121,7 @@ type tmdbResult struct {
 	ProfilePath   string  `json:"profile_path"`
 	Overview      string  `json:"overview"`
 	VoteAverage   float64 `json:"vote_average"`
+	Popularity    float64 `json:"popularity"`
 }
 
 func (r tmdbResult) title() string {
@@ -313,6 +314,10 @@ func (c *Client) tmdbSearchMovie(ctx context.Context, query string) (*tmdbSearch
 
 func (c *Client) tmdbSearchTV(ctx context.Context, query string) (*tmdbSearchResponse, error) {
 	return c.tmdbSearch(ctx, "/search/tv", query)
+}
+
+func (c *Client) tmdbSearchMulti(ctx context.Context, query string) (*tmdbSearchResponse, error) {
+	return c.tmdbSearch(ctx, "/search/multi", query)
 }
 
 // tmdbSearch queries a TMDB search endpoint with the query lowercased and its spaces collapsed.
@@ -668,24 +673,43 @@ func (c *Client) Genres(ctx context.Context) ([]TGenre, error) {
 	return out, nil
 }
 
-// Autocomplete returns title suggestions for a partial query.
+// Autocomplete returns movie and TV title suggestions, prefix matches first, then by popularity.
 func (c *Client) Autocomplete(ctx context.Context, query string) ([]TItem, error) {
-	movies, err := c.tmdbSearchMovie(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	tv, err := c.tmdbSearchTV(ctx, query)
+	resp, err := c.tmdbSearchMulti(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 
-	results := append(movies.Results, tv.Results...)
-	items := make([]TItem, 0, len(results))
-	for _, r := range results {
+	prefix := strings.ToLower(strings.Join(strings.Fields(query), " "))
+	type scored struct {
+		item       TItem
+		prefix     bool
+		popularity float64
+	}
+	var hits []scored
+	for _, r := range resp.Results {
+		if r.MediaType != "movie" && r.MediaType != "tv" {
+			continue
+		}
 		if r.title() == "" || r.year() == 0 {
 			continue
 		}
-		items = append(items, TItem{Title: r.title(), Year: r.year()})
+		hits = append(hits, scored{
+			item:       TItem{Title: r.title(), Year: r.year(), Media: r.MediaType},
+			prefix:     strings.HasPrefix(strings.ToLower(r.title()), prefix),
+			popularity: r.Popularity,
+		})
+	}
+	sort.SliceStable(hits, func(i, j int) bool {
+		if hits[i].prefix != hits[j].prefix {
+			return hits[i].prefix
+		}
+		return hits[i].popularity > hits[j].popularity
+	})
+
+	items := make([]TItem, len(hits))
+	for i, h := range hits {
+		items[i] = h.item
 	}
 	return items, nil
 }

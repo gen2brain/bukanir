@@ -69,9 +69,6 @@ func onSearchChanged(query string) {
 		if err != nil || acGen.Load() != gen {
 			return
 		}
-		if len(items) > autocompleteLimit {
-			items = items[:autocompleteLimit]
-		}
 		iup.PostMessage(iup.GetHandle("suggest"), "", 0, items)
 	}()
 }

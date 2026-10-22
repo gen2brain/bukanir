@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -204,36 +205,70 @@ func genreMenu() iup.Ihandle {
 // suggestTitles holds the plain titles behind the current suggestion list.
 var suggestTitles []string
 
-// searchBox is the query field driving the autocomplete list.
+// searchBox is the query field driving the autocomplete list; it keeps the focus while the list is open.
 func searchBox() iup.Ihandle {
 	search := iup.Text().SetAttributes("CUEBANNER=Search, VISIBLECOLUMNS=18").SetHandle("search")
 	search.SetCallback("VALUECHANGED_CB", iup.ValueChangedFunc(func(ih iup.Ihandle) int {
 		onSearchChanged(ih.GetAttribute("VALUE"))
 		return iup.DEFAULT
 	}))
+	search.SetCallback("KILLFOCUS_CB", iup.KillFocusFunc(func(iup.Ihandle) int {
+		hideSuggestions()
+		return iup.DEFAULT
+	}))
 	search.SetCallback("K_ANY", iup.KAnyFunc(func(_ iup.Ihandle, c int) int {
+		list := iup.GetHandle("suggest")
+		open := list.GetAttribute("VISIBLE") == "YES"
 		switch c {
 		case iup.K_CR:
-			hideSuggestions()
-			onSearchClick()
-		case iup.K_DOWN:
-			list := iup.GetHandle("suggest")
-			if list.GetAttribute("VISIBLE") == "YES" {
-				iup.SetFocus(list)
-				list.SetAttribute("VALUE", "1")
+			if open && list.GetInt("VALUE") > 0 {
+				acceptSuggestion(list.GetInt("VALUE"))
+			} else {
+				onSearchClick()
+			}
+			return iup.IGNORE
+		case iup.K_DOWN, iup.K_UP:
+			if open {
+				moveSuggestion(list, c == iup.K_DOWN)
+				return iup.IGNORE
 			}
 		case iup.K_ESC:
-			hideSuggestions()
+			if open {
+				hideSuggestions()
+				return iup.IGNORE
+			}
 		}
 		return iup.CONTINUE
 	}))
 	return search
 }
 
+// moveSuggestion highlights the next or previous suggestion, passing through none at either end.
+func moveSuggestion(list iup.Ihandle, down bool) {
+	n, v := list.GetInt("COUNT"), list.GetInt("VALUE")
+	if down {
+		v++
+	} else {
+		v--
+	}
+	if v > n {
+		v = 0
+	} else if v < 0 {
+		v = n
+	}
+	list.SetAttribute("VALUE", strconv.Itoa(v))
+}
+
 // suggestList is the autocomplete list, a floating child shown under the search field.
 func suggestList() iup.Ihandle {
-	list := iup.List().SetHandle("suggest").SetAttributes("VISIBLE=NO, FLOATING=YES, ZORDER=TOP")
+	list := iup.List().SetHandle("suggest").SetAttributes("VISIBLE=NO, FLOATING=YES, ZORDER=TOP, CANFOCUS=NO")
 	list.SetCallback("POSTMESSAGE_CB", iup.PostMessageFunc(onSuggestions))
+	list.SetCallback("MOTION_CB", iup.MotionFunc(func(ih iup.Ihandle, x, y int, _ string) int {
+		if pos := iup.ConvertXYToPos(ih, x, y); pos > 0 && pos != ih.GetInt("VALUE") {
+			ih.SetAttribute("VALUE", strconv.Itoa(pos))
+		}
+		return iup.DEFAULT
+	}))
 	list.SetCallback("BUTTON_CB", iup.ButtonFunc(func(ih iup.Ihandle, button, pressed, x, y int, _ string) int {
 		if button == iup.BUTTON1 && pressed == 0 {
 			if pos := iup.ConvertXYToPos(ih, x, y); pos > 0 {
@@ -242,23 +277,35 @@ func suggestList() iup.Ihandle {
 		}
 		return iup.DEFAULT
 	}))
-	list.SetCallback("K_ANY", iup.KAnyFunc(func(ih iup.Ihandle, c int) int {
-		switch c {
-		case iup.K_CR:
-			acceptSuggestion(ih.GetInt("VALUE"))
-		case iup.K_ESC:
-			hideSuggestions()
-			iup.SetFocus(iup.GetHandle("search"))
-		}
-		return iup.CONTINUE
-	}))
 	return list
+}
+
+// suggestLabelMax caps the visible length of a suggested title.
+const suggestLabelMax = 60
+
+// suggestLabel formats a suggestion as "Title (Year)", marking TV shows.
+func suggestLabel(it bukanir.TItem) string {
+	title := it.Title
+	if r := []rune(title); len(r) > suggestLabelMax {
+		title = strings.TrimSpace(string(r[:suggestLabelMax-1])) + "…"
+	}
+	if it.Media == "tv" {
+		return fmt.Sprintf("%s (%d, TV)", title, it.Year)
+	}
+	return fmt.Sprintf("%s (%d)", title, it.Year)
 }
 
 // onSuggestions fills the floating suggestion list and positions it under the search field.
 func onSuggestions(ih iup.Ihandle, _ string, _ int, p any) int {
 	items, _ := p.([]bukanir.TItem)
-	if len(items) == 0 {
+	items = slices.DeleteFunc(slices.Clone(items), func(it bukanir.TItem) bool {
+		return (media == "movies" && it.Media != "movie") || (media == "episodes" && it.Media != "tv")
+	})
+	if len(items) > autocompleteLimit {
+		items = items[:autocompleteLimit]
+	}
+	search := iup.GetHandle("search")
+	if len(items) == 0 || iup.GetFocus() != search {
 		hideSuggestions()
 		suggestTitles = nil
 		return iup.DEFAULT
@@ -267,19 +314,15 @@ func onSuggestions(ih iup.Ihandle, _ string, _ int, p any) int {
 	clearList(ih)
 	for i, it := range items {
 		suggestTitles = append(suggestTitles, it.Title)
-		label := it.Title
-		if it.Year > 0 {
-			label = fmt.Sprintf("%s (%d)", it.Title, it.Year)
-		}
-		iup.SetAttributeId(ih, "", i+1, label)
+		iup.SetAttributeId(ih, "", i+1, suggestLabel(it))
 	}
 	ih.SetAttribute("VALUE", "0")
 
-	search := iup.GetHandle("search")
 	var sx, sy, w, h int
 	fmt.Sscanf(search.GetAttribute("POSITION"), "%d,%d", &sx, &sy)
 	fmt.Sscanf(search.GetAttribute("RASTERSIZE"), "%dx%d", &w, &h)
 	ih.SetAttribute("POSITION", fmt.Sprintf("%d,%d", sx, sy+h))
+	ih.SetAttribute("MINSIZE", fmt.Sprintf("%dx0", w))
 	iup.Refresh(ih)
 	iup.Show(ih)
 	return iup.DEFAULT
