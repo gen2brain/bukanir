@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"image"
 	"image/png"
+	"math"
 	"strconv"
 
 	"github.com/gen2brain/iup-go/iup"
@@ -29,7 +30,7 @@ func loadLoadingAnimation() {
 	anim.SetAttribute("FRAMETIME", strconv.Itoa(spinnerFrameTime))
 	for i := 0; i < spinnerFrameCount; i++ {
 		name := fmt.Sprintf("load-%d", i)
-		iup.ImageFromImage(spinnerGlyph(tabIconSize, float64(i)/spinnerFrameCount)).SetHandle(name)
+		scaledImage(spinnerGlyph(screenPixels(tabIconSize), float64(i)/spinnerFrameCount)).SetHandle(name)
 		iup.Append(anim, iup.GetHandle(name))
 		loadingFrames = append(loadingFrames, name)
 	}
@@ -55,8 +56,8 @@ var tabSpinFrames []string
 
 // registerTabIndicators registers the tab-indicator images (spinner, play, pause).
 func registerTabIndicators() {
-	iup.ImageFromImage(playGlyph(tabIconSize)).SetHandle("tab-play")
-	iup.ImageFromImage(pauseGlyph(tabIconSize)).SetHandle("tab-pause")
+	scaledImage(playGlyph(screenPixels(tabIconSize))).SetHandle("tab-play")
+	scaledImage(pauseGlyph(screenPixels(tabIconSize))).SetHandle("tab-pause")
 	tabSpinFrames = loadingFrames
 }
 
@@ -86,7 +87,7 @@ func tintedName(icon string) string {
 	fg := globalColor("DLGFGCOLOR")
 	name := fmt.Sprintf("%s-%02x%02x%02x", icon, fg.R, fg.G, fg.B)
 	if iup.GetHandle(name) == 0 && iconPaths[icon] != "" {
-		iup.ImageFromImage(drawIcon(icon, iconSize, fg)).SetHandle(name)
+		scaledImage(drawIcon(icon, screenPixels(iconSize), fg)).SetHandle(name)
 	}
 	return name
 }
@@ -106,23 +107,23 @@ func loadIcons() {
 	}
 	for name, data := range colored {
 		if img, err := png.Decode(bytes.NewReader(data)); err == nil {
-			iup.ImageFromImage(resizeIcon(img, iconSize)).SetHandle(name)
+			scaledImage(resizeIcon(img, screenPixels(iconSize))).SetHandle(name)
 		}
 	}
 	if img, err := png.Decode(bytes.NewReader(iconTor)); err == nil {
-		iup.ImageFromImage(fadeIcon(resizeIcon(img, iconSize), 0.4)).SetHandle("tor-starting")
+		scaledImage(fadeIcon(resizeIcon(img, screenPixels(iconSize)), 0.4)).SetHandle("tor-starting")
 	}
 	if img, err := png.Decode(bytes.NewReader(iconTorOff)); err == nil {
-		iup.ImageFromImage(reddenIcon(resizeIcon(img, iconSize))).SetHandle("tor-failed")
+		scaledImage(reddenIcon(resizeIcon(img, screenPixels(iconSize)))).SetHandle("tor-failed")
 	}
 
 	if img, err := png.Decode(bytes.NewReader(iconLogo)); err == nil {
 		iup.ImageFromImage(resizeIcon(img, 48)).SetHandle("appicon")
-		iup.ImageFromImage(resizeIcon(img, iconSize)).SetHandle("logo")
+		scaledImage(resizeIcon(img, screenPixels(iconSize))).SetHandle("logo")
 		iup.ImageFromImage(img).SetHandle("logo-large")
 	}
 	if img, err := png.Decode(bytes.NewReader(iconLogoGray)); err == nil {
-		iup.ImageFromImage(resizeIcon(img, iconSize)).SetHandle("logo-gray")
+		scaledImage(resizeIcon(img, screenPixels(iconSize))).SetHandle("logo-gray")
 	}
 	if img, err := png.Decode(bytes.NewReader(iconTMDB)); err == nil {
 		iup.ImageFromImage(img).SetHandle("tmdb")
@@ -146,6 +147,24 @@ func reddenIcon(img *image.RGBA) *image.RGBA {
 		img.Pix[i+2] = img.Pix[i+2] / 3
 	}
 	return img
+}
+
+// screenScale returns the number of screen pixels in a logical unit.
+func screenScale() float64 {
+	if s, err := strconv.ParseFloat(iup.GetGlobal("SCREENSCALE"), 64); err == nil && s > 0 {
+		return s
+	}
+	return 1
+}
+
+// screenPixels returns the number of screen pixels in size logical units.
+func screenPixels(size int) int {
+	return int(math.Round(float64(size) * screenScale()))
+}
+
+// scaledImage creates an IUP image from img drawn at the screen scale.
+func scaledImage(img image.Image) iup.Ihandle {
+	return iup.ImageFromImage(img).SetAttribute("SCALE", strconv.FormatFloat(screenScale(), 'g', -1, 64))
 }
 
 // resizeIcon scales src to a square of the given size.
