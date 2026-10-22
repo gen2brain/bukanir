@@ -213,7 +213,7 @@ func directorRow(s bukanir.TSummary) iup.Ihandle {
 
 func castRow(s bukanir.TSummary) iup.Ihandle {
 	items := []iup.Ihandle{fieldLabel("Cast:")}
-	for i := 0; i < len(s.Cast) && i < 5; i++ {
+	for i := 0; i < len(s.Cast) && i < 6; i++ {
 		name := s.Cast[i]
 		id := 0
 		if i < len(s.CastIDs) {

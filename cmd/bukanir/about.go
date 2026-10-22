@@ -12,7 +12,7 @@ const (
 	tmdbURL    = "https://www.themoviedb.org"
 )
 
-// showAbout opens the modal About dialog with a Help button for the shortcuts.
+// showAbout opens the modal About dialog with Help for the shortcuts and Version for the IUP details.
 func showAbout() {
 	logo := iup.Label("").SetAttribute("IMAGE", "logo-large")
 	text := iup.Vbox(
@@ -32,12 +32,13 @@ func showAbout() {
 	).SetAttributes("GAP=12, ALIGNMENT=ACENTER")
 
 	help := iup.Button("Help").SetAttributes("PADDING=14x4")
+	version := iup.Button("Version").SetAttributes("PADDING=14x4")
 	closeBtn := iup.Button("Close").SetAttributes("PADDING=14x4")
 	body := iup.Vbox(
 		iup.Hbox(logo, text).SetAttributes("GAP=16, ALIGNMENT=ACENTER"),
 		iup.Label("").SetAttribute("SEPARATOR", "HORIZONTAL"),
 		tmdb,
-		iup.Hbox(iup.Fill(), help, closeBtn).SetAttributes("GAP=8"),
+		iup.Hbox(iup.Fill(), help, version, closeBtn).SetAttributes("GAP=8"),
 	).SetAttributes("NMARGIN=14x14, GAP=14")
 	dlg := iup.Dialog(body).SetAttributes(map[string]string{
 		"TITLE": "About", "DIALOGFRAME": "YES", "MINBOX": "NO", "MAXBOX": "NO",
@@ -48,6 +49,10 @@ func showAbout() {
 	closeBtn.SetCallback("ACTION", iup.ActionFunc(func(iup.Ihandle) int { return iup.CLOSE }))
 	help.SetCallback("ACTION", iup.ActionFunc(func(iup.Ihandle) int {
 		showShortcuts(dlg)
+		return iup.DEFAULT
+	}))
+	version.SetCallback("ACTION", iup.ActionFunc(func(iup.Ihandle) int {
+		iup.VersionShow()
 		return iup.DEFAULT
 	}))
 
