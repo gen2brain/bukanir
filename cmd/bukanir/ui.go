@@ -321,15 +321,17 @@ func onSuggestions(ih iup.Ihandle, _ string, _ int, p any) int {
 	return iup.DEFAULT
 }
 
-// acceptSuggestion searches for the chosen suggestion by its underlying title.
+// acceptSuggestion fills the search field with the chosen title; Enter then runs the search.
 func acceptSuggestion(item int) {
 	if item < 1 || item > len(suggestTitles) {
 		return
 	}
 	title := suggestTitles[item-1]
+	acGen.Add(1)
 	hideSuggestions()
-	iup.GetHandle("search").SetAttribute("VALUE", title)
-	runSearch(title)
+	search := iup.GetHandle("search")
+	search.SetAttribute("VALUE", title)
+	search.SetAttribute("CARETPOS", strconv.Itoa(len([]rune(title))))
 }
 
 func hideSuggestions() { iup.Hide(iup.GetHandle("suggest")) }
