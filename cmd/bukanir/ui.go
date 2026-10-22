@@ -720,7 +720,7 @@ func syncSpinner() {
 	switch {
 	case need && !spinning:
 		spinTimer = iup.Timer()
-		spinTimer.SetAttribute("TIME", "90")
+		spinTimer.SetAttribute("TIME", strconv.Itoa(spinnerFrameTime))
 		spinTimer.SetCallback("ACTION_CB", iup.TimerActionFunc(onSpinTick))
 		spinTimer.SetAttribute("RUN", "YES")
 		spinning = true

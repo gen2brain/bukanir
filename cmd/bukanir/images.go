@@ -9,39 +9,33 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
-	"image/gif"
 	"image/png"
+	"math"
+	"strconv"
 
 	"github.com/gen2brain/iup-go/iup"
 	xdraw "golang.org/x/image/draw"
+	"golang.org/x/image/vector"
 )
 
-//go:embed images/loading.gif
-var loadingGIF []byte
+// spinnerFrameCount and spinnerFrameTime set the loading spinner animation.
+const (
+	spinnerFrameCount = 12
+	spinnerFrameTime  = 80
+)
 
 // loadingFrames holds the spinner frame image names shared by loading boxes and tab indicators.
 var loadingFrames []string
 
-// loadLoadingAnimation registers the spinner GIF frames and the "loading-anim" element once.
+// loadLoadingAnimation registers the spinner frames and the "loading-anim" element once.
 func loadLoadingAnimation() {
-	g, err := gif.DecodeAll(bytes.NewReader(loadingGIF))
-	if err != nil || len(g.Image) == 0 {
-		return
-	}
 	anim := iup.User().SetHandle("loading-anim")
-	anim.SetAttribute("FRAMETIME", "90")
-	canvas := image.NewRGBA(image.Rect(0, 0, g.Config.Width, g.Config.Height))
-	for i, frame := range g.Image {
-		draw.Draw(canvas, frame.Bounds(), frame, frame.Bounds().Min, draw.Over)
-		snap := image.NewRGBA(canvas.Bounds())
-		copy(snap.Pix, canvas.Pix)
+	anim.SetAttribute("FRAMETIME", strconv.Itoa(spinnerFrameTime))
+	for i := 0; i < spinnerFrameCount; i++ {
 		name := fmt.Sprintf("load-%d", i)
-		iup.ImageFromImage(snap).SetHandle(name)
+		iup.ImageFromImage(spinnerGlyph(tabIconSize, float64(i)/spinnerFrameCount)).SetHandle(name)
 		iup.Append(anim, iup.GetHandle(name))
 		loadingFrames = append(loadingFrames, name)
-		if i < len(g.Disposal) && g.Disposal[i] == gif.DisposalBackground {
-			draw.Draw(canvas, frame.Bounds(), image.Transparent, image.Point{}, draw.Src)
-		}
 	}
 }
 
@@ -70,35 +64,73 @@ func registerTabIndicators() {
 	tabSpinFrames = loadingFrames
 }
 
+// fillShape rasterizes the closed polygons with anti-aliasing onto a transparent square in color c.
+func fillShape(size int, c color.Color, polys ...[][2]float32) *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, size, size))
+	z := vector.NewRasterizer(size, size)
+	for _, poly := range polys {
+		z.MoveTo(poly[0][0], poly[0][1])
+		for _, p := range poly[1:] {
+			z.LineTo(p[0], p[1])
+		}
+		z.ClosePath()
+	}
+	z.Draw(img, img.Bounds(), image.NewUniform(c), image.Point{})
+	return img
+}
+
+// arcBand returns the polygon of a ring segment from angle a0 to a1 (radians) between radii r0 and r1.
+func arcBand(cx, cy, r0, r1, a0, a1 float64) [][2]float32 {
+	steps := int(math.Ceil(math.Abs(a1-a0) / (math.Pi / 48)))
+	poly := make([][2]float32, 0, 2*steps+2)
+	for i := 0; i <= steps; i++ {
+		a := a0 + (a1-a0)*float64(i)/float64(steps)
+		poly = append(poly, [2]float32{float32(cx + r1*math.Cos(a)), float32(cy + r1*math.Sin(a))})
+	}
+	for i := steps; i >= 0; i-- {
+		a := a0 + (a1-a0)*float64(i)/float64(steps)
+		poly = append(poly, [2]float32{float32(cx + r0*math.Cos(a)), float32(cy + r0*math.Sin(a))})
+	}
+	return poly
+}
+
+// spinnerGlyph draws a faint accent ring with a bright rounded arc rotated by turn (0..1).
+func spinnerGlyph(size int, turn float64) *image.RGBA {
+	c := float64(size) / 2
+	width := float64(size) / 7
+	r1 := c - 1
+	r0 := r1 - width
+	img := fillShape(size, color.NRGBA{accentRGBA.R, accentRGBA.G, accentRGBA.B, 70}, arcBand(c, c, r0, r1, 0, 2*math.Pi))
+
+	a0 := 2*math.Pi*turn - math.Pi/2
+	a1 := a0 + 2*math.Pi/3
+	mid := (r0 + r1) / 2
+	capAt := func(a float64) [][2]float32 {
+		return arcBand(c+mid*math.Cos(a), c+mid*math.Sin(a), 0, width/2, 0, 2*math.Pi)
+	}
+	arc := fillShape(size, accentRGBA, arcBand(c, c, r0, r1, a0, a1), capAt(a0), capAt(a1))
+	draw.Draw(img, img.Bounds(), arc, image.Point{}, draw.Over)
+	return img
+}
+
+// px rounds a fraction of size to a whole pixel, so straight edges stay sharp.
+func px(size int, f float64) float32 {
+	return float32(math.Round(float64(size) * f))
+}
+
 // playGlyph draws a right-pointing accent triangle on a transparent square.
 func playGlyph(size int) *image.RGBA {
-	img := image.NewRGBA(image.Rect(0, 0, size, size))
-	c := accentRGBA
-	left, right, mid := size/4, size-size/4, size/2
-	for x := left; x < right; x++ {
-		half := (right - x) * (mid - size/6) / (right - left)
-		for y := mid - half; y <= mid+half; y++ {
-			img.SetRGBA(x, y, c)
-		}
-	}
-	return img
+	left, top, bottom, tip := px(size, 0.3), px(size, 0.2), px(size, 0.8), px(size, 0.8)
+	return fillShape(size, accentRGBA, [][2]float32{{left, top}, {tip, (top + bottom) / 2}, {left, bottom}})
 }
 
 // pauseGlyph draws two vertical accent bars on a transparent square.
 func pauseGlyph(size int) *image.RGBA {
-	img := image.NewRGBA(image.Rect(0, 0, size, size))
-	c := accentRGBA
-	top, bot, barW, gap := size/4, size-size/4, size/6, size/8
-	bar := func(x0 int) {
-		for x := x0; x < x0+barW; x++ {
-			for y := top; y < bot; y++ {
-				img.SetRGBA(x, y, c)
-			}
-		}
+	top, bottom, width := px(size, 0.22), px(size, 0.78), px(size, 0.2)
+	bar := func(x0 float32) [][2]float32 {
+		return [][2]float32{{x0, top}, {x0 + width, top}, {x0 + width, bottom}, {x0, bottom}}
 	}
-	bar(size/2 - gap - barW)
-	bar(size/2 + gap)
-	return img
+	return fillShape(size, accentRGBA, bar(px(size, 0.25)), bar(px(size, 0.55)))
 }
 
 // iconSize is the uniform toolbar/status icon size.
