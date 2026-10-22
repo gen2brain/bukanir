@@ -634,6 +634,14 @@ func setTabImage(tabs, tab iup.Ihandle, img string) {
 	}
 }
 
+// setTabTip sets a tab's tooltip, addressing the tab by position.
+func setTabTip(tab iup.Ihandle, tip string) {
+	tabs := iup.GetHandle("tabs")
+	if pos := childPos(tabs, tab); pos >= 0 {
+		iup.SetAttributeId(tabs, "TABTIP", pos, tip)
+	}
+}
+
 // selectNeighborTab moves the selection off the current tab at pos before it is removed: to the previous tab, or the next one for the first.
 func selectNeighborTab(tabs iup.Ihandle, pos int) {
 	if pos < 0 || tabs.GetInt("VALUEPOS") != pos || iup.GetChildCount(tabs) < 2 {

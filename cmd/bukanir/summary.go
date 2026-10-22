@@ -31,6 +31,7 @@ func openSummary(m bukanir.TMovie) {
 		return iup.DEFAULT
 	}))
 	addTab(m.Title, holder)
+	setTabTip(holder, movieTip(m, nil))
 
 	reload := func() {
 		go func() {
@@ -147,7 +148,46 @@ func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 	}
 	iup.Refresh(holder)
 
+	setTabTip(holder, movieTip(m, &s))
+
 	go loadPosterSized(poster, summaryPosterW, summaryPosterH, m.PosterXLarge, m.PosterLarge, m.PosterMedium)
+}
+
+// movieTip is a details tab tooltip: the title and year, then the facts of the details page once s is loaded.
+func movieTip(m bukanir.TMovie, s *bukanir.TSummary) string {
+	head := m.Title
+	if m.Year > 0 {
+		head = fmt.Sprintf("%s (%d)", m.Title, m.Year)
+	}
+	if m.Category.IsTV() && !isShowEntry(m) {
+		head += fmt.Sprintf(" S%02dE%02d", m.Season, m.Episode)
+	}
+	var facts []string
+	if s != nil && s.Rating > 0 {
+		facts = append(facts, fmt.Sprintf("%.1f/10", s.Rating))
+	}
+	if s != nil {
+		if r := runtimeStr(s.Runtime); r != "" {
+			facts = append(facts, r)
+		}
+	}
+	if q := qualityLabel(m.Quality); q != "" {
+		facts = append(facts, q)
+	}
+	if m.SizeHuman != "" {
+		facts = append(facts, m.SizeHuman)
+	}
+	lines := []string{head}
+	if len(facts) > 0 {
+		lines = append(lines, strings.Join(facts, "   "))
+	}
+	if s != nil && len(s.Genres) > 0 {
+		lines = append(lines, strings.Join(s.Genres, ", "))
+	}
+	if s != nil && s.Director != "" {
+		lines = append(lines, "Director: "+s.Director)
+	}
+	return strings.Join(lines, "\n")
 }
 
 var summaryPosterSeq atomic.Int64
