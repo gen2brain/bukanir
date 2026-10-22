@@ -345,7 +345,7 @@ func clearList(list iup.Ihandle) {
 
 func iconButton(icon string, onClick func()) iup.Ihandle {
 	b := iup.Button("").SetAttributes("FLAT=YES")
-	if _, ok := monoIcons[icon]; ok {
+	if _, ok := iconPaths[icon]; ok {
 		monoButtons[b] = icon
 		icon = tintedName(icon)
 	}

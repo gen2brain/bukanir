@@ -7,15 +7,11 @@ import (
 	_ "embed"
 	"fmt"
 	"image"
-	"image/color"
-	"image/draw"
 	"image/png"
-	"math"
 	"strconv"
 
 	"github.com/gen2brain/iup-go/iup"
 	xdraw "golang.org/x/image/draw"
-	"golang.org/x/image/vector"
 )
 
 // spinnerFrameCount and spinnerFrameTime set the loading spinner animation.
@@ -64,83 +60,8 @@ func registerTabIndicators() {
 	tabSpinFrames = loadingFrames
 }
 
-// fillShape rasterizes the closed polygons with anti-aliasing onto a transparent square in color c.
-func fillShape(size int, c color.Color, polys ...[][2]float32) *image.RGBA {
-	img := image.NewRGBA(image.Rect(0, 0, size, size))
-	z := vector.NewRasterizer(size, size)
-	for _, poly := range polys {
-		z.MoveTo(poly[0][0], poly[0][1])
-		for _, p := range poly[1:] {
-			z.LineTo(p[0], p[1])
-		}
-		z.ClosePath()
-	}
-	z.Draw(img, img.Bounds(), image.NewUniform(c), image.Point{})
-	return img
-}
-
-// arcBand returns the polygon of a ring segment from angle a0 to a1 (radians) between radii r0 and r1.
-func arcBand(cx, cy, r0, r1, a0, a1 float64) [][2]float32 {
-	steps := int(math.Ceil(math.Abs(a1-a0) / (math.Pi / 48)))
-	poly := make([][2]float32, 0, 2*steps+2)
-	for i := 0; i <= steps; i++ {
-		a := a0 + (a1-a0)*float64(i)/float64(steps)
-		poly = append(poly, [2]float32{float32(cx + r1*math.Cos(a)), float32(cy + r1*math.Sin(a))})
-	}
-	for i := steps; i >= 0; i-- {
-		a := a0 + (a1-a0)*float64(i)/float64(steps)
-		poly = append(poly, [2]float32{float32(cx + r0*math.Cos(a)), float32(cy + r0*math.Sin(a))})
-	}
-	return poly
-}
-
-// spinnerGlyph draws a faint accent ring with a bright rounded arc rotated by turn (0..1).
-func spinnerGlyph(size int, turn float64) *image.RGBA {
-	c := float64(size) / 2
-	width := float64(size) / 7
-	r1 := c - 1
-	r0 := r1 - width
-	img := fillShape(size, color.NRGBA{accentRGBA.R, accentRGBA.G, accentRGBA.B, 70}, arcBand(c, c, r0, r1, 0, 2*math.Pi))
-
-	a0 := 2*math.Pi*turn - math.Pi/2
-	a1 := a0 + 2*math.Pi/3
-	mid := (r0 + r1) / 2
-	capAt := func(a float64) [][2]float32 {
-		return arcBand(c+mid*math.Cos(a), c+mid*math.Sin(a), 0, width/2, 0, 2*math.Pi)
-	}
-	arc := fillShape(size, accentRGBA, arcBand(c, c, r0, r1, a0, a1), capAt(a0), capAt(a1))
-	draw.Draw(img, img.Bounds(), arc, image.Point{}, draw.Over)
-	return img
-}
-
-// px rounds a fraction of size to a whole pixel, so straight edges stay sharp.
-func px(size int, f float64) float32 {
-	return float32(math.Round(float64(size) * f))
-}
-
-// playGlyph draws a right-pointing accent triangle on a transparent square.
-func playGlyph(size int) *image.RGBA {
-	left, top, bottom, tip := px(size, 0.3), px(size, 0.2), px(size, 0.8), px(size, 0.8)
-	return fillShape(size, accentRGBA, [][2]float32{{left, top}, {tip, (top + bottom) / 2}, {left, bottom}})
-}
-
-// pauseGlyph draws two vertical accent bars on a transparent square.
-func pauseGlyph(size int) *image.RGBA {
-	top, bottom, width := px(size, 0.22), px(size, 0.78), px(size, 0.2)
-	bar := func(x0 float32) [][2]float32 {
-		return [][2]float32{{x0, top}, {x0 + width, top}, {x0 + width, bottom}, {x0, bottom}}
-	}
-	return fillShape(size, accentRGBA, bar(px(size, 0.25)), bar(px(size, 0.55)))
-}
-
 // iconSize is the uniform toolbar/status icon size.
-const iconSize = 22
-
-//go:embed images/refresh.png
-var iconRefresh []byte
-
-//go:embed images/settings.png
-var iconSettings []byte
+const iconSize = 24
 
 //go:embed images/bukanir.png
 var iconLogo []byte
@@ -154,60 +75,18 @@ var iconTor []byte
 //go:embed images/tor-off.png
 var iconTorOff []byte
 
-//go:embed images/log.png
-var iconLog []byte
-
-//go:embed images/star.png
-var iconStar []byte
-
-//go:embed images/star-outline.png
-var iconStarOutline []byte
-
 //go:embed images/tmdb.png
 var iconTMDB []byte
 
-//go:embed images/player-play.png
-var iconPlayerPlay []byte
-
-//go:embed images/player-pause.png
-var iconPlayerPause []byte
-
-//go:embed images/player-fullscreen.png
-var iconPlayerFullscreen []byte
-
-//go:embed images/player-subtitles.png
-var iconPlayerSubtitles []byte
-
-//go:embed images/player-volume.png
-var iconPlayerVolume []byte
-
-//go:embed images/player-volume-off.png
-var iconPlayerVolumeOff []byte
-
-// monoIcons are recolored to the dialog text color; monoButtons maps toolbar buttons to their icon.
-var (
-	monoIcons = map[string]image.Image{
-		"refresh":           nil,
-		"settings":          nil,
-		"log":               nil,
-		"star":              nil,
-		"star-outline":      nil,
-		"player-play":       nil,
-		"player-pause":      nil,
-		"player-fullscreen": nil,
-		"player-subtitles":  nil,
-		"player-volume":     nil,
-		"player-volume-off": nil,
-	}
-	monoButtons = map[iup.Ihandle]string{}
-)
+// monoButtons maps toolbar buttons to their drawn icon, recolored to the dialog text color.
+var monoButtons = map[iup.Ihandle]string{}
 
 // tintedName returns the image name of icon tinted for the current text color, registering it once.
 func tintedName(icon string) string {
 	fg := globalColor("DLGFGCOLOR")
 	name := fmt.Sprintf("%s-%02x%02x%02x", icon, fg.R, fg.G, fg.B)
-	if iup.GetHandle(name) == 0 && monoIcons[icon] != nil {
-		iup.ImageFromImage(tintIcon(monoIcons[icon], iconSize, fg)).SetHandle(name)
+	if iup.GetHandle(name) == 0 && iconPaths[icon] != "" {
+		iup.ImageFromImage(drawIcon(icon, iconSize, fg)).SetHandle(name)
 	}
 	return name
 }
@@ -219,29 +98,11 @@ func retintIcons() {
 	}
 }
 
-// loadIcons decodes the embedded PNGs into named IUP images.
+// loadIcons decodes the embedded colored PNGs into named IUP images.
 func loadIcons() {
-	mono := map[string][]byte{
-		"refresh":           iconRefresh,
-		"settings":          iconSettings,
-		"log":               iconLog,
-		"star":              iconStar,
-		"star-outline":      iconStarOutline,
-		"player-play":       iconPlayerPlay,
-		"player-pause":      iconPlayerPause,
-		"player-fullscreen": iconPlayerFullscreen,
-		"player-subtitles":  iconPlayerSubtitles,
-		"player-volume":     iconPlayerVolume,
-		"player-volume-off": iconPlayerVolumeOff,
-	}
 	colored := map[string][]byte{
 		"tor":     iconTor,
 		"tor-off": iconTorOff,
-	}
-	for name, data := range mono {
-		if img, err := png.Decode(bytes.NewReader(data)); err == nil {
-			monoIcons[name] = img
-		}
 	}
 	for name, data := range colored {
 		if img, err := png.Decode(bytes.NewReader(data)); err == nil {
@@ -291,14 +152,5 @@ func reddenIcon(img *image.RGBA) *image.RGBA {
 func resizeIcon(src image.Image, size int) *image.RGBA {
 	dst := image.NewRGBA(image.Rect(0, 0, size, size))
 	xdraw.CatmullRom.Scale(dst, dst.Bounds(), src, src.Bounds(), xdraw.Over, nil)
-	return dst
-}
-
-// tintIcon resizes src and recolors it to c, keeping the alpha channel.
-func tintIcon(src image.Image, size int, c color.RGBA) image.Image {
-	dst := resizeIcon(src, size)
-	for i := 0; i < len(dst.Pix); i += 4 {
-		dst.Pix[i], dst.Pix[i+1], dst.Pix[i+2] = c.R, c.G, c.B
-	}
 	return dst
 }
