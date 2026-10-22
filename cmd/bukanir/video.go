@@ -188,7 +188,7 @@ func (p *videoPlayer) build() {
 
 	p.playBtn = iconButton("player-pause", p.togglePause).SetAttribute("TIP", "Pause (Space)")
 	p.elapsed = iup.Label("0:00:00 / 0:00:00").SetAttributes("ELLIPSIS=YES, SIZE=100x")
-	p.position = iup.Val("HORIZONTAL").SetAttributes("MIN=0, MAX=1, EXPAND=HORIZONTAL, ACTIVE=NO")
+	p.position = iup.Val("HORIZONTAL").SetAttributes("MIN=0, MAX=1, EXPAND=HORIZONTAL, ACTIVE=NO, CURSOR=HAND")
 	p.position.SetCallback("VALUECHANGED_CB", iup.ValueChangedFunc(func(ih iup.Ihandle) int {
 		p.seek = ih.GetDouble("VALUE") * p.video.GetDouble("DURATION")
 		p.hold = 2
@@ -202,7 +202,7 @@ func (p *videoPlayer) build() {
 		return iup.DEFAULT
 	}))
 	p.muteBtn = iconButton("player-volume", p.toggleMute).SetAttribute("TIP", "Mute (m)")
-	p.volume = iup.Val("HORIZONTAL").SetAttributes("MIN=0, MAX=100, VALUE=100")
+	p.volume = iup.Val("HORIZONTAL").SetAttributes("MIN=0, MAX=100, VALUE=100, CURSOR=HAND")
 	p.volume.SetCallback("VALUECHANGED_CB", iup.ValueChangedFunc(func(ih iup.Ihandle) int {
 		p.video.SetAttribute("VOLUME", strconv.Itoa(ih.GetInt("VALUE")))
 		return iup.DEFAULT
