@@ -7,7 +7,7 @@ replace github.com/gen2brain/bukanir => ../..
 require (
 	github.com/gen2brain/bukanir v0.0.0-00010101000000-000000000000
 	github.com/gen2brain/folio v0.2.7
-	github.com/gen2brain/iup-go/iup v0.32.1-0.20261022211653-d6769276dcb7
+	github.com/gen2brain/iup-go/iup v0.32.1-0.20261023064322-a155fa6ff26c
 	github.com/gen2brain/jpegn v0.6.1
 	github.com/gen2brain/vpx v0.2.1
 	golang.org/x/image v0.47.0

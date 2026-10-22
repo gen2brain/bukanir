@@ -135,7 +135,7 @@ type videoPlayer struct {
 	dlg, video, controls, playBtn, elapsed, position, subBtn, muteBtn, volume, fullBtn, timer iup.Ihandle
 
 	started, closed, chosen bool
-	seek                    float64
+	seek, target            float64
 	delay                   float64
 	hold, notice            int
 	tracks, subtitle, last  int
@@ -191,6 +191,7 @@ func (p *videoPlayer) build() {
 	p.position = iup.Val("HORIZONTAL").SetAttributes("MIN=0, MAX=1, EXPAND=HORIZONTAL, ACTIVE=NO, CURSOR=HAND")
 	p.position.SetCallback("VALUECHANGED_CB", iup.ValueChangedFunc(func(ih iup.Ihandle) int {
 		p.seek = ih.GetDouble("VALUE") * p.video.GetDouble("DURATION")
+		p.target = p.seek
 		p.hold = 2
 		return iup.DEFAULT
 	}))
@@ -430,6 +431,7 @@ func (p *videoPlayer) tick() {
 	}
 	p.updateTracks()
 	if p.seek >= 0 {
+		p.video.SetAttribute("SEEKMODE", "EXACT")
 		p.video.SetAttribute("POSITION", strconv.FormatFloat(p.seek, 'f', 3, 64))
 		p.seek = -1
 	}
@@ -441,6 +443,8 @@ func (p *videoPlayer) tick() {
 	switch state := p.video.GetAttribute("STATE"); {
 	case p.notice > 0:
 		p.notice--
+	case p.hold > 0:
+		p.elapsed.SetAttribute("TITLE", clock(p.target)+" / "+clock(duration))
 	case state == "LOADING":
 		p.elapsed.SetAttribute("TITLE", "Loading...")
 	case state == "BUFFERING":
@@ -484,20 +488,30 @@ func (p *videoPlayer) toggleMute() {
 	}
 }
 
+// seekBy jumps to a keyframe delta seconds away; repeated keys add up from the last target until the engine catches up.
 func (p *videoPlayer) seekBy(delta float64) {
 	if p.video.GetAttribute("SEEKABLE") != "YES" {
 		return
 	}
-	base := p.seek
-	if base < 0 {
+	base := p.target
+	if p.hold == 0 {
 		base = p.video.GetDouble("POSITION")
 	}
+	duration := p.video.GetDouble("DURATION")
 	target := max(base+delta, 0)
-	if d := p.video.GetDouble("DURATION"); d > 0 {
-		target = min(target, d)
+	if duration > 0 {
+		target = min(target, duration)
 	}
-	p.seek = target
-	p.hold = 2
+	p.seek = -1
+	p.target = target
+	p.hold = 3
+	p.video.SetAttribute("SEEKMODE", "FAST")
+	p.video.SetAttribute("POSITION", strconv.FormatFloat(target, 'f', 3, 64))
+	p.notice = 0
+	p.elapsed.SetAttribute("TITLE", clock(target)+" / "+clock(duration))
+	if duration > 0 {
+		p.position.SetAttribute("VALUE", strconv.FormatFloat(target/duration, 'f', 6, 64))
+	}
 }
 
 func (p *videoPlayer) setVolume(volume int) {
