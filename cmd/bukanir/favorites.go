@@ -133,7 +133,7 @@ func toggleFavorite(m bukanir.TMovie) {
 		}
 	}
 	if reload, open := reloaders[favoritesTab]; open && favoritesTab != 0 {
-		reload()
+		reload(context.Background())
 	}
 }
 
@@ -182,16 +182,16 @@ func openFavorites() {
 	tabs := iup.GetHandle("tabs")
 	if reload, open := reloaders[favoritesTab]; open && favoritesTab != 0 {
 		selectTab(tabs, iup.GetChildPos(tabs, favoritesTab))
-		reload()
+		reload(context.Background())
 		return
 	}
 	holder := gridTab()
 	holder.SetAttribute("EMPTYTEXT", "No favorites yet. Use the star on a title to add one.")
 	addTab("Favorites", holder)
 	favoritesTab = holder
-	reload := func() { iup.PostMessage(holder, "", 0, favoriteMovies()) }
+	reload := func(context.Context) { iup.PostMessage(holder, "", 0, favoriteMovies()) }
 	setReloader(holder, reload)
-	reload()
+	reload(context.Background())
 }
 
 // openShow lists the episodes of a favorite show, newest first.

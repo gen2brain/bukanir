@@ -41,7 +41,7 @@ func (c *Client) Search(ctx context.Context, query string, opts SearchOptions) (
 	opts = opts.withDefaults()
 
 	cacheKey := c.cache.key("search", query, opts.Media)
-	if data, ok := c.cache.get(cacheKey); ok {
+	if data, ok := c.cache.lookup(ctx, cacheKey); ok {
 		var cached []TMovie
 		if json.Unmarshal(data, &cached) == nil {
 			return finalizeMovies(cached, opts), nil

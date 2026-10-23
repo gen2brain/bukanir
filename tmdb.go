@@ -506,7 +506,7 @@ func (c *Client) Category(ctx context.Context, category Category) ([]TMovie, err
 	}
 
 	cacheKey := c.cache.key("category", strconv.Itoa(int(category)))
-	if data, ok := c.cache.get(cacheKey); ok {
+	if data, ok := c.cache.lookup(ctx, cacheKey); ok {
 		var cached []TMovie
 		if json.Unmarshal(data, &cached) == nil {
 			return cached, nil
@@ -558,7 +558,7 @@ func (c *Client) Crew(ctx context.Context, personID, limit int) ([]TMovie, error
 // discover browses TMDB movies by a filter, pairing each with a torrent.
 func (c *Client) discover(ctx context.Context, with string, id, limit int) ([]TMovie, error) {
 	cacheKey := c.cache.key("discover", with, strconv.Itoa(id))
-	if data, ok := c.cache.get(cacheKey); ok {
+	if data, ok := c.cache.lookup(ctx, cacheKey); ok {
 		var cached []TMovie
 		if json.Unmarshal(data, &cached) == nil {
 			return limitMovies(cached, limit), nil

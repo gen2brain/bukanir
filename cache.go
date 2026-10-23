@@ -3,6 +3,7 @@ package bukanir
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
@@ -16,6 +17,14 @@ import (
 type cache struct {
 	dir string
 	ttl time.Duration
+}
+
+// refreshKey marks a context created by Refresh.
+type refreshKey struct{}
+
+// Refresh returns a context whose calls skip the response cache and store fresh results.
+func Refresh(ctx context.Context) context.Context {
+	return context.WithValue(ctx, refreshKey{}, true)
 }
 
 func newCache(dir string, ttl time.Duration) *cache {
@@ -59,6 +68,14 @@ func (c *cache) get(key string) ([]byte, bool) {
 		return nil, false
 	}
 	return data, true
+}
+
+// lookup is get, with a miss for contexts created by Refresh.
+func (c *cache) lookup(ctx context.Context, key string) ([]byte, bool) {
+	if refresh, _ := ctx.Value(refreshKey{}).(bool); refresh {
+		return nil, false
+	}
+	return c.get(key)
 }
 
 // put stores data for key, replacing any existing entry.

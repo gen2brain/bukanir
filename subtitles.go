@@ -88,7 +88,7 @@ func (c *Client) Subtitles(ctx context.Context, q SubtitleQuery) ([]Subtitle, er
 	cacheKey := c.cache.key("subtitles", strings.Join(names, ","), q.IMDbID, strconv.Itoa(q.TMDBID), q.Title,
 		strconv.Itoa(q.Year), strconv.Itoa(q.Season), strconv.Itoa(q.Episode), q.Language)
 	var all []Subtitle
-	if data, ok := c.cache.get(cacheKey); ok {
+	if data, ok := c.cache.lookup(ctx, cacheKey); ok {
 		_ = json.Unmarshal(data, &all)
 	}
 	if len(all) == 0 {

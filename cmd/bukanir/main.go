@@ -112,7 +112,7 @@ func main() {
 	iup.ShowXY(dlg, iup.CENTER, iup.CENTER)
 	watchTor(client)
 	quitOnSignal()
-	startup()
+	startup(context.Background())
 	loadMenus()
 	iup.MainLoop()
 }
@@ -153,9 +153,9 @@ func quitOnSignal() {
 }
 
 // startup kicks off the initial content load in the background.
-func startup() {
+func startup(ctx context.Context) {
 	go func() {
-		movies, err := loadTop()
+		movies, err := loadTop(ctx)
 		if err != nil {
 			iup.PostMessage(iup.GetHandle("status"), "error: "+err.Error(), 0, nil)
 			return

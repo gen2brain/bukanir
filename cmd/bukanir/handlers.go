@@ -35,7 +35,7 @@ var (
 )
 
 // reloaders holds each open tab's reload function, keyed by the tab holder.
-var reloaders = map[iup.Ihandle]func(){}
+var reloaders = map[iup.Ihandle]func(context.Context){}
 
 // tabSorts holds the sort state of each open browse tab, keyed by the tab holder.
 var tabSorts = map[iup.Ihandle]*tabSort{}
@@ -154,7 +154,7 @@ func topCategory(text string) bukanir.Category {
 	return bukanir.CategoryMovies
 }
 
-func setReloader(tab iup.Ihandle, reload func()) { reloaders[tab] = reload }
+func setReloader(tab iup.Ihandle, reload func(context.Context)) { reloaders[tab] = reload }
 
 // tabSort is a browse tab's last results and the order they are shown in.
 type tabSort struct {
@@ -201,11 +201,11 @@ func syncSortButton(tab iup.Ihandle) {
 // onRefreshClick reloads the content of the currently selected tab.
 func onRefreshClick() {
 	if r := reloaders[currentTab()]; r != nil {
-		r()
+		r(bukanir.Refresh(context.Background()))
 	}
 }
 
 // loadTop returns the default landing grid.
-func loadTop() ([]bukanir.TMovie, error) {
-	return client.Category(context.Background(), bukanir.CategoryHDMovies)
+func loadTop(ctx context.Context) ([]bukanir.TMovie, error) {
+	return client.Category(ctx, bukanir.CategoryHDMovies)
 }

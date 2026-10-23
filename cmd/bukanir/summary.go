@@ -40,9 +40,8 @@ func openSummary(m bukanir.TMovie) {
 	addTab(m.Title, holder)
 	setTabTip(holder, movieTip(m, nil))
 
-	reload := func() {
+	reload := func(ctx context.Context) {
 		go func() {
-			ctx := context.Background()
 			s, err := client.Summary(ctx, m.ID, m.Category, m.Season, m.Episode)
 			if err != nil {
 				iup.PostMessage(iup.GetHandle("status"), "error: "+err.Error(), 0, nil)
@@ -56,7 +55,7 @@ func openSummary(m bukanir.TMovie) {
 		}()
 	}
 	setReloader(holder, reload)
-	reload()
+	reload(context.Background())
 }
 
 // summaryResult is a title's details with the torrent it will play.
@@ -304,9 +303,9 @@ func openBrowseSorted(title, by string, load func(context.Context) ([]bukanir.TM
 	holder := gridTab()
 	setSortable(holder, by)
 	addTab(title, holder)
-	reload := func() {
+	reload := func(ctx context.Context) {
 		go func() {
-			movies, err := load(context.Background())
+			movies, err := load(ctx)
 			if err != nil {
 				iup.PostMessage(iup.GetHandle("status"), "error: "+err.Error(), 0, nil)
 				return
@@ -315,7 +314,7 @@ func openBrowseSorted(title, by string, load func(context.Context) ([]bukanir.TM
 		}()
 	}
 	setReloader(holder, reload)
-	reload()
+	reload(context.Background())
 }
 
 func accentButton(label string) iup.Ihandle {

@@ -1,6 +1,7 @@
 package bukanir
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -63,5 +64,19 @@ func TestCacheKeyStable(t *testing.T) {
 	}
 	if c.key("a", "b") == c.key("ab", "") {
 		t.Error("key collision across part boundaries")
+	}
+}
+
+func TestCacheLookupRefresh(t *testing.T) {
+	c := newCache(t.TempDir(), time.Hour)
+	key := c.key("category", "201")
+	if err := c.put(key, []byte("old")); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := c.lookup(context.Background(), key); !ok || string(got) != "old" {
+		t.Fatalf("lookup = %q, %v; want old, true", got, ok)
+	}
+	if _, ok := c.lookup(Refresh(context.Background()), key); ok {
+		t.Fatal("lookup with Refresh hit the cache")
 	}
 }
