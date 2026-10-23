@@ -103,11 +103,14 @@ var (
 	pendingImages []string
 )
 
-// trackTarget keeps ih in liveTargets until destroyed and queues the images named by attrs for release.
+// trackTarget keeps ih in liveTargets until destroyed, then drops it as the selected cell and queues the images named by attrs for release.
 func trackTarget(ih iup.Ihandle, attrs ...string) {
 	liveTargets.Store(ih, struct{}{})
 	ih.SetCallback("DESTROY_CB", iup.DestroyFunc(func(ih iup.Ihandle) int {
 		liveTargets.Delete(ih)
+		if ih == selectedPoster {
+			selectedTitle, selectedPoster = 0, 0
+		}
 		for _, a := range attrs {
 			if name := ih.GetAttribute(a); name != "" {
 				pendingImages = append(pendingImages, name)
