@@ -18,6 +18,58 @@ import (
 	"github.com/gen2brain/iup-go/iup"
 )
 
+// tpbOnion is ThePirateBay's onion address, offered as a Tor-only TPB host.
+const tpbOnion = "piratebayo3klnzokct3wt5yyxb2vpebbuyjl7m623iaxmqhsd52coid.onion"
+
+// A run refreshes its temp dir every tempHeartbeat; a temp dir older than tempStale belongs to a run that is gone.
+const (
+	tempHeartbeat = time.Minute
+	tempStale     = 5 * time.Minute
+)
+
+// eztvMirrors are EZTV hosts that serve the same API.
+var eztvMirrors = []string{bukanir.DefaultEZTVHost, "eztv1.xyz", "eztv.wf", "eztv.tf", "eztv.yt"}
+
+// App folders under IUP's per-user directories, resolved once on the main thread by initDirs; tmpDir is this run's temp dir.
+var cacheDir, configDir, tmpDir string
+
+var runTempName = regexp.MustCompile(`^bukanir-[0-9]+$`)
+
+// encryptionChoices are the peer encryption modes offered in the dialog, in list order.
+var encryptionChoices = []struct{ Value, Name string }{
+	{"prefer", "Prefer"}, {"require", "Require"},
+}
+
+// appearanceChoices are the APPEARANCE values offered in the dialog, in list order.
+var appearanceChoices = []struct{ Value, Name string }{
+	{"dark", "Dark"}, {"light", "Light"}, {"system", "System"},
+}
+
+// subtitleLanguages lists the languages offered in the settings dialog.
+var subtitleLanguages = []struct{ Code, Name string }{
+	{"ar", "Arabic"}, {"bg", "Bulgarian"}, {"cs", "Czech"}, {"da", "Danish"},
+	{"de", "German"}, {"el", "Greek"}, {"en", "English"}, {"es", "Spanish"},
+	{"fa", "Persian"}, {"fi", "Finnish"}, {"fr", "French"}, {"he", "Hebrew"},
+	{"hi", "Hindi"}, {"hr", "Croatian"}, {"hu", "Hungarian"}, {"id", "Indonesian"},
+	{"it", "Italian"}, {"ja", "Japanese"}, {"ko", "Korean"}, {"nl", "Dutch"},
+	{"no", "Norwegian"}, {"pl", "Polish"}, {"pt", "Portuguese"}, {"ro", "Romanian"},
+	{"ru", "Russian"}, {"sk", "Slovak"}, {"sl", "Slovenian"}, {"sr", "Serbian"},
+	{"sv", "Swedish"}, {"th", "Thai"}, {"tr", "Turkish"}, {"uk", "Ukrainian"},
+	{"vi", "Vietnamese"}, {"zh", "Chinese"},
+}
+
+// cacheDayChoices and rateChoices are the preset values offered in the dialog.
+var (
+	cacheDayChoices = []int{1, 3, 7, 30, 90, 180}
+	rateChoices     = []int{0, 50, 100, 500, 1000, 2000, 5000, 10000}
+)
+
+// settingsPageIndex remembers the last shown settings page across openings.
+var settingsPageIndex int
+
+// formLabels collects every form label so a normalizer can align them.
+var formLabels []iup.Ihandle
+
 // Settings holds user-configurable preferences, persisted as JSON.
 type Settings struct {
 	CacheDays  int    `json:"cacheDays"`
@@ -49,12 +101,6 @@ type Settings struct {
 	DownloadDir  string `json:"downloadDir"`
 }
 
-// tpbOnion is ThePirateBay's onion address, offered as a Tor-only TPB host.
-const tpbOnion = "piratebayo3klnzokct3wt5yyxb2vpebbuyjl7m623iaxmqhsd52coid.onion"
-
-// eztvMirrors are EZTV hosts that serve the same API.
-var eztvMirrors = []string{bukanir.DefaultEZTVHost, "eztv1.xyz", "eztv.wf", "eztv.tf", "eztv.yt"}
-
 // defaultSettings returns the settings used on first run.
 func defaultSettings() *Settings {
 	return &Settings{
@@ -78,21 +124,10 @@ func defaultSettings() *Settings {
 	}
 }
 
-// App folders under IUP's per-user directories, resolved once on the main thread by initDirs; tmpDir is this run's temp dir.
-var cacheDir, configDir, tmpDir string
-
 func initDirs() {
 	cacheDir = filepath.Join(iup.GetGlobal("CACHEDIR"), "bukanir")
 	configDir = filepath.Join(iup.GetGlobal("CONFIGDIR"), "bukanir")
 }
-
-// A run refreshes its temp dir every tempHeartbeat; a temp dir older than tempStale belongs to a run that is gone.
-const (
-	tempHeartbeat = time.Minute
-	tempStale     = 5 * time.Minute
-)
-
-var runTempName = regexp.MustCompile(`^bukanir-[0-9]+$`)
 
 // initTemp removes temp dirs left by runs that are gone and creates this run's temp dir; the returned func removes it.
 func initTemp() (func(), error) {
@@ -198,16 +233,6 @@ func (s *Settings) toTorrentConfig(dialer bukanir.PeerDialer) bukanir.TorrentCon
 	}
 }
 
-// encryptionChoices are the peer encryption modes offered in the dialog, in list order.
-var encryptionChoices = []struct{ Value, Name string }{
-	{"prefer", "Prefer"}, {"require", "Require"},
-}
-
-// appearanceChoices are the APPEARANCE values offered in the dialog, in list order.
-var appearanceChoices = []struct{ Value, Name string }{
-	{"dark", "Dark"}, {"light", "Light"}, {"system", "System"},
-}
-
 // appearance returns the APPEARANCE global value for the setting, dark when unset or unknown.
 func (s *Settings) appearance() string {
 	for _, a := range appearanceChoices {
@@ -225,25 +250,6 @@ func (s *Settings) subtitleLanguage() string {
 	}
 	return s.SubLanguage
 }
-
-// subtitleLanguages lists the languages offered in the settings dialog.
-var subtitleLanguages = []struct{ Code, Name string }{
-	{"ar", "Arabic"}, {"bg", "Bulgarian"}, {"cs", "Czech"}, {"da", "Danish"},
-	{"de", "German"}, {"el", "Greek"}, {"en", "English"}, {"es", "Spanish"},
-	{"fa", "Persian"}, {"fi", "Finnish"}, {"fr", "French"}, {"he", "Hebrew"},
-	{"hi", "Hindi"}, {"hr", "Croatian"}, {"hu", "Hungarian"}, {"id", "Indonesian"},
-	{"it", "Italian"}, {"ja", "Japanese"}, {"ko", "Korean"}, {"nl", "Dutch"},
-	{"no", "Norwegian"}, {"pl", "Polish"}, {"pt", "Portuguese"}, {"ro", "Romanian"},
-	{"ru", "Russian"}, {"sk", "Slovak"}, {"sl", "Slovenian"}, {"sr", "Serbian"},
-	{"sv", "Swedish"}, {"th", "Thai"}, {"tr", "Turkish"}, {"uk", "Ukrainian"},
-	{"vi", "Vietnamese"}, {"zh", "Chinese"},
-}
-
-// cacheDayChoices and rateChoices are the preset values offered in the dialog.
-var (
-	cacheDayChoices = []int{1, 3, 7, 30, 90, 180}
-	rateChoices     = []int{0, 50, 100, 500, 1000, 2000, 5000, 10000}
-)
 
 // onSettings opens the modal settings dialog, applying changes on Save.
 func onSettings() {
@@ -576,9 +582,6 @@ type settingsPage struct {
 	body          iup.Ihandle
 }
 
-// settingsPageIndex remembers the last shown settings page across openings.
-var settingsPageIndex int
-
 func page(frames ...iup.Ihandle) iup.Ihandle {
 	return iup.Vbox(frames...).SetAttributes("GAP=10")
 }
@@ -587,9 +590,6 @@ func frame(title string, children ...iup.Ihandle) iup.Ihandle {
 	box := iup.Vbox(children...).SetAttributes("GAP=6")
 	return iup.Frame(iup.Hbox(box, iup.Fill()).SetAttributes("NMARGIN=10x8")).SetAttribute("TITLE", title)
 }
-
-// formLabels collects every form label so a normalizer can align them.
-var formLabels []iup.Ihandle
 
 func formRows(pairs ...any) iup.Ihandle {
 	cells := make([]iup.Ihandle, 0, len(pairs))

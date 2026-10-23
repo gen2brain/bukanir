@@ -25,6 +25,16 @@ import (
 // engineChoices are the IupVideo engines offered in the settings, in AUTO order.
 var engineChoices = []string{"NATIVE", "MPV", "VLC", "GSTREAMER"}
 
+// languageCodes are the ISO 639-2 codes of the subtitle languages.
+var languageCodes = map[string][]string{
+	"ar": {"ara"}, "bg": {"bul"}, "cs": {"cze", "ces"}, "da": {"dan"}, "de": {"ger", "deu"}, "el": {"gre", "ell"},
+	"en": {"eng"}, "es": {"spa"}, "fa": {"per", "fas"}, "fi": {"fin"}, "fr": {"fre", "fra"}, "he": {"heb"},
+	"hi": {"hin"}, "hr": {"hrv"}, "hu": {"hun"}, "id": {"ind"}, "it": {"ita"}, "ja": {"jpn"}, "ko": {"kor"},
+	"nl": {"dut", "nld"}, "no": {"nor", "nob", "nno"}, "pl": {"pol"}, "pt": {"por"}, "ro": {"rum", "ron"},
+	"ru": {"rus"}, "sk": {"slo", "slk"}, "sl": {"slv"}, "sr": {"srp"}, "sv": {"swe"}, "th": {"tha"}, "tr": {"tur"},
+	"uk": {"ukr"}, "vi": {"vie"}, "zh": {"chi", "zho"},
+}
+
 // availableEngines returns the engines IupVideo can load, optionally only those that play a separate audio URL.
 func availableEngines(separateAudio bool) []string {
 	v := iup.Video()
@@ -390,16 +400,6 @@ func (p *videoPlayer) updateTracks() {
 		}
 	}
 	p.updateSubtitleButton()
-}
-
-// languageCodes are the ISO 639-2 codes of the subtitle languages.
-var languageCodes = map[string][]string{
-	"ar": {"ara"}, "bg": {"bul"}, "cs": {"cze", "ces"}, "da": {"dan"}, "de": {"ger", "deu"}, "el": {"gre", "ell"},
-	"en": {"eng"}, "es": {"spa"}, "fa": {"per", "fas"}, "fi": {"fin"}, "fr": {"fre", "fra"}, "he": {"heb"},
-	"hi": {"hin"}, "hr": {"hrv"}, "hu": {"hun"}, "id": {"ind"}, "it": {"ita"}, "ja": {"jpn"}, "ko": {"kor"},
-	"nl": {"dut", "nld"}, "no": {"nor", "nob", "nno"}, "pl": {"pol"}, "pt": {"por"}, "ro": {"rum", "ron"},
-	"ru": {"rus"}, "sk": {"slo", "slk"}, "sl": {"slv"}, "sr": {"srp"}, "sv": {"swe"}, "th": {"tha"}, "tr": {"tur"},
-	"uk": {"ukr"}, "vi": {"vie"}, "zh": {"chi", "zho"},
 }
 
 // languageMatches reports whether a track language, as a code or a name, is the language with the given ISO 639-1 code.

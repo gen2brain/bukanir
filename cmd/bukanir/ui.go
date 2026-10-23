@@ -13,6 +13,25 @@ import (
 	"github.com/gen2brain/iup-go/iup"
 )
 
+// menuSectionLimit caps items per Movies/Episodes submenu.
+const menuSectionLimit = 20
+
+// suggestLabelMax caps the visible length of a suggested title.
+const suggestLabelMax = 60
+
+// suggestTitles holds the plain titles behind the current suggestion list.
+var suggestTitles []string
+
+// watchActions starts the current detail tab's playback on Enter, keyed by the tab.
+var watchActions = map[iup.Ihandle]func(){}
+
+var (
+	tabActs   = map[iup.Ihandle]*tabActivity{}
+	spinIndex int
+	spinTimer iup.Ihandle
+	spinning  bool
+)
+
 // layout builds the root widget tree: toolbar, tabbed content, and status bar.
 func layout() iup.Ihandle {
 	return iup.Vbox(
@@ -147,9 +166,6 @@ func titleCase(s string) string {
 func popularMenu() iup.Ihandle  { return titleMenu(cachedPopular()) }
 func topRatedMenu() iup.Ihandle { return titleMenu(cachedTopRated()) }
 
-// menuSectionLimit caps items per Movies/Episodes submenu.
-const menuSectionLimit = 20
-
 // titleMenu splits titles into "Movies" and "Episodes" submenus.
 func titleMenu(items []bukanir.TItem) iup.Ihandle {
 	if len(items) == 0 {
@@ -200,9 +216,6 @@ func genreMenu() iup.Ihandle {
 	}
 	return iup.Menu(items...)
 }
-
-// suggestTitles holds the plain titles behind the current suggestion list.
-var suggestTitles []string
 
 // searchBox is the query field driving the autocomplete list; it keeps the focus while the list is open.
 func searchBox() iup.Ihandle {
@@ -278,9 +291,6 @@ func suggestList() iup.Ihandle {
 	}))
 	return list
 }
-
-// suggestLabelMax caps the visible length of a suggested title.
-const suggestLabelMax = 60
 
 // suggestLabel formats a suggestion as "Title (Year)", marking TV shows.
 func suggestLabel(it bukanir.TItem) string {
@@ -426,9 +436,6 @@ func setStatus(s string) {
 func plainText(s string) string {
 	return strings.ReplaceAll(s, "&", "&&")
 }
-
-// watchActions starts the current detail tab's playback on Enter, keyed by the tab.
-var watchActions = map[iup.Ihandle]func(){}
 
 // onKey handles global shortcuts: cycle tabs (Ctrl+Tab), close (Ctrl+W / Ctrl+F4),
 // watch (Enter on a detail tab). Ctrl+letter arrives uppercased with the Ctrl bit, so match K_W not K_w.
@@ -618,13 +625,6 @@ func onTabMessage(tabs iup.Ihandle, msg string, delta int, p any) int {
 
 // tabActivity counts a tab's in-progress playbacks by phase.
 type tabActivity struct{ loading, playing, paused int }
-
-var (
-	tabActs   = map[iup.Ihandle]*tabActivity{}
-	spinIndex int
-	spinTimer iup.Ihandle
-	spinning  bool
-)
 
 // markTab adjusts a tab's activity from any goroutine: kind is "load" or "play".
 func markTab(tab iup.Ihandle, kind string, delta int) {

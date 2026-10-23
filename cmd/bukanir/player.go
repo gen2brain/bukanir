@@ -21,6 +21,14 @@ import (
 	"github.com/gen2brain/iup-go/iup"
 )
 
+const maxSubtitles = 2
+
+var (
+	sessionsMu sync.Mutex
+	sessions   = map[iup.Ihandle][]*session{}
+	playbacks  sync.WaitGroup
+)
+
 func postStatus(s string) {
 	iup.PostMessage(iup.GetHandle("status"), s, 0, nil)
 }
@@ -294,8 +302,6 @@ func isSubtitle(p string) bool {
 }
 
 // fetchSubtitles downloads the best-matching subtitles and returns their temp paths.
-const maxSubtitles = 2
-
 func fetchSubtitles(parent context.Context, s bukanir.TSummary, m bukanir.TMovie) []subtitleFile {
 	ctx, cancel := context.WithTimeout(parent, 30*time.Second)
 	defer cancel()
@@ -446,12 +452,6 @@ type session struct {
 	mu     sync.Mutex
 	player *videoPlayer
 }
-
-var (
-	sessionsMu sync.Mutex
-	sessions   = map[iup.Ihandle][]*session{}
-	playbacks  sync.WaitGroup
-)
 
 func newSession(tab iup.Ihandle) *session {
 	ctx, cancel := context.WithCancel(context.Background())

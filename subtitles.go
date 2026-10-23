@@ -23,6 +23,21 @@ const subtitleProviderTimeout = 8 * time.Second
 // subtitleCacheTTL keeps downloaded subtitle files, which never change upstream.
 const subtitleCacheTTL = 180 * 24 * time.Hour
 
+// browserUserAgent is sent to scraping sites that reject non-browser clients.
+const browserUserAgent = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+
+var isoLanguageNames = map[string]string{
+	"ar": "Arabic", "bg": "Bulgarian", "cs": "Czech", "da": "Danish",
+	"de": "German", "el": "Greek", "en": "English", "es": "Spanish",
+	"fa": "Persian", "fi": "Finnish", "fr": "French", "he": "Hebrew",
+	"hi": "Hindi", "hr": "Croatian", "hu": "Hungarian", "id": "Indonesian",
+	"it": "Italian", "ja": "Japanese", "ko": "Korean", "nl": "Dutch",
+	"no": "Norwegian", "pl": "Polish", "pt": "Portuguese", "ro": "Romanian",
+	"ru": "Russian", "sk": "Slovak", "sl": "Slovenian", "sr": "Serbian",
+	"sv": "Swedish", "th": "Thai", "tr": "Turkish", "uk": "Ukrainian",
+	"vi": "Vietnamese", "zh": "Chinese",
+}
+
 // SubtitleQuery describes the title to find subtitles for.
 type SubtitleQuery struct {
 	IMDbID   string
@@ -166,9 +181,6 @@ func (c *Client) DownloadSubtitle(ctx context.Context, sub Subtitle) ([]byte, st
 	return nil, "", fmt.Errorf("bukanir: unknown subtitle provider %q", sub.Provider)
 }
 
-// browserUserAgent is sent to scraping sites that reject non-browser clients.
-const browserUserAgent = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
-
 func browserHeaders(referer string) map[string]string {
 	h := map[string]string{"User-Agent": browserUserAgent}
 	if referer != "" {
@@ -178,18 +190,6 @@ func browserHeaders(referer string) map[string]string {
 }
 
 func languageName(code string) string { return isoLanguageNames[strings.ToLower(code)] }
-
-var isoLanguageNames = map[string]string{
-	"ar": "Arabic", "bg": "Bulgarian", "cs": "Czech", "da": "Danish",
-	"de": "German", "el": "Greek", "en": "English", "es": "Spanish",
-	"fa": "Persian", "fi": "Finnish", "fr": "French", "he": "Hebrew",
-	"hi": "Hindi", "hr": "Croatian", "hu": "Hungarian", "id": "Indonesian",
-	"it": "Italian", "ja": "Japanese", "ko": "Korean", "nl": "Dutch",
-	"no": "Norwegian", "pl": "Polish", "pt": "Portuguese", "ro": "Romanian",
-	"ru": "Russian", "sk": "Slovak", "sl": "Slovenian", "sr": "Serbian",
-	"sv": "Swedish", "th": "Thai", "tr": "Turkish", "uk": "Ukrainian",
-	"vi": "Vietnamese", "zh": "Chinese",
-}
 
 func (c *Client) fetchDocHeaders(ctx context.Context, url string, headers map[string]string) (*goquery.Document, error) {
 	body, err := c.doBytes(ctx, http.MethodGet, url, headers, nil)

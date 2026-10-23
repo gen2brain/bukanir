@@ -14,6 +14,11 @@ import (
 // logRingMax caps how many recent lines the log viewer retains.
 const logRingMax = 1000
 
+var logs = &logStore{}
+
+// logCharCount is the character length of the log text widget.
+var logCharCount int
+
 type logLine struct {
 	text string
 	err  bool
@@ -27,8 +32,6 @@ type logStore struct {
 	redactor *strings.Replacer
 	open     bool
 }
-
-var logs = &logStore{}
 
 // setRedactor installs a replacer that strips the given secret values.
 func (s *logStore) setRedactor(secrets []string) {
@@ -119,9 +122,6 @@ func postLogLine(ln logLine) {
 	}
 	iup.PostMessage(iup.GetHandle("logtext"), ln.text, code, nil)
 }
-
-// logCharCount is the character length of the log text widget.
-var logCharCount int
 
 // showLogView shows the modeless Log dialog, rebuilt from the captured ring.
 func showLogView() {

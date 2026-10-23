@@ -14,6 +14,32 @@ import (
 // maxTorrentSize is the upper bound on a candidate torrent.
 const maxTorrentSize = 5 << 30 // 5 GiB
 
+// DefaultTPBHost is the apibay API host used when Config.TPBHost is empty.
+const DefaultTPBHost = "apibay.org"
+
+// DefaultYTSHost is the YTS API host used when Config.YTSHost is empty.
+const DefaultYTSHost = "yts.gg"
+
+// DefaultEZTVHost is the EZTV API host used when Config.EZTVHost is empty.
+const DefaultEZTVHost = "eztvx.to"
+
+// eztvPageSize is the largest page the EZTV API returns.
+const eztvPageSize = 100
+
+// eztvMaxPages caps how many pages an episode lookup reads.
+const eztvMaxPages = 10
+
+// torrentioBaseURL is the Torrentio add-on root.
+const torrentioBaseURL = "https://torrentio.strem.fun"
+
+// Poster size indices into TMDB's poster_sizes list.
+const (
+	posterSmall  = 0
+	posterMedium = 1
+	posterLarge  = 3
+	posterXLarge = 4
+)
+
 // defaultTrackers are appended to magnet links.
 var defaultTrackers = []string{
 	"udp://tracker.opentrackr.org:1337/announce",
@@ -27,6 +53,27 @@ var defaultTrackers = []string{
 	"udp://tracker.openbittorrent.com:6969/announce",
 	"https://tracker.tamersunion.org:443/announce",
 }
+
+var tpbMediaCategories = map[string]string{
+	"all":      "201,207,205,208",
+	"movies":   "201,207",
+	"episodes": "205,208",
+}
+
+var (
+	reTorrentioSeeders = regexp.MustCompile(`👤 (\d+)`)
+	reTorrentioSize    = regexp.MustCompile(`💾 ([\d.]+) ([KMGT]?B)`)
+)
+
+// Release-name heuristics extracting title, year, season/episode, and quality.
+var (
+	reYear     = regexp.MustCompile(`19\d{2}|20\d{2}`)
+	reQuality  = regexp.MustCompile(`(?i)(2160|1080|720|576|480)p|(1080|720)`)
+	reTitleTag = regexp.MustCompile(
+		`(?i)(.*?)(dvdrip|xvid|dvdscr|brrip|bdrip|divx|klaxxon|hc|webrip|hdrip|camrip|hdtv|eztv|proper|x264|x265|hevc|480p|720p|1080p|2160p|[\*\{\(\[]?19\d{2}|20\d{2}).*`)
+	reTitleParen = regexp.MustCompile(`(.*?)\(.*\)(.*)`)
+	reSeason     = regexp.MustCompile(`(?i)(?:s|season)(\d{2})(?:e|x|episode)(\d{2}).*`)
+)
 
 // torrentResult is a candidate torrent from a source, before TMDB enrichment.
 type torrentResult struct {
@@ -74,21 +121,12 @@ func humanizeBytes(n int64) string {
 	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTPE"[exp])
 }
 
-// DefaultTPBHost is the apibay API host used when Config.TPBHost is empty.
-const DefaultTPBHost = "apibay.org"
-
 // hostBaseURL builds the API root for host: http for .onion, https otherwise.
 func hostBaseURL(host string) string {
 	if strings.HasSuffix(host, ".onion") {
 		return "http://" + host
 	}
 	return "https://" + host
-}
-
-var tpbMediaCategories = map[string]string{
-	"all":      "201,207,205,208",
-	"movies":   "201,207",
-	"episodes": "205,208",
 }
 
 // tpbTorrent is one entry of an apibay JSON response.
@@ -172,9 +210,6 @@ func parseTPB(body []byte) ([]torrentResult, error) {
 	}
 	return results, nil
 }
-
-// DefaultYTSHost is the YTS API host used when Config.YTSHost is empty.
-const DefaultYTSHost = "yts.gg"
 
 type ytsResponse struct {
 	Status string `json:"status"`
@@ -261,9 +296,6 @@ func parseYTS(body []byte) ([]torrentResult, error) {
 	return results, nil
 }
 
-// DefaultEZTVHost is the EZTV API host used when Config.EZTVHost is empty.
-const DefaultEZTVHost = "eztvx.to"
-
 // eztvTorrent is one entry of an EZTV get-torrents response.
 type eztvTorrent struct {
 	Title     string      `json:"title"`
@@ -274,12 +306,6 @@ type eztvTorrent struct {
 	Season    json.Number `json:"season"`
 	Episode   json.Number `json:"episode"`
 }
-
-// eztvPageSize is the largest page the EZTV API returns.
-const eztvPageSize = 100
-
-// eztvMaxPages caps how many pages an episode lookup reads.
-const eztvMaxPages = 10
 
 // eztvSearch returns a show's newest TV torrents for its IMDb id.
 func (c *Client) eztvSearch(ctx context.Context, imdbID string, limit int) ([]torrentResult, error) {
@@ -403,9 +429,6 @@ func parseEZTV(body []byte) ([]torrentResult, error) {
 	return results, nil
 }
 
-// torrentioBaseURL is the Torrentio add-on root.
-const torrentioBaseURL = "https://torrentio.strem.fun"
-
 // torrentioStream is one entry of a Torrentio stream response.
 type torrentioStream struct {
 	Title         string `json:"title"`
@@ -415,11 +438,6 @@ type torrentioStream struct {
 		Filename string `json:"filename"`
 	} `json:"behaviorHints"`
 }
-
-var (
-	reTorrentioSeeders = regexp.MustCompile(`👤 (\d+)`)
-	reTorrentioSize    = regexp.MustCompile(`💾 ([\d.]+) ([KMGT]?B)`)
-)
 
 // torrentioSearch returns the torrents Torrentio lists for one episode of a show.
 func (c *Client) torrentioSearch(ctx context.Context, imdbID, show string, season, episode int) ([]torrentResult, error) {
@@ -534,14 +552,6 @@ func torrentioSize(meta string) int64 {
 	return int64(v * mult)
 }
 
-// Poster size indices into TMDB's poster_sizes list.
-const (
-	posterSmall  = 0
-	posterMedium = 1
-	posterLarge  = 3
-	posterXLarge = 4
-)
-
 // enrich turns a torrent into a TMovie by matching it against TMDB.
 func (c *Client) enrich(ctx context.Context, conf *tmdbConfiguration, tr torrentResult) (TMovie, bool) {
 	if tr.Category.IsTV() {
@@ -634,16 +644,6 @@ func abs(n int) int {
 	}
 	return n
 }
-
-// Release-name heuristics extracting title, year, season/episode, and quality.
-var (
-	reYear     = regexp.MustCompile(`19\d{2}|20\d{2}`)
-	reQuality  = regexp.MustCompile(`(?i)(2160|1080|720|576|480)p|(1080|720)`)
-	reTitleTag = regexp.MustCompile(
-		`(?i)(.*?)(dvdrip|xvid|dvdscr|brrip|bdrip|divx|klaxxon|hc|webrip|hdrip|camrip|hdtv|eztv|proper|x264|x265|hevc|480p|720p|1080p|2160p|[\*\{\(\[]?19\d{2}|20\d{2}).*`)
-	reTitleParen = regexp.MustCompile(`(.*?)\(.*\)(.*)`)
-	reSeason     = regexp.MustCompile(`(?i)(?:s|season)(\d{2})(?:e|x|episode)(\d{2}).*`)
-)
 
 type release struct {
 	Title   string // cleaned, lower-cased title for TMDB matching

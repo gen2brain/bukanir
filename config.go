@@ -20,6 +20,10 @@ const (
 // DefaultUserAgent is sent on metadata requests when Config.UserAgent is empty.
 var DefaultUserAgent = "bukanir/" + Version
 
+// builtinTMDBKey is injected at build time as reversed base64, left empty in source.
+// OpenSubtitles and SubDL credentials are never built in; their limits are per key.
+var builtinTMDBKey string
+
 // Config configures a Client's metadata, caching, and network behavior.
 type Config struct {
 	// TMDBKey is the TMDB v3 API key.
@@ -125,10 +129,6 @@ func (c *Config) openSubtitlesPass() string {
 func (c *Config) subdlKey() string {
 	return secret(c.SubdlKey, "BUKANIR_SUBDL_KEY", "")
 }
-
-// builtinTMDBKey is injected at build time as reversed base64, left empty in source.
-// OpenSubtitles and SubDL credentials are never built in; their limits are per key.
-var builtinTMDBKey string
 
 // builtin decodes a build-time key, or returns "" when none was injected.
 func builtin(obfuscated string) string {

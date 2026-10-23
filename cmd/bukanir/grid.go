@@ -16,23 +16,33 @@ import (
 	"github.com/gen2brain/iup-go/iup"
 )
 
-// posterSeq generates unique IUP image-handle names for posters.
-var posterSeq atomic.Int64
-
-// selectedTitle and selectedPoster are the highlighted grid cell's widgets.
-var selectedTitle, selectedPoster iup.Ihandle
-
 const accentColor = "255 167 37"
-
-var accentRGBA = color.RGBA{255, 167, 37, 255}
-
-type colorRole int
 
 const (
 	roleDim colorRole = iota
 	roleSubtle
 	roleDialogBg
 )
+
+// posterSeq generates unique IUP image-handle names for posters.
+var posterSeq atomic.Int64
+
+// selectedTitle and selectedPoster are the highlighted grid cell's widgets.
+var selectedTitle, selectedPoster iup.Ihandle
+
+var accentRGBA = color.RGBA{255, 167, 37, 255}
+
+var themed = map[iup.Ihandle]struct {
+	attr string
+	role colorRole
+}{}
+
+var (
+	liveTargets   sync.Map
+	pendingImages []string
+)
+
+type colorRole int
 
 // roleColor resolves a color role for the current appearance.
 func roleColor(r colorRole) string {
@@ -51,11 +61,6 @@ func roleColor(r colorRole) string {
 	}
 	return iup.GetGlobal("DLGBGCOLOR")
 }
-
-var themed = map[iup.Ihandle]struct {
-	attr string
-	role colorRole
-}{}
 
 // setThemed sets attr to the role color and keeps it updated on appearance changes.
 func setThemed(ih iup.Ihandle, attr string, role colorRole) iup.Ihandle {
@@ -97,11 +102,6 @@ func globalColor(name string) color.RGBA {
 	fmt.Sscanf(iup.GetGlobal(name), "%d %d %d", &r, &g, &b)
 	return color.RGBA{r, g, b, 255}
 }
-
-var (
-	liveTargets   sync.Map
-	pendingImages []string
-)
 
 // trackTarget keeps ih in liveTargets until destroyed, then drops it as the selected cell and queues the images named by attrs for release.
 func trackTarget(ih iup.Ihandle, attrs ...string) {

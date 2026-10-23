@@ -10,6 +10,13 @@ import (
 	"time"
 )
 
+const (
+	TorOff TorState = iota
+	TorStarting
+	TorReady
+	TorFailed
+)
+
 // ErrTorDisabled is returned by PeerDialer when Config.Tor is not set.
 var ErrTorDisabled = errors.New("bukanir: Tor is not enabled")
 
@@ -104,13 +111,6 @@ func (c *Client) PeerDialer() (PeerDialer, error) {
 
 // TorState is the state of the embedded Tor client.
 type TorState int
-
-const (
-	TorOff TorState = iota
-	TorStarting
-	TorReady
-	TorFailed
-)
 
 // TorStatus returns the state of the embedded Tor client and, for TorFailed, its error.
 func (c *Client) TorStatus() (TorState, error) { return c.tr.torStatus() }

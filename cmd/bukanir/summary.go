@@ -17,6 +17,13 @@ import (
 
 const summaryPosterW, summaryPosterH = 600, 900
 
+const (
+	busyBG = "96 96 96"
+	busyFG = "56 56 56"
+)
+
+var summaryPosterSeq atomic.Int64
+
 // openSummary opens a detail tab for a movie and loads its metadata.
 func openSummary(m bukanir.TMovie) {
 	if isShowEntry(m) {
@@ -190,8 +197,6 @@ func movieTip(m bukanir.TMovie, s *bukanir.TSummary) string {
 	return strings.Join(lines, "\n")
 }
 
-var summaryPosterSeq atomic.Int64
-
 // summaryPoster is a canvas that paints the poster scaled to fit, so it tracks the window size.
 func summaryPoster() iup.Ihandle {
 	c := iup.Canvas().SetAttributes("EXPAND=YES, BORDER=NO")
@@ -323,11 +328,6 @@ func playButton(b iup.Ihandle, onClick func()) {
 		return iup.DEFAULT
 	}))
 }
-
-const (
-	busyBG = "96 96 96"
-	busyFG = "56 56 56"
-)
 
 // disablePlayButton greys and blocks a play button, saving colors for enable.
 func disablePlayButton(b iup.Ihandle) {

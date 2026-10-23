@@ -18,8 +18,19 @@ import (
 
 const appName = "Bukanir"
 
+// quitWait bounds how long quitting waits for playbacks to clean up.
+const quitWait = 10 * time.Second
+
 // appVersion is shown in the About dialog.
 var appVersion string
+
+// client is the shared library client.
+var client *bukanir.Client
+
+// settings holds the persisted user preferences, loaded at startup.
+var settings *Settings
+
+var quitting bool
 
 func init() {
 	if appVersion != "" {
@@ -42,12 +53,6 @@ func init() {
 		appVersion = bukanir.Version
 	}
 }
-
-// client is the shared library client.
-var client *bukanir.Client
-
-// settings holds the persisted user preferences, loaded at startup.
-var settings *Settings
 
 func main() {
 	iup.Open()
@@ -111,11 +116,6 @@ func main() {
 	loadMenus()
 	iup.MainLoop()
 }
-
-// quitWait bounds how long quitting waits for playbacks to clean up.
-const quitWait = 10 * time.Second
-
-var quitting bool
 
 // quitApp stops every playback and ends the main loop once their cleanup is done; iup.Close then destroys the dialogs.
 func quitApp() {

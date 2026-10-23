@@ -14,6 +14,8 @@ const (
 	subdlDownloadBase = "https://dl.subdl.com"
 )
 
+var zipMagic = []byte("PK\x03\x04")
+
 type subdlProvider struct{ c *Client }
 
 func (subdlProvider) name() string { return "subdl" }
@@ -113,8 +115,6 @@ func (s sdSubtitle) matchesEpisode(q SubtitleQuery) bool {
 	}
 	return *s.Episode == q.Episode
 }
-
-var zipMagic = []byte("PK\x03\x04")
 
 func (p subdlProvider) download(ctx context.Context, sub Subtitle) ([]byte, string, error) {
 	uri := sub.DownloadURI

@@ -14,11 +14,31 @@ import (
 	"github.com/gen2brain/iup-go/iup"
 )
 
+// autocompleteLimit bounds how many suggestions are shown.
+const autocompleteLimit = 10
+
 // Browsing state, driven by the toolbar dropdowns.
 var (
 	media  = "all"
 	sortBy = "seeders"
 )
+
+// acGen drops autocomplete results that a newer keystroke has superseded.
+var acGen atomic.Int64
+
+// Background-loaded lists cached behind the toolbar menus.
+var (
+	menuMu        sync.Mutex
+	popularItems  []bukanir.TItem
+	topRatedItems []bukanir.TItem
+	genreList     []bukanir.TGenre
+)
+
+// reloaders holds each open tab's reload function, keyed by the tab holder.
+var reloaders = map[iup.Ihandle]func(){}
+
+// tabSorts holds the sort state of each open browse tab, keyed by the tab holder.
+var tabSorts = map[iup.Ihandle]*tabSort{}
 
 func currentYear() int { return time.Now().Year() }
 
@@ -43,12 +63,6 @@ func onTop(text string) {
 		return client.Category(ctx, topCategory(text))
 	})
 }
-
-// autocompleteLimit bounds how many suggestions are shown.
-const autocompleteLimit = 10
-
-// acGen drops autocomplete results that a newer keystroke has superseded.
-var acGen atomic.Int64
 
 // onSearchChanged fetches debounced autocomplete suggestions for the query.
 func onSearchChanged(query string) {
@@ -76,14 +90,6 @@ func onSearchChanged(query string) {
 		iup.PostMessage(iup.GetHandle("suggest"), "", 0, items)
 	}()
 }
-
-// Background-loaded lists cached behind the toolbar menus.
-var (
-	menuMu        sync.Mutex
-	popularItems  []bukanir.TItem
-	topRatedItems []bukanir.TItem
-	genreList     []bukanir.TGenre
-)
 
 // loadMenus fetches the Popular/Top Rated/Genre data in the background.
 func loadMenus() {
@@ -148,9 +154,6 @@ func topCategory(text string) bukanir.Category {
 	return bukanir.CategoryMovies
 }
 
-// reloaders holds each open tab's reload function, keyed by the tab holder.
-var reloaders = map[iup.Ihandle]func(){}
-
 func setReloader(tab iup.Ihandle, reload func()) { reloaders[tab] = reload }
 
 // tabSort is a browse tab's last results and the order they are shown in.
@@ -158,9 +161,6 @@ type tabSort struct {
 	movies []bukanir.TMovie
 	sortBy string
 }
-
-// tabSorts holds the sort state of each open browse tab, keyed by the tab holder.
-var tabSorts = map[iup.Ihandle]*tabSort{}
 
 func setSortable(tab iup.Ihandle, by string) { tabSorts[tab] = &tabSort{sortBy: by} }
 

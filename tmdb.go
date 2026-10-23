@@ -16,9 +16,6 @@ import (
 // tmdbBaseURL is the TMDB v3 API root.
 const tmdbBaseURL = "https://api.themoviedb.org/3"
 
-// Category is a torrent content category, matching the source's numeric codes.
-type Category int
-
 const (
 	CategoryMovies   Category = 201
 	CategoryHDMovies Category = 207
@@ -26,8 +23,13 @@ const (
 	CategoryHDTV     Category = 208
 )
 
+const discoverPages = 5
+
 // Categories lists the supported categories.
 var Categories = []Category{CategoryMovies, CategoryHDMovies, CategoryTV, CategoryHDTV}
+
+// Category is a torrent content category, matching the source's numeric codes.
+type Category int
 
 // Valid reports whether c is a supported category.
 func (c Category) Valid() bool {
@@ -496,8 +498,6 @@ func genreNames(genres []tmdbGenre) []string {
 	}
 	return names
 }
-
-const discoverPages = 5
 
 // Category returns the top torrents for a category, sorted by seeders.
 func (c *Client) Category(ctx context.Context, category Category) ([]TMovie, error) {

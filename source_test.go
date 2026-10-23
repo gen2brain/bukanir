@@ -9,6 +9,42 @@ import (
 	"testing"
 )
 
+const tpbMatrix = `{"id":"123","info_hash":"AAAA","name":"The.Matrix.1999.1080p.x264","size":"1500000000","seeders":"100","category":"207"}`
+
+// A response exercising every filter.
+const tpbBody = `[` +
+	tpbMatrix + `,` +
+	`{"id":"0","name":"No results returned","info_hash":"0","size":"0","seeders":"0","category":"0"},` +
+	`{"id":"5","info_hash":"BBBB","name":"Some.Movie.2020","size":"1000","seeders":"0","category":"201"},` +
+	`{"id":"6","info_hash":"CCCC","name":"Big.Movie.2020","size":"9999999999999","seeders":"5","category":"201"},` +
+	`{"id":"7","info_hash":"DDDD","name":"Show.Without.Episode.2020","size":"1000000","seeders":"5","category":"205"},` +
+	`{"id":"8","info_hash":"EEEE","name":"Breaking.Bad.S05E14.HDTV.x264","size":"500000000","seeders":"50","category":"205"}` +
+	`]`
+
+const eztvBody = `{"torrents_count":3,"torrents":[
+	{"title":"Breaking.Bad.S05E14.720p.HDTV.x264","magnet_url":"magnet:?xt=urn:btih:EEEE","hash":"EEEE","seeds":50,"size_bytes":"500000000","season":"5","episode":"14"},
+	{"title":"Some.Show.S01E01","magnet_url":"","hash":"FFFF","seeds":0,"size_bytes":"1000000","season":"1","episode":"1"},
+	{"title":"Big.Show.S01E01","magnet_url":"magnet:?xt=urn:btih:GGGG","hash":"GGGG","seeds":10,"size_bytes":"9999999999999","season":"1","episode":"1"}
+]}`
+
+const torrentioBody = `{"streams":[
+	{"title":"Breaking.Bad.S01E05.1080p.WEB.x264\n👤 30 💾 1.5 GB ⚙️ ThePirateBay","infoHash":"aaaa","behaviorHints":{"filename":"Breaking.Bad.S01E05.1080p.WEB.x264.mkv"}},
+	{"title":"Breaking.Bad.S01.720p.BluRay\nBreaking.Bad.S01E05.720p.BluRay.mkv\n👤 80 💾 12.5 GB ⚙️ 1337x","infoHash":"bbbb","fileIdx":4,"behaviorHints":{"filename":"Breaking.Bad.S01E05.720p.BluRay.mkv"}},
+	{"title":"Breaking.Bad.S01E05.2160p.WEB\n👤 20 💾 9.1 GB ⚙️ ThePirateBay","infoHash":"cccc","behaviorHints":{}},
+	{"title":"Breaking.Bad.S01E05.480p\n👤 0 💾 300 MB ⚙️ ThePirateBay","infoHash":"dddd","behaviorHints":{}},
+	{"title":"Breaking.Bad.Complete\n👤 5 💾 40 GB ⚙️ RARBG","infoHash":"eeee","behaviorHints":{}},
+	{"title":"Breaking.Bad.S01E05-E07.480p\nBreaking.Bad.S01E05.480p.mkv\n👤 7 💾 900 MB ⚙️ 1337x","infoHash":"ffff","fileIdx":0,"behaviorHints":{"filename":"Breaking.Bad.S01E05.480p.mkv"}}
+]}`
+
+const ytsBody = `{"status":"ok","data":{"movies":[
+	{"title_english":"The Matrix","title_long":"The Matrix (1999)","year":1999,"imdb_code":"tt0133093","torrents":[
+		{"hash":"AAAA","quality":"720p","type":"bluray","seeds":40,"size_bytes":800000000},
+		{"hash":"BBBB","quality":"1080p","type":"web","seeds":90,"size_bytes":1600000000},
+		{"hash":"CCCC","quality":"2160p","type":"bluray","seeds":5,"size_bytes":9999999999999},
+		{"hash":"DDDD","quality":"1080p","type":"bluray","seeds":0,"size_bytes":1600000000}]},
+	{"title_english":"","title_long":"Nameless (2000)","year":2000,"imdb_code":"tt1","torrents":[{"hash":"EEEE","quality":"720p","type":"web","seeds":9,"size_bytes":1000}]}
+]}}`
+
 func TestMagnetLink(t *testing.T) {
 	m := magnetLink("ABCDEF0123", "The Matrix 1999")
 	if !strings.HasPrefix(m, "magnet:?xt=urn:btih:ABCDEF0123") {
@@ -36,18 +72,6 @@ func TestHumanizeBytes(t *testing.T) {
 		}
 	}
 }
-
-const tpbMatrix = `{"id":"123","info_hash":"AAAA","name":"The.Matrix.1999.1080p.x264","size":"1500000000","seeders":"100","category":"207"}`
-
-// A response exercising every filter.
-const tpbBody = `[` +
-	tpbMatrix + `,` +
-	`{"id":"0","name":"No results returned","info_hash":"0","size":"0","seeders":"0","category":"0"},` +
-	`{"id":"5","info_hash":"BBBB","name":"Some.Movie.2020","size":"1000","seeders":"0","category":"201"},` +
-	`{"id":"6","info_hash":"CCCC","name":"Big.Movie.2020","size":"9999999999999","seeders":"5","category":"201"},` +
-	`{"id":"7","info_hash":"DDDD","name":"Show.Without.Episode.2020","size":"1000000","seeders":"5","category":"205"},` +
-	`{"id":"8","info_hash":"EEEE","name":"Breaking.Bad.S05E14.HDTV.x264","size":"500000000","seeders":"50","category":"205"}` +
-	`]`
 
 func mockTPB(t *testing.T, wantCat string) *Client {
 	t.Helper()
@@ -128,12 +152,6 @@ func TestParseTPBBadJSON(t *testing.T) {
 		t.Fatal("expected error on bad JSON")
 	}
 }
-
-const eztvBody = `{"torrents_count":3,"torrents":[
-	{"title":"Breaking.Bad.S05E14.720p.HDTV.x264","magnet_url":"magnet:?xt=urn:btih:EEEE","hash":"EEEE","seeds":50,"size_bytes":"500000000","season":"5","episode":"14"},
-	{"title":"Some.Show.S01E01","magnet_url":"","hash":"FFFF","seeds":0,"size_bytes":"1000000","season":"1","episode":"1"},
-	{"title":"Big.Show.S01E01","magnet_url":"magnet:?xt=urn:btih:GGGG","hash":"GGGG","seeds":10,"size_bytes":"9999999999999","season":"1","episode":"1"}
-]}`
 
 func mockEZTV(t *testing.T, body string, wantIMDb string) *Client {
 	t.Helper()
@@ -241,15 +259,6 @@ func TestEZTVEmptyIMDb(t *testing.T) {
 	}
 }
 
-const torrentioBody = `{"streams":[
-	{"title":"Breaking.Bad.S01E05.1080p.WEB.x264\n👤 30 💾 1.5 GB ⚙️ ThePirateBay","infoHash":"aaaa","behaviorHints":{"filename":"Breaking.Bad.S01E05.1080p.WEB.x264.mkv"}},
-	{"title":"Breaking.Bad.S01.720p.BluRay\nBreaking.Bad.S01E05.720p.BluRay.mkv\n👤 80 💾 12.5 GB ⚙️ 1337x","infoHash":"bbbb","fileIdx":4,"behaviorHints":{"filename":"Breaking.Bad.S01E05.720p.BluRay.mkv"}},
-	{"title":"Breaking.Bad.S01E05.2160p.WEB\n👤 20 💾 9.1 GB ⚙️ ThePirateBay","infoHash":"cccc","behaviorHints":{}},
-	{"title":"Breaking.Bad.S01E05.480p\n👤 0 💾 300 MB ⚙️ ThePirateBay","infoHash":"dddd","behaviorHints":{}},
-	{"title":"Breaking.Bad.Complete\n👤 5 💾 40 GB ⚙️ RARBG","infoHash":"eeee","behaviorHints":{}},
-	{"title":"Breaking.Bad.S01E05-E07.480p\nBreaking.Bad.S01E05.480p.mkv\n👤 7 💾 900 MB ⚙️ 1337x","infoHash":"ffff","fileIdx":0,"behaviorHints":{"filename":"Breaking.Bad.S01E05.480p.mkv"}}
-]}`
-
 func TestTorrentioSearch(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/stream/series/tt0903747:1:5.json" {
@@ -338,15 +347,6 @@ func TestReleaseYearEdge(t *testing.T) {
 		t.Errorf("year = %d, want 2021", y)
 	}
 }
-
-const ytsBody = `{"status":"ok","data":{"movies":[
-	{"title_english":"The Matrix","title_long":"The Matrix (1999)","year":1999,"imdb_code":"tt0133093","torrents":[
-		{"hash":"AAAA","quality":"720p","type":"bluray","seeds":40,"size_bytes":800000000},
-		{"hash":"BBBB","quality":"1080p","type":"web","seeds":90,"size_bytes":1600000000},
-		{"hash":"CCCC","quality":"2160p","type":"bluray","seeds":5,"size_bytes":9999999999999},
-		{"hash":"DDDD","quality":"1080p","type":"bluray","seeds":0,"size_bytes":1600000000}]},
-	{"title_english":"","title_long":"Nameless (2000)","year":2000,"imdb_code":"tt1","torrents":[{"hash":"EEEE","quality":"720p","type":"web","seeds":9,"size_bytes":1000}]}
-]}}`
 
 func mockYTS(t *testing.T, wantQuery string) *Client {
 	t.Helper()

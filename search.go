@@ -11,6 +11,11 @@ import (
 	"time"
 )
 
+// torrentioConcurrency bounds the parallel per-episode Torrentio requests.
+const torrentioConcurrency = 4
+
+var enrichConcurrency = 3 * runtime.NumCPU()
+
 // SearchOptions tunes a Search.
 type SearchOptions struct {
 	// Media selects sources: "all" (default), "movies", or "episodes".
@@ -30,8 +35,6 @@ func (o SearchOptions) withDefaults() SearchOptions {
 	}
 	return o
 }
-
-var enrichConcurrency = 3 * runtime.NumCPU()
 
 // Search finds movies and TV episodes for a query.
 func (c *Client) Search(ctx context.Context, query string, opts SearchOptions) ([]TMovie, error) {
@@ -127,9 +130,6 @@ func (c *Client) gatherTorrents(ctx context.Context, query, media string) ([]tor
 	}
 	return all, nil
 }
-
-// torrentioConcurrency bounds the parallel per-episode Torrentio requests.
-const torrentioConcurrency = 4
 
 // showMatch is the TV show a query names, plus the episode when the query has SxxEyy.
 type showMatch struct {

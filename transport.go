@@ -22,12 +22,6 @@ const DefaultTorCircuits = 2
 
 var errTransportClosed = errors.New("bukanir: client closed")
 
-type torProvider interface {
-	HTTPClient() *http.Client
-	DialContext(ctx context.Context, network, addr string) (net.Conn, error)
-	Close() error
-}
-
 // newTorProvider builds a bootstrapped Tor provider.
 var newTorProvider = func(ctx context.Context, cacheDir string, instances int, stderr io.Writer) (torProvider, error) {
 	opts := []arti.Option{arti.WithCircuits(DefaultTorCircuits)}
@@ -35,6 +29,12 @@ var newTorProvider = func(ctx context.Context, cacheDir string, instances int, s
 		opts = append(opts, arti.WithStderr(stderr))
 	}
 	return arti.NewPool(ctx, cacheDir, instances, opts...)
+}
+
+type torProvider interface {
+	HTTPClient() *http.Client
+	DialContext(ctx context.Context, network, addr string) (net.Conn, error)
+	Close() error
 }
 
 // transport hands out an *http.Client for metadata requests, routing through Tor when configured.

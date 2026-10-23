@@ -14,6 +14,8 @@ import (
 
 const movieSubtitlesBaseURL = "https://www.moviesubtitles.org"
 
+var reMovieSubtitlesResult = regexp.MustCompile(`^(.*?)\s*\((\d{4})\)\s*$`)
+
 type movieSubtitlesProvider struct{ c *Client }
 
 func (movieSubtitlesProvider) name() string { return "moviesubtitles" }
@@ -78,8 +80,6 @@ func (p movieSubtitlesProvider) findMovie(ctx context.Context, title string, yea
 	})
 	return href, nil
 }
-
-var reMovieSubtitlesResult = regexp.MustCompile(`^(.*?)\s*\((\d{4})\)\s*$`)
 
 // movieSubtitlesMatch reports whether a result like "Front Runner, The (2018)" is title from year, give or take one.
 func movieSubtitlesMatch(text, title string, year int) bool {

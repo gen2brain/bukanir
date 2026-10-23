@@ -23,6 +23,11 @@ import (
 	"golang.org/x/time/rate"
 )
 
+var (
+	gwMu    sync.Mutex
+	gwCache []gateway
+)
+
 // PeerDialer dials BitTorrent peer connections.
 type PeerDialer interface {
 	DialContext(ctx context.Context, network, addr string) (net.Conn, error)
@@ -504,11 +509,6 @@ type gateway struct {
 	urn     string // service type
 	client  string // our LAN IP toward the gateway
 }
-
-var (
-	gwMu    sync.Mutex
-	gwCache []gateway
-)
 
 // cachedGateways discovers IGD gateways once and caches a non-empty result.
 func cachedGateways() []gateway {

@@ -17,6 +17,13 @@ import (
 	"github.com/gen2brain/iup-go/iup"
 )
 
+var (
+	favorites       []favorite // newest first
+	favoritesTab    iup.Ihandle
+	favoriteActions = map[iup.Ihandle]func(){}
+	favoriteButtons = map[iup.Ihandle]favoriteButton{}
+)
+
 // favorite is a saved movie or TV show; its torrents are looked up fresh when it is opened.
 type favorite struct {
 	ID           int              `json:"id"`
@@ -30,13 +37,6 @@ type favorite struct {
 	PosterXLarge string           `json:"posterXLarge"`
 	Added        time.Time        `json:"added"`
 }
-
-var (
-	favorites       []favorite // newest first
-	favoritesTab    iup.Ihandle
-	favoriteActions = map[iup.Ihandle]func(){}
-	favoriteButtons = map[iup.Ihandle]favoriteButton{}
-)
 
 // favoriteButton is the star toggle on a details tab, refreshed when the title is toggled elsewhere.
 type favoriteButton struct {
