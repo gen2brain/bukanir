@@ -120,6 +120,16 @@ func (t *transport) ensureTor() error {
 	return t.err
 }
 
+// start marks Tor as starting and bootstraps it in the background.
+func (t *transport) start() {
+	t.mu.Lock()
+	if !t.closed && t.tor == nil && t.err == nil {
+		t.starting = true
+	}
+	t.mu.Unlock()
+	go t.ensureTor()
+}
+
 func (t *transport) finishTor() { t.finish.Do(func() { close(t.done) }) }
 
 func (t *transport) torStatus() (TorState, error) {

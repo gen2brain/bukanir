@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"io"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -93,6 +94,16 @@ func (c *Config) eztvHost() string {
 		return c.EZTVHost
 	}
 	return DefaultEZTVHost
+}
+
+// usesOnion reports whether a source host is a .onion address.
+func (c *Config) usesOnion() bool {
+	for _, host := range []string{c.tpbHost(), c.ytsHost(), c.eztvHost()} {
+		if strings.HasSuffix(host, ".onion") {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Config) tmdbKey() string {

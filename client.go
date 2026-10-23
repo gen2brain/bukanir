@@ -118,10 +118,10 @@ func (c *Client) TorStatus() (TorState, error) { return c.tr.torStatus() }
 // TorDone is closed when the embedded Tor client has finished starting or the Client is closed.
 func (c *Client) TorDone() <-chan struct{} { return c.tr.done }
 
-// StartTor bootstraps the embedded Tor client in the background, so a later PeerDialer finds it ready.
+// StartTor bootstraps the embedded Tor client in the background when peers or a .onion source host use it.
 func (c *Client) StartTor() {
-	if c.cfg.Tor {
-		go c.tr.ensureTor()
+	if c.cfg.Tor || c.cfg.usesOnion() {
+		c.tr.start()
 	}
 }
 

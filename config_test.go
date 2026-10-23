@@ -119,4 +119,10 @@ func TestSourceHosts(t *testing.T) {
 	if got := hostBaseURL("example.onion"); got != "http://example.onion" {
 		t.Errorf("onion base = %q", got)
 	}
+	if def.usesOnion() || cfg.usesOnion() {
+		t.Error("usesOnion() = true without a .onion host")
+	}
+	if onion := (Config{TPBHost: "example.onion"}); !onion.usesOnion() {
+		t.Error("usesOnion() = false with a .onion TPB host")
+	}
 }
