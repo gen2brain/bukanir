@@ -3,6 +3,7 @@ module github.com/gen2brain/bukanir/cmd/bukanir
 go 1.26.4
 
 replace github.com/gen2brain/bukanir => ../..
+replace github.com/anacrolix/torrent => github.com/gen2brain/torrent v0.0.0-20261024141642-ede56332a1e4
 
 require (
 	github.com/gen2brain/bukanir v0.0.0-00010101000000-000000000000
