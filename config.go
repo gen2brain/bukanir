@@ -35,7 +35,7 @@ type Config struct {
 	// SubdlKey is the subdl.com API key.
 	SubdlKey string
 
-	// CacheDir holds cached metadata responses.
+	// CacheDir holds cached metadata responses; required.
 	CacheDir string
 	// CacheTTL is how long a cached response stays fresh.
 	CacheTTL time.Duration

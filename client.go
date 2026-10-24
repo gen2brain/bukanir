@@ -4,7 +4,6 @@ package bukanir
 import (
 	"context"
 	"errors"
-	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -57,11 +56,7 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 
 	root := cfg.CacheDir
 	if root == "" {
-		if d, err := os.UserCacheDir(); err == nil {
-			root = filepath.Join(d, "bukanir")
-		} else {
-			root = filepath.Join(os.TempDir(), "bukanir")
-		}
+		return nil, errors.New("bukanir: CacheDir is required")
 	}
 
 	var subsTTL time.Duration
