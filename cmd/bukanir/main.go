@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -109,12 +110,25 @@ func main() {
 	}))
 
 	iup.Map(dlg)
+	fitDialogWidth(dlg)
 	iup.ShowXY(dlg, iup.CENTER, iup.CENTER)
 	watchTor(client)
 	quitOnSignal()
 	startup(context.Background())
 	loadMenus()
 	iup.MainLoop()
+}
+
+// fitDialogWidth widens dlg when its content needs more than the initial width.
+func fitDialogWidth(dlg iup.Ihandle) {
+	iup.Refresh(dlg)
+	var nw, nh, cw, ch, rw, rh int
+	fmt.Sscanf(iup.GetChild(dlg, 0).GetAttribute("NATURALSIZE"), "%dx%d", &nw, &nh)
+	fmt.Sscanf(dlg.GetAttribute("CLIENTSIZE"), "%dx%d", &cw, &ch)
+	fmt.Sscanf(dlg.GetAttribute("RASTERSIZE"), "%dx%d", &rw, &rh)
+	if cw > 0 && nw > cw {
+		dlg.SetAttribute("RASTERSIZE", fmt.Sprintf("%dx%d", rw+nw-cw, rh))
+	}
 }
 
 // quitApp stops every playback and ends the main loop once their cleanup is done; iup.Close then destroys the dialogs.
