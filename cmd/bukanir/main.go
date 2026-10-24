@@ -33,6 +33,9 @@ var settings *Settings
 
 var quitting bool
 
+// teardown closes the client and removes this run's temp dir; quitApp runs it once playbacks stop.
+var teardown func()
+
 func init() {
 	if appVersion != "" {
 		return
@@ -69,7 +72,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer removeTemp()
 	settings = loadSettings()
 	loadFavorites()
 	iup.SetGlobal("APPEARANCE", settings.appearance())
@@ -91,7 +93,10 @@ func main() {
 
 	client = c
 	client.StartTor()
-	defer client.Close()
+	teardown = func() {
+		client.Close()
+		removeTemp()
+	}
 
 	dlg := iup.Dialog(layout()).SetAttributes(map[string]string{
 		"TITLE":      appName,
@@ -153,6 +158,7 @@ func quitApp() {
 		case <-time.After(quitWait):
 			log.Println("QUIT: playbacks did not stop in time")
 		}
+		teardown()
 		runOnMain(iup.ExitLoop)
 	}()
 }
