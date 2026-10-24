@@ -631,6 +631,15 @@ func markTab(tab iup.Ihandle, kind string, delta int) {
 	iup.PostMessage(iup.GetHandle("tabs"), kind, delta, tab)
 }
 
+// loadInTab runs fetch in the background while tab shows the loading spinner.
+func loadInTab(tab iup.Ihandle, fetch func()) {
+	markTab(tab, "load", +1)
+	go func() {
+		defer markTab(tab, "load", -1)
+		fetch()
+	}()
+}
+
 // updateTabActivity applies an activity delta and repaints the tab's image.
 func updateTabActivity(tabs, tab iup.Ihandle, kind string, delta int) {
 	if !isChildOf(tabs, tab) {

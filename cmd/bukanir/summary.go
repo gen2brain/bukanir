@@ -41,7 +41,7 @@ func openSummary(m bukanir.TMovie) {
 	setTabTip(holder, movieTip(m, nil))
 
 	reload := func(ctx context.Context) {
-		go func() {
+		loadInTab(holder, func() {
 			s, err := client.Summary(ctx, m.ID, m.Category, m.Season, m.Episode)
 			if err != nil {
 				iup.PostMessage(iup.GetHandle("status"), "error: "+err.Error(), 0, nil)
@@ -52,7 +52,7 @@ func openSummary(m bukanir.TMovie) {
 				movie, _ = findTorrent(ctx, m)
 			}
 			iup.PostMessage(holder, "", 0, summaryResult{movie, s})
-		}()
+		})
 	}
 	setReloader(holder, reload)
 	reload(context.Background())
@@ -304,14 +304,14 @@ func openBrowseSorted(title, by string, load func(context.Context) ([]bukanir.TM
 	setSortable(holder, by)
 	addTab(title, holder)
 	reload := func(ctx context.Context) {
-		go func() {
+		loadInTab(holder, func() {
 			movies, err := load(ctx)
 			if err != nil {
 				iup.PostMessage(iup.GetHandle("status"), "error: "+err.Error(), 0, nil)
 				return
 			}
 			iup.PostMessage(holder, "", 0, movies)
-		}()
+		})
 	}
 	setReloader(holder, reload)
 	reload(context.Background())
