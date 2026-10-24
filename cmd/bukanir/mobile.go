@@ -18,6 +18,18 @@ const (
 // summaryMargin is the margin around a details view.
 const summaryMargin = 12
 
+// dialogIcon is empty: an icon takes title space in the app bar.
+const dialogIcon = ""
+
+// playerVolumeControls is off: the volume keys set and mute the volume.
+const playerVolumeControls = false
+
+// playerSeekRow puts the seek bar on its own row above the player buttons.
+const playerSeekRow = true
+
+// playerVideoSize is a small natural size; the video expands over the room the controls leave.
+const playerVideoSize = "160x90"
+
 // singleTapOpens opens a grid title on a single tap.
 const singleTapOpens = true
 

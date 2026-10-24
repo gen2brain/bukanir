@@ -27,6 +27,18 @@ const summaryPosterW, summaryPosterH = 600, 900
 
 var summaryPosterSeq atomic.Int64
 
+// dialogIcon is the window icon of secondary windows.
+const dialogIcon = "appicon"
+
+// playerVolumeControls shows the mute button and the volume slider in the player controls.
+const playerVolumeControls = true
+
+// playerSeekRow puts the seek bar on its own row above the player buttons.
+const playerSeekRow = false
+
+// playerVideoSize is the initial video size of a player window.
+const playerVideoSize = "960x540"
+
 // singleTapOpens opens a grid title on a single click instead of a double click.
 const singleTapOpens = false
 

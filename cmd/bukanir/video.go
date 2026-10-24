@@ -171,12 +171,15 @@ func openVideoPlayer(sess *session, pb playback, done chan error) {
 func (p *videoPlayer) build() {
 	r, g, b := parseHexColor(settings.SubColor)
 	p.video = iup.Video().SetAttributes(map[string]string{
-		"EXPAND": "YES", "CANFOCUS": "YES", "RASTERSIZE": "960x540",
+		"EXPAND": "YES", "CANFOCUS": "YES",
 		"SUBTITLEFONTSIZE": strconv.Itoa(int(math.Round(18 * settings.SubScale))),
 		"SUBTITLECOLOR":    fmt.Sprintf("%d %d %d", r, g, b),
 		"MPVCONFIG":        yesNo(settings.MPVConfig),
 		"VLCCONFIG":        yesNo(settings.VLCConfig),
 	})
+	if playerVideoSize != "" {
+		p.video.SetAttribute("RASTERSIZE", playerVideoSize)
+	}
 	if settings.MPVOptions != "" {
 		p.video.SetAttribute("MPVOPTIONS", settings.MPVOptions)
 	}
@@ -197,7 +200,10 @@ func (p *videoPlayer) build() {
 	}))
 
 	p.playBtn = iconButton("player-pause", p.togglePause).SetAttribute("TIP", "Pause (Space)")
-	p.elapsed = iup.Label("0:00:00 / 0:00:00").SetAttributes("ELLIPSIS=YES, SIZE=100x")
+	p.elapsed = iup.Label("0:00:00 / 0:00:00").SetAttributes("ELLIPSIS=YES")
+	if !playerSeekRow {
+		p.elapsed.SetAttribute("SIZE", "100x")
+	}
 	p.position = iup.Val("HORIZONTAL").SetAttributes("MIN=0, MAX=1, EXPAND=HORIZONTAL, ACTIVE=NO, CURSOR=HAND")
 	p.position.SetCallback("VALUECHANGED_CB", iup.ValueChangedFunc(func(ih iup.Ihandle) int {
 		p.seek = ih.GetDouble("VALUE") * p.video.GetDouble("DURATION")
@@ -220,9 +226,20 @@ func (p *videoPlayer) build() {
 	}))
 	p.fullBtn = iconButton("player-fullscreen", func() { p.setFullscreen(true) }).SetAttribute("TIP", "Fullscreen (f)")
 
-	p.controls = iup.Hbox(p.playBtn, p.elapsed, p.position, p.subBtn, p.muteBtn, p.volume, p.fullBtn).SetAttributes("ALIGNMENT=ACENTER, GAP=6, NMARGIN=6x4")
+	if !playerVolumeControls {
+		p.muteBtn.SetAttributes("FLOATING=YES, VISIBLE=NO")
+		p.volume.SetAttributes("FLOATING=YES, VISIBLE=NO")
+	}
+	if playerSeekRow {
+		p.controls = iup.Vbox(
+			p.position,
+			iup.Hbox(p.playBtn, p.elapsed, iup.Fill(), p.subBtn, p.muteBtn, p.volume, p.fullBtn).SetAttributes("ALIGNMENT=ACENTER, GAP=6"),
+		).SetAttributes("GAP=2, NMARGIN=6x4")
+	} else {
+		p.controls = iup.Hbox(p.playBtn, p.elapsed, p.position, p.subBtn, p.muteBtn, p.volume, p.fullBtn).SetAttributes("ALIGNMENT=ACENTER, GAP=6, NMARGIN=6x4")
+	}
 	p.dlg = iup.Dialog(iup.Vbox(p.video, p.controls)).SetAttributes(map[string]string{
-		"TITLE": plainText(p.pb.title), "ICON": "appicon", "SHRINK": "YES",
+		"TITLE": plainText(p.pb.title), "ICON": dialogIcon, "SHRINK": "YES",
 	})
 	p.dlg.SetCallback("CLOSE_CB", iup.CloseFunc(func(iup.Ihandle) int {
 		p.close()
