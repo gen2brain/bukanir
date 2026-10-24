@@ -19,6 +19,11 @@ import (
 const accentColor = "255 167 37"
 
 const (
+	gridGap    = 30
+	gridMargin = 20
+)
+
+const (
 	roleDim colorRole = iota
 	roleSubtle
 	roleDialogBg
@@ -204,12 +209,16 @@ func showMovies(holder iup.Ihandle, movies []bukanir.TMovie) {
 	}
 	grid := iup.MultiBox(cells...).SetAttributes(map[string]string{
 		"ORIENTATION": "HORIZONTAL",
-		"GAPHORIZ":    "14",
-		"GAPVERT":     "14",
-		"MARGIN":      "10x10",
+		"NGAPHORIZ":   strconv.Itoa(gridGap),
+		"NGAPVERT":    strconv.Itoa(gridGap),
+		"NMARGIN":     fmt.Sprintf("%dx%d", gridMargin, gridMargin),
 	}).SetHandle("grid")
 
 	scroll := iup.ScrollBox(grid).SetAttributes("EXPAND=YES, CANFOCUS=YES")
+	scroll.SetCallback("RESIZE_CB", iup.ResizeFunc(func(ih iup.Ihandle, _, _ int) int {
+		fitGrid(ih, grid)
+		return iup.DEFAULT
+	}))
 	scroll.SetCallback("K_ANY", iup.KAnyFunc(func(_ iup.Ihandle, c int) int {
 		if navGrid(scroll, grid, movies, c) {
 			return iup.IGNORE
@@ -220,6 +229,7 @@ func showMovies(holder iup.Ihandle, movies []bukanir.TMovie) {
 	iup.Map(scroll)
 	iup.Refresh(holder)
 	iup.Refresh(holder)
+	fitGrid(scroll, grid)
 
 	selectGridCell(scroll, grid, 0)
 	iup.SetFocus(scroll)
@@ -314,6 +324,35 @@ func selectGridCell(scroll, grid iup.Ihandle, i int) {
 	scrollToShowCell(scroll, cell)
 }
 
+// fitGrid justifies grid until its layout settles.
+func fitGrid(scroll, grid iup.Ihandle) {
+	for range 3 {
+		if !justifyGrid(scroll, grid) {
+			return
+		}
+		iup.Refresh(scroll)
+	}
+}
+
+// justifyGrid fits as many columns as scroll shows and spreads the spare width evenly over the gaps and margins.
+func justifyGrid(scroll, grid iup.Ihandle) bool {
+	var cellW, cellH int
+	w := scroll.GetInt("DX")
+	fmt.Sscanf(iup.GetChild(grid, 0).GetAttribute("NATURALSIZE"), "%dx%d", &cellW, &cellH)
+	if w <= 0 || cellW <= 0 {
+		return false
+	}
+	n := max(1, (w-2*gridMargin+gridGap)/(cellW+gridGap))
+	extra := max(0, (w-n*cellW-(n-1)*gridGap-2*gridMargin)/(n+1))
+	gap, margin := strconv.Itoa(gridGap+extra), fmt.Sprintf("%dx%d", gridMargin+extra, gridMargin)
+	if grid.GetAttribute("NGAPHORIZ") == gap && grid.GetAttribute("NMARGIN") == margin {
+		return false
+	}
+	grid.SetAttribute("NGAPHORIZ", gap)
+	grid.SetAttribute("NMARGIN", margin)
+	return true
+}
+
 // scrollToShowCell scrolls the grid only as far as needed for the cell to be fully visible.
 func scrollToShowCell(scroll, cell iup.Ihandle) {
 	_, _, top := iup.GetInt2(cell, "POSITION")
@@ -354,7 +393,7 @@ func posterCell(m bukanir.TMovie) (cell, target iup.Ihandle) {
 	poster.SetAttribute("TIP", m.Title)
 	title.SetAttribute("TIP", m.Title)
 
-	cell = iup.Vbox(poster, title, sub).SetAttributes("ALIGNMENT=ACENTER, GAP=2")
+	cell = iup.Vbox(poster, title, sub).SetAttributes("ALIGNMENT=ACENTER, GAP=2, MARGIN=0x0")
 	return cell, target
 }
 
