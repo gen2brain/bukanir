@@ -19,11 +19,6 @@ import (
 const accentColor = "255 167 37"
 
 const (
-	gridGap    = 30
-	gridMargin = 20
-)
-
-const (
 	roleDim colorRole = iota
 	roleSubtle
 	roleDialogBg
@@ -397,13 +392,23 @@ func posterCell(m bukanir.TMovie) (cell, target iup.Ihandle) {
 	return cell, target
 }
 
-// posterView returns an image Label sized to its poster, filled via PostMessage.
+// posterView returns an image Label sized to its poster, filled via PostMessage; where a single tap opens, a release inside it opens.
 func posterView(w, h int, onSelect, onOpen, onMenu func()) iup.Ihandle {
 	name := "poster" + strconv.FormatInt(posterSeq.Add(1), 10)
 
-	poster := iup.Label("").SetAttribute("IMAGE", blankPoster(w, h))
-	trackTarget(poster, "BASEIMG", "SELIMG")
-	if onSelect != nil || onOpen != nil || onMenu != nil {
+	var poster iup.Ihandle
+	switch {
+	case singleTapOpens && onOpen != nil:
+		poster = iup.Label("").SetAttribute("IMAGE", blankPoster(w, h))
+		poster.SetCallback("BUTTON_CB", iup.ButtonFunc(func(ih iup.Ihandle, button, pressed, x, y int, _ string) int {
+			_, pw, ph := iup.GetInt2(ih, "RASTERSIZE")
+			if button == iup.BUTTON1 && pressed == 0 && x >= 0 && y >= 0 && x < pw && y < ph {
+				onOpen()
+			}
+			return iup.DEFAULT
+		}))
+	case onSelect != nil || onOpen != nil || onMenu != nil:
+		poster = iup.Label("").SetAttribute("IMAGE", blankPoster(w, h))
 		poster.SetCallback("BUTTON_CB", iup.ButtonFunc(func(_ iup.Ihandle, button, pressed, _, _ int, status string) int {
 			if button == iup.BUTTON3 && pressed == 1 && onMenu != nil {
 				if onSelect != nil {
@@ -424,7 +429,10 @@ func posterView(w, h int, onSelect, onOpen, onMenu func()) iup.Ihandle {
 			}
 			return iup.DEFAULT
 		}))
+	default:
+		poster = iup.Label("").SetAttribute("IMAGE", blankPoster(w, h))
 	}
+	trackTarget(poster, "BASEIMG", "SELIMG")
 	poster.SetCallback("POSTMESSAGE_CB", iup.PostMessageFunc(func(ih iup.Ihandle, _ string, _ int, p any) int {
 		img, ok := p.(image.Image)
 		if !ok {

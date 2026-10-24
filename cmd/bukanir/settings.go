@@ -571,9 +571,10 @@ func updateTorStatus() {
 	case bukanir.TorFailed:
 		icon, tip = "tor-failed", "Tor failed: "+err.Error()
 	}
-	tor := iup.GetHandle("torStatus")
-	tor.SetAttribute("IMAGE", icon)
-	tor.SetAttribute("TIP", plainText(tip))
+	for _, r := range statusRows {
+		r.tor.SetAttribute("IMAGE", icon)
+		r.tor.SetAttribute("TIP", plainText(tip))
+	}
 }
 
 // settingsPage is one sidebar entry of the settings dialog.

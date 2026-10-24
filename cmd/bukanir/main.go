@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -98,44 +97,19 @@ func main() {
 		removeTemp()
 	}
 
-	dlg := iup.Dialog(layout()).SetAttributes(map[string]string{
-		"TITLE":      appName,
-		"ICON":       "appicon",
-		"RASTERSIZE": "1000x720",
-		"SHRINK":     "YES",
-	}).SetHandle("dlg")
-	dlg.SetCallback("K_ANY", iup.KAnyFunc(onKey))
+	dlg := mainDialog()
 	dlg.SetCallback("THEMECHANGED_CB", iup.ThemeChangedFunc(onThemeChanged))
 	dlg.SetCallback("CLOSE_CB", iup.CloseFunc(func(iup.Ihandle) int {
 		quitApp()
 		return iup.IGNORE
 	}))
-	// A MultiBox reports its wrapped height one layout pass late; refresh again after a resize.
-	dlg.SetCallback("RESIZE_CB", iup.ResizeFunc(func(ih iup.Ihandle, _, _ int) int {
-		iup.Refresh(ih)
-		return iup.DEFAULT
-	}))
 
-	iup.Map(dlg)
-	fitDialogWidth(dlg)
-	iup.ShowXY(dlg, iup.CENTER, iup.CENTER)
+	showMainDialog(dlg)
 	watchTor(client)
 	quitOnSignal()
 	startup(context.Background())
 	loadMenus()
 	iup.MainLoop()
-}
-
-// fitDialogWidth widens dlg when its content needs more than the initial width.
-func fitDialogWidth(dlg iup.Ihandle) {
-	iup.Refresh(dlg)
-	var nw, nh, cw, ch, rw, rh int
-	fmt.Sscanf(iup.GetChild(dlg, 0).GetAttribute("NATURALSIZE"), "%dx%d", &nw, &nh)
-	fmt.Sscanf(dlg.GetAttribute("CLIENTSIZE"), "%dx%d", &cw, &ch)
-	fmt.Sscanf(dlg.GetAttribute("RASTERSIZE"), "%dx%d", &rw, &rh)
-	if cw > 0 && nw > cw {
-		dlg.SetAttribute("RASTERSIZE", fmt.Sprintf("%dx%d", rw+nw-cw, rh))
-	}
 }
 
 // quitApp stops every playback and ends the main loop once their cleanup is done; iup.Close then destroys the dialogs.

@@ -20,11 +20,6 @@ import (
 	xdraw "golang.org/x/image/draw"
 )
 
-const (
-	posterW = 200
-	posterH = 300
-)
-
 var posterHTTP = &http.Client{Timeout: 20 * time.Second}
 
 // loadPoster resizes the first of urls that loads and delivers it via PostMessage.

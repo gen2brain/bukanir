@@ -5,24 +5,16 @@ package main
 import (
 	"context"
 	"fmt"
-	"image"
-	"math"
-	"strconv"
 	"strings"
-	"sync/atomic"
 
 	"github.com/gen2brain/bukanir"
 	"github.com/gen2brain/iup-go/iup"
 )
 
-const summaryPosterW, summaryPosterH = 600, 900
-
 const (
 	busyBG = "96 96 96"
 	busyFG = "56 56 56"
 )
-
-var summaryPosterSeq atomic.Int64
 
 // openSummary opens a detail tab for a movie and loads its metadata.
 func openSummary(m bukanir.TMovie) {
@@ -37,7 +29,7 @@ func openSummary(m bukanir.TMovie) {
 		}
 		return iup.DEFAULT
 	}))
-	addTab(m.Title, holder)
+	showDetails(m.Title, holder)
 	setTabTip(holder, movieTip(m, nil))
 
 	reload := func(ctx context.Context) {
@@ -64,13 +56,24 @@ type summaryResult struct {
 	summary bukanir.TSummary
 }
 
+// summaryView holds the widgets of a details view for the shell to lay out.
+type summaryView struct {
+	movie    bukanir.TMovie
+	summary  bukanir.TSummary
+	top      []iup.Ihandle
+	wrapped  []iup.Ihandle
+	rows     []iup.Ihandle
+	actions  []iup.Ihandle
+	overview string
+}
+
 // showSummary renders the movie detail layout into holder.
 func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 	clearChildren(holder)
-
-	poster := summaryPoster()
+	v := summaryView{movie: m, summary: s, overview: s.Overview}
 
 	title := iup.Label(plainText(s.Title)).SetAttributes("FONTSTYLE=Bold, FONTSIZE=19, WORDWRAP=YES, EXPAND=HORIZONTAL")
+	v.wrapped = append(v.wrapped, title)
 
 	metaParts := []string{fmt.Sprintf("%.1f/10", s.Rating), fmt.Sprintf("%d", s.Year)}
 	if r := runtimeStr(s.Runtime); r != "" {
@@ -85,10 +88,6 @@ func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 	meta := iup.Label(strings.Join(metaParts, "   "))
 	genres := setThemed(iup.Label(plainText(strings.Join(s.Genres, ", "))), "FGCOLOR", roleDim)
 
-	overview := iup.Text().SetAttributes("MULTILINE=YES, READONLY=YES, WORDWRAP=YES, BORDER=NO, SCROLLBAR=VERTICAL, EXPAND=YES")
-	setThemed(overview, "BGCOLOR", roleDialogBg)
-	overview.SetAttribute("VALUE", s.Overview)
-
 	watch := accentButton("&WATCH")
 	playButton(watch, func() { onWatch(m, s, holder, watch) })
 	watchActions[holder] = func() {
@@ -96,67 +95,61 @@ func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 			onWatch(m, s, holder, watch)
 		}
 	}
-	actions := []iup.Ihandle{watch}
+	v.actions = []iup.Ihandle{watch}
 	if s.TrailerKey != "" {
 		trailer := accentButton("&TRAILER")
 		playButton(trailer, func() { onTrailer(s, holder, trailer) })
-		actions = append(actions, trailer)
+		v.actions = append(v.actions, trailer)
 	}
+
+	v.top = []iup.Ihandle{title, meta, genres}
+	if m.Release != "" {
+		l := setThemed(iup.Label("Torrent: "+plainText(m.Release)).SetAttributes("WORDWRAP=YES, EXPAND=HORIZONTAL"), "FGCOLOR", roleSubtle)
+		v.top = append(v.top, l)
+		v.wrapped = append(v.wrapped, l)
+	}
+	if m.FileName != "" {
+		l := setThemed(iup.Label("File: "+plainText(m.FileName)).SetAttributes("WORDWRAP=YES, EXPAND=HORIZONTAL"), "FGCOLOR", roleSubtle)
+		v.top = append(v.top, l)
+		v.wrapped = append(v.wrapped, l)
+	}
+	if s.Tagline != "" {
+		l := iup.Label(plainText(s.Tagline)).SetAttributes("FONTSTYLE=Italic, FONTSIZE=13, WORDWRAP=YES, EXPAND=HORIZONTAL")
+		v.top = append(v.top, l)
+		v.wrapped = append(v.wrapped, l)
+	}
+	if d := directorRow(s); d != 0 {
+		v.rows = append(v.rows, d)
+	}
+	if c := castRow(s); c != 0 {
+		v.rows = append(v.rows, c)
+	}
+	v.top = append(v.top, v.rows...)
+
+	content := layoutSummary(holder, v)
+	iup.Append(holder, content)
+	iup.Map(content)
+	iup.Refresh(holder)
+	for _, r := range v.rows {
+		centerCaption(r)
+	}
+	iup.Refresh(holder)
+
+	setTabTip(holder, movieTip(m, &s))
+}
+
+// favoriteToggle makes star add or remove m from favorites and keeps its icon in sync.
+func favoriteToggle(holder, star iup.Ihandle, m bukanir.TMovie) {
 	if old, ok := favoriteButtons[holder]; ok {
 		delete(monoButtons, old.button)
 	}
-	star := iup.Button("Favorite").SetAttributes("PADDING=22x8")
 	setFavoriteIcon(star, isFavorite(m))
-	if m.Category.IsTV() {
-		star.SetAttribute("TIP", "Add or remove the show from favorites (Ctrl+D)")
-	} else {
-		star.SetAttribute("TIP", "Add or remove the movie from favorites (Ctrl+D)")
-	}
 	star.SetCallback("ACTION", iup.ActionFunc(func(iup.Ihandle) int {
 		toggleFavorite(m)
 		return iup.DEFAULT
 	}))
 	favoriteActions[holder] = func() { toggleFavorite(m) }
 	favoriteButtons[holder] = favoriteButton{star, m}
-	actions = append(actions, iup.Fill(), star)
-
-	top := []iup.Ihandle{title, meta, genres}
-	if m.Release != "" {
-		top = append(top, setThemed(iup.Label("Torrent: "+plainText(m.Release)).SetAttributes("WORDWRAP=YES, EXPAND=HORIZONTAL"), "FGCOLOR", roleSubtle))
-	}
-	if m.FileName != "" {
-		top = append(top, setThemed(iup.Label("File: "+plainText(m.FileName)).SetAttributes("WORDWRAP=YES, EXPAND=HORIZONTAL"), "FGCOLOR", roleSubtle))
-	}
-	if s.Tagline != "" {
-		top = append(top, iup.Label(plainText(s.Tagline)).SetAttributes("FONTSTYLE=Italic, FONTSIZE=13, WORDWRAP=YES, EXPAND=HORIZONTAL"))
-	}
-	var rows []iup.Ihandle
-	if d := directorRow(s); d != 0 {
-		rows = append(rows, d)
-	}
-	if c := castRow(s); c != 0 {
-		rows = append(rows, c)
-	}
-	top = append(top, rows...)
-
-	topBox := iup.Vbox(top...).SetAttributes("GAP=8, EXPAND=HORIZONTAL")
-	buttons := iup.Hbox(actions...).SetAttributes("GAP=8, EXPAND=HORIZONTAL")
-
-	right := iup.Vbox(topBox, overview, buttons).SetAttributes("GAP=8, EXPAND=YES, NMARGIN=16x14")
-
-	split := iup.Split(poster, right)
-	split.SetAttributes("ORIENTATION=VERTICAL, VALUE=330, BARSIZE=4, MINMAX=200:560")
-	iup.Append(holder, split)
-	iup.Map(split)
-	iup.Refresh(holder)
-	for _, r := range rows {
-		centerCaption(r)
-	}
-	iup.Refresh(holder)
-
-	setTabTip(holder, movieTip(m, &s))
-
-	go loadPosterSized(poster, summaryPosterW, summaryPosterH, m.PosterXLarge, m.PosterLarge, m.PosterMedium)
 }
 
 // movieTip is a details tab tooltip: the title and year, then the facts of the details page once s is loaded.
@@ -194,52 +187,6 @@ func movieTip(m bukanir.TMovie, s *bukanir.TSummary) string {
 		lines = append(lines, "Director: "+s.Director)
 	}
 	return strings.Join(lines, "\n")
-}
-
-// summaryPoster is a canvas that paints the poster scaled to fit, so it tracks the window size.
-func summaryPoster() iup.Ihandle {
-	c := iup.Canvas().SetAttributes("EXPAND=YES, BORDER=NO")
-	c.SetAttribute("POSTERIMG", "sposter"+strconv.FormatInt(summaryPosterSeq.Add(1), 10))
-	c.SetCallback("ACTION", iup.ActionFunc(drawPoster))
-	trackTarget(c, "POSTERIMG")
-	c.SetCallback("POSTMESSAGE_CB", iup.PostMessageFunc(func(ih iup.Ihandle, _ string, _ int, p any) int {
-		img, ok := p.(image.Image)
-		if !ok {
-			return iup.DEFAULT
-		}
-		name := ih.GetAttribute("POSTERIMG")
-		iup.Destroy(iup.GetHandle(name))
-		iup.ImageFromImage(img).SetHandle(name)
-		iup.Update(ih)
-		return iup.DEFAULT
-	}))
-	return c
-}
-
-// drawPoster paints the poster scaled to fit on the dialog background.
-func drawPoster(ih iup.Ihandle) int {
-	iup.DrawBegin(ih)
-	defer iup.DrawEnd(ih)
-
-	cw, ch := iup.DrawGetSize(ih)
-	ih.SetAttribute("DRAWSTYLE", "FILL")
-	ih.SetAttribute("DRAWCOLOR", iup.GetGlobal("DLGBGCOLOR"))
-	iup.DrawRectangle(ih, 0, 0, cw, ch)
-
-	name := ih.GetAttribute("POSTERIMG")
-	iw, iih, _ := iup.DrawGetImageInfo(name)
-	if iw <= 0 || iih <= 0 {
-		return iup.DEFAULT
-	}
-	const margin = 18
-	s := math.Min(float64(cw-2*margin)/float64(iw), float64(ch-2*margin)/float64(iih))
-	if s <= 0 {
-		return iup.DEFAULT
-	}
-	dw, dh := int(float64(iw)*s), int(float64(iih)*s)
-	x, y := (cw-dw)/2, (ch-dh)/2
-	iup.DrawImage(ih, name, x, y, dw, dh)
-	return iup.DEFAULT
 }
 
 func directorRow(s bukanir.TSummary) iup.Ihandle {
@@ -293,16 +240,21 @@ func fieldLabel(text string) iup.Ihandle {
 	return setThemed(iup.Label(text), "FGCOLOR", roleDim)
 }
 
-// openBrowse opens a new grid tab populated by load.
+// openBrowse opens a new grid tab populated by load, from a link in the content.
 func openBrowse(title string, load func(context.Context) ([]bukanir.TMovie, error)) {
-	openBrowseSorted(title, sortBy, load)
+	openBrowseSorted(title, sortBy, false, load)
+}
+
+// openRootBrowse is openBrowse from the menus or the search, which replaces the main grid on mobile.
+func openRootBrowse(title string, load func(context.Context) ([]bukanir.TMovie, error)) {
+	openBrowseSorted(title, sortBy, true, load)
 }
 
 // openBrowseSorted is openBrowse with the tab's initial sort order.
-func openBrowseSorted(title, by string, load func(context.Context) ([]bukanir.TMovie, error)) {
+func openBrowseSorted(title, by string, root bool, load func(context.Context) ([]bukanir.TMovie, error)) {
 	holder := gridTab()
 	setSortable(holder, by)
-	addTab(title, holder)
+	showList(title, holder, root)
 	reload := func(ctx context.Context) {
 		loadInTab(holder, func() {
 			movies, err := load(ctx)

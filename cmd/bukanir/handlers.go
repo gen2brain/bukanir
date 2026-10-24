@@ -49,17 +49,14 @@ func runSearch(query string) {
 		return
 	}
 	acGen.Add(1)
-	hideSuggestions()
-	openBrowse(query, func(ctx context.Context) ([]bukanir.TMovie, error) {
+	endSearch()
+	openRootBrowse(query, func(ctx context.Context) ([]bukanir.TMovie, error) {
 		return client.Search(ctx, query, bukanir.SearchOptions{Media: media, SortBy: sortBy})
 	})
-	iup.GetHandle("search").SetAttribute("VALUE", "")
 }
 
-func onSearchClick() { runSearch(iup.GetHandle("search").GetAttribute("VALUE")) }
-
 func onTop(text string) {
-	openBrowse("Top "+text, func(ctx context.Context) ([]bukanir.TMovie, error) {
+	openRootBrowse("Top "+text, func(ctx context.Context) ([]bukanir.TMovie, error) {
 		return client.Category(ctx, topCategory(text))
 	})
 }
@@ -87,7 +84,7 @@ func onSearchChanged(query string) {
 		if len(items) > autocompleteLimit {
 			items = items[:autocompleteLimit]
 		}
-		iup.PostMessage(iup.GetHandle("suggest"), "", 0, items)
+		iup.PostMessage(bus(), "suggest", 0, items)
 	}()
 }
 
@@ -100,6 +97,7 @@ func loadMenus() {
 			menuMu.Lock()
 			popularItems = items
 			menuMu.Unlock()
+			runOnMain(menusLoaded)
 		}
 	}()
 	go func() {
@@ -109,6 +107,7 @@ func loadMenus() {
 			menuMu.Lock()
 			topRatedItems = items
 			menuMu.Unlock()
+			runOnMain(menusLoaded)
 		}
 	}()
 	go func() {
@@ -118,6 +117,7 @@ func loadMenus() {
 			menuMu.Lock()
 			genreList = genres
 			menuMu.Unlock()
+			runOnMain(menusLoaded)
 		}
 	}()
 }
@@ -194,7 +194,7 @@ func resortCurrentTab() {
 func syncSortButton(tab iup.Ihandle) {
 	if ts := tabSorts[tab]; ts != nil && ts.sortBy != sortBy {
 		sortBy = ts.sortBy
-		setButtonTitle("btnSort", sortLabel())
+		showFilters()
 	}
 }
 

@@ -121,7 +121,7 @@ type playback struct {
 
 // runOnMain runs fn on the main loop.
 func runOnMain(fn func()) {
-	iup.PostMessage(iup.GetHandle("tabs"), "run", 0, fn)
+	iup.PostMessage(bus(), "run", 0, fn)
 }
 
 // playVideo opens a player window for pb and blocks until it closes; called from a playback goroutine.

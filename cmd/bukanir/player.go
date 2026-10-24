@@ -44,7 +44,7 @@ func postProgressHide() {
 
 // enableControl re-enables a control from any goroutine if it is still in the tree.
 func enableControl(h iup.Ihandle) {
-	iup.PostMessage(iup.GetHandle("tabs"), "enable", 0, h)
+	iup.PostMessage(bus(), "enable", 0, h)
 }
 
 func releaseMemory() {

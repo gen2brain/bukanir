@@ -179,15 +179,14 @@ func forgetFavoritesTab(tab iup.Ihandle) {
 
 // openFavorites shows the Favorites tab, switching to it when it is already open.
 func openFavorites() {
-	tabs := iup.GetHandle("tabs")
 	if reload, open := reloaders[favoritesTab]; open && favoritesTab != 0 {
-		selectTab(tabs, iup.GetChildPos(tabs, favoritesTab))
+		focusView(favoritesTab)
 		reload(context.Background())
 		return
 	}
 	holder := gridTab()
 	holder.SetAttribute("EMPTYTEXT", "No favorites yet. Use the star on a title to add one.")
-	addTab("Favorites", holder)
+	showList("Favorites", holder, true)
 	favoritesTab = holder
 	reload := func(context.Context) { iup.PostMessage(holder, "", 0, favoriteMovies()) }
 	setReloader(holder, reload)
@@ -197,7 +196,7 @@ func openFavorites() {
 // openShow lists the episodes of a favorite show, newest first.
 func openShow(m bukanir.TMovie) {
 	title, id := m.Title, m.ID
-	openBrowseSorted(title, "episodes", func(ctx context.Context) ([]bukanir.TMovie, error) {
+	openBrowseSorted(title, "episodes", false, func(ctx context.Context) ([]bukanir.TMovie, error) {
 		found, err := client.Search(ctx, title, bukanir.SearchOptions{Media: "episodes"})
 		if err != nil {
 			return nil, err
