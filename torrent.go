@@ -123,8 +123,13 @@ func NewTorrent(magnet string, cfg TorrentConfig) (*Torrent, error) {
 
 	cc := atorrent.NewDefaultClientConfig()
 	cc.DataDir = dir
+	pc, err := storage.NewBoltPieceCompletion(dir)
+	if err != nil {
+		removeTemp(tmp)
+		return nil, err
+	}
 	// plain file I/O: the mmap default keeps the whole file resident while streaming
-	store := storage.NewFileOpts(storage.NewFileClientOpts{ClientBaseDir: dir, DisableMmap: true})
+	store := storage.NewFileOpts(storage.NewFileClientOpts{ClientBaseDir: dir, DisableMmap: true, PieceCompletion: pc})
 	cc.DefaultStorage = store
 	cc.Seed = cfg.Seed
 	cc.NoDefaultPortForwarding = true
