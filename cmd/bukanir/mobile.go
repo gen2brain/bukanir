@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"slices"
 
@@ -67,6 +68,9 @@ func mainDialog() iup.Ihandle {
 }
 
 func showMainDialog(dlg iup.Ihandle) { iup.Show(dlg) }
+
+// exitApp ends the process once quitting has cleaned up.
+func exitApp() { os.Exit(0) }
 
 // sizePosters fits two poster columns across the narrow side of the screen.
 func sizePosters() {

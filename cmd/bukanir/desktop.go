@@ -66,6 +66,9 @@ func mainDialog() iup.Ihandle {
 	return dlg
 }
 
+// exitApp ends the main loop once quitting has cleaned up.
+func exitApp() { iup.ExitLoop() }
+
 // showMainDialog maps the main window, widens it to fit the toolbar, and shows it centered.
 func showMainDialog(dlg iup.Ihandle) {
 	iup.Map(dlg)

@@ -133,7 +133,7 @@ func quitApp() {
 			log.Println("QUIT: playbacks did not stop in time")
 		}
 		teardown()
-		runOnMain(iup.ExitLoop)
+		runOnMain(exitApp)
 	}()
 }
 
