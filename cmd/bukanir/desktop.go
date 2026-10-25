@@ -297,7 +297,7 @@ func onKey(_ iup.Ihandle, c int) int {
 		if cls := iup.GetClassName(iup.GetFocus()); cls == "text" || cls == "list" {
 			return iup.CONTINUE
 		}
-		if f := watchActions[currentTab()]; f != nil {
+		if f := watchActions[currentView()]; f != nil {
 			f()
 			return iup.IGNORE
 		}
@@ -311,7 +311,7 @@ func onKey(_ iup.Ihandle, c int) int {
 		closeCurrentTab()
 		return iup.IGNORE
 	case iup.XKeyCtrl(iup.K_D):
-		if f := favoriteActions[currentTab()]; f != nil {
+		if f := favoriteActions[currentView()]; f != nil {
 			f()
 			return iup.IGNORE
 		}
@@ -324,7 +324,7 @@ func closeCurrentTab() {
 	if iup.GetChildCount(tabs) == 0 {
 		return
 	}
-	iup.PostMessage(tabs, "close", 0, currentTab()) // defer destroy out of the key callback
+	iup.PostMessage(tabs, "close", 0, currentView()) // defer destroy out of the key callback
 }
 
 func cycleTab(delta int) {
@@ -336,7 +336,7 @@ func cycleTab(delta int) {
 	selectTab(tabs, (tabs.GetInt("VALUEPOS")+delta+n)%n)
 }
 
-func currentTab() iup.Ihandle {
+func currentView() iup.Ihandle {
 	tabs := iup.GetHandle("tabs")
 	return iup.GetChild(tabs, tabs.GetInt("VALUEPOS"))
 }
@@ -355,7 +355,7 @@ func focusView(view iup.Ihandle) {
 
 // content is the tabbed browsing area; the first tab is the "Top" landing grid.
 func content() iup.Ihandle {
-	top := gridTab().SetHandle("content0").SetAttribute("TABTITLE", "Top HD Movies")
+	top := gridView().SetHandle("content0").SetAttribute("TABTITLE", "Top HD Movies")
 	setReloader(top, startup)
 	setSortable(top, sortBy)
 	tabs := iup.Tabs(top).SetHandle("tabs").SetAttributes("EXPAND=YES, SHOWCLOSE=YES, ALLOWREORDER=YES")
@@ -445,8 +445,8 @@ func onTabMessage(tabs iup.Ihandle, msg string, delta int, p any) int {
 // bus is the element that receives the messages background goroutines post to the main loop.
 func bus() iup.Ihandle { return iup.GetHandle("tabs") }
 
-// markTab adjusts a tab's activity from any goroutine: kind is "load", "play" or "pause".
-func markTab(tab iup.Ihandle, kind string, delta int) {
+// markView adjusts a tab's activity from any goroutine: kind is "load", "play" or "pause".
+func markView(tab iup.Ihandle, kind string, delta int) {
 	iup.PostMessage(bus(), kind, delta, tab)
 }
 
@@ -484,8 +484,8 @@ func setTabImage(tabs, tab iup.Ihandle, img string) {
 	}
 }
 
-// setTabTip sets a tab's tooltip, addressing the tab by position.
-func setTabTip(tab iup.Ihandle, tip string) {
+// setViewTip sets a tab's tooltip, addressing the tab by position.
+func setViewTip(tab iup.Ihandle, tip string) {
 	tabs := iup.GetHandle("tabs")
 	if pos := childPos(tabs, tab); pos >= 0 {
 		iup.SetAttributeId(tabs, "TABTIP", pos, tip)

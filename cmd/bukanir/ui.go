@@ -22,7 +22,7 @@ const suggestLabelMax = 60
 // suggestTitles holds the plain titles behind the current suggestion list.
 var suggestTitles []string
 
-// watchActions starts the current detail tab's playback on Enter, keyed by the tab.
+// watchActions starts the current detail view's playback on Enter, keyed by the view.
 var watchActions = map[iup.Ihandle]func(){}
 
 // statusRow is one status bar; every screen has its own, and all of them show the same state.
@@ -75,7 +75,7 @@ func sortMenu() iup.Ihandle {
 		mi := menuItemAction(o.label, func() {
 			sortBy = o.val
 			showFilters()
-			resortCurrentTab()
+			resortCurrentView()
 		})
 		mi.SetAttribute("FILTER", o.val)
 		if sortBy == o.val {
@@ -308,13 +308,13 @@ func onBusMessage(msg string, _ int, p any) int {
 func forgetView(view iup.Ihandle) {
 	stopSessions(view)
 	delete(reloaders, view)
-	delete(tabSorts, view)
+	delete(viewSorts, view)
 	delete(watchActions, view)
-	forgetFavoritesTab(view)
+	forgetFavoritesView(view)
 }
 
-// gridTab creates a tab container that renders a movie grid from PostMessage.
-func gridTab() iup.Ihandle {
+// gridView creates a view container that renders a movie grid from PostMessage.
+func gridView() iup.Ihandle {
 	holder := iup.Vbox(loadingBox("Loading")).SetAttributes("EXPAND=YES")
 	holder.SetCallback("POSTMESSAGE_CB", iup.PostMessageFunc(func(ih iup.Ihandle, _ string, _ int, p any) int {
 		if movies, ok := p.([]bukanir.TMovie); ok {
@@ -354,54 +354,54 @@ func (a *tabActivity) add(kind string, delta int) {
 	}
 }
 
-// loadInTab runs fetch in the background while tab shows the loading spinner.
-func loadInTab(tab iup.Ihandle, fetch func()) {
-	markTab(tab, "load", +1)
+// loadInView runs fetch in the background while view shows the loading spinner.
+func loadInView(view iup.Ihandle, fetch func()) {
+	markView(view, "load", +1)
 	go func() {
-		defer markTab(tab, "load", -1)
+		defer markView(view, "load", -1)
 		fetch()
 	}()
 }
 
-// tabPhase tracks one playback's contribution to a tab's indicator.
-type tabPhase struct {
-	tab    iup.Ihandle
+// viewPhase tracks one playback's contribution to a view's indicator.
+type viewPhase struct {
+	view   iup.Ihandle
 	state  string
 	paused bool
 }
 
-func beginPlayback(tab iup.Ihandle) *tabPhase {
-	markTab(tab, "load", +1)
-	return &tabPhase{tab: tab, state: "load"}
+func beginPlayback(view iup.Ihandle) *viewPhase {
+	markView(view, "load", +1)
+	return &viewPhase{view: view, state: "load"}
 }
 
-func (p *tabPhase) started() {
+func (p *viewPhase) started() {
 	if p.state != "load" {
 		return
 	}
-	markTab(p.tab, "load", -1)
-	markTab(p.tab, "play", +1)
+	markView(p.view, "load", -1)
+	markView(p.view, "play", +1)
 	p.state = "play"
 }
 
-func (p *tabPhase) setPaused(paused bool) {
+func (p *viewPhase) setPaused(paused bool) {
 	if p.state != "play" || p.paused == paused {
 		return
 	}
 	p.paused = paused
 	if paused {
-		markTab(p.tab, "pause", +1)
+		markView(p.view, "pause", +1)
 	} else {
-		markTab(p.tab, "pause", -1)
+		markView(p.view, "pause", -1)
 	}
 }
 
-func (p *tabPhase) end() {
+func (p *viewPhase) end() {
 	if p.paused {
-		markTab(p.tab, "pause", -1)
+		markView(p.view, "pause", -1)
 		p.paused = false
 	}
-	markTab(p.tab, p.state, -1)
+	markView(p.view, p.state, -1)
 }
 
 func childPos(parent, child iup.Ihandle) int {

@@ -16,7 +16,7 @@ const (
 	busyFG = "56 56 56"
 )
 
-// openSummary opens a detail tab for a movie and loads its metadata.
+// openSummary opens a detail view for a movie and loads its metadata.
 func openSummary(m bukanir.TMovie) {
 	if isShowEntry(m) {
 		openShow(m)
@@ -30,10 +30,10 @@ func openSummary(m bukanir.TMovie) {
 		return iup.DEFAULT
 	}))
 	showDetails(m.Title, holder)
-	setTabTip(holder, movieTip(m, nil))
+	setViewTip(holder, movieTip(m, nil))
 
 	reload := func(ctx context.Context) {
-		loadInTab(holder, func() {
+		loadInView(holder, func() {
 			s, err := client.Summary(ctx, m.ID, m.Category, m.Season, m.Episode)
 			if err != nil {
 				iup.PostMessage(iup.GetHandle("status"), "error: "+err.Error(), 0, nil)
@@ -135,7 +135,7 @@ func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 	}
 	iup.Refresh(holder)
 
-	setTabTip(holder, movieTip(m, &s))
+	setViewTip(holder, movieTip(m, &s))
 }
 
 // favoriteToggle makes star add or remove m from favorites and keeps its icon in sync.
@@ -152,7 +152,7 @@ func favoriteToggle(holder, star iup.Ihandle, m bukanir.TMovie) {
 	favoriteButtons[holder] = favoriteButton{star, m}
 }
 
-// movieTip is a details tab tooltip: the title and year, then the facts of the details page once s is loaded.
+// movieTip is a details view tooltip: the title and year, then the facts of the details page once s is loaded.
 func movieTip(m bukanir.TMovie, s *bukanir.TSummary) string {
 	head := m.Title
 	if m.Year > 0 {
@@ -240,7 +240,7 @@ func fieldLabel(text string) iup.Ihandle {
 	return setThemed(iup.Label(text), "FGCOLOR", roleDim)
 }
 
-// openBrowse opens a new grid tab populated by load, from a link in the content.
+// openBrowse opens a new grid view populated by load, from a link in the content.
 func openBrowse(title string, load func(context.Context) ([]bukanir.TMovie, error)) {
 	openBrowseSorted(title, sortBy, false, load)
 }
@@ -250,13 +250,13 @@ func openRootBrowse(title string, load func(context.Context) ([]bukanir.TMovie, 
 	openBrowseSorted(title, sortBy, true, load)
 }
 
-// openBrowseSorted is openBrowse with the tab's initial sort order.
+// openBrowseSorted is openBrowse with the view's initial sort order.
 func openBrowseSorted(title, by string, root bool, load func(context.Context) ([]bukanir.TMovie, error)) {
-	holder := gridTab()
+	holder := gridView()
 	setSortable(holder, by)
 	showList(title, holder, root)
 	reload := func(ctx context.Context) {
-		loadInTab(holder, func() {
+		loadInView(holder, func() {
 			movies, err := load(ctx)
 			if err != nil {
 				iup.PostMessage(iup.GetHandle("status"), "error: "+err.Error(), 0, nil)

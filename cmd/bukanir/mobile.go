@@ -35,7 +35,7 @@ var (
 // mainDialog creates the main screen: one grid that the drawer entries and the search replace, and the status bar.
 func mainDialog() iup.Ihandle {
 	sizePosters()
-	top := gridTab().SetHandle("content0")
+	top := gridView().SetHandle("content0")
 	setReloader(top, startup)
 	setSortable(top, sortBy)
 	views := iup.Vbox(top).SetHandle("views")
@@ -207,8 +207,8 @@ func hideSuggestions() {
 	suggestTitles = nil
 }
 
-// currentTab is the grid on the main screen.
-func currentTab() iup.Ihandle { return iup.GetChild(iup.GetHandle("views"), 0) }
+// currentView is the grid on the main screen.
+func currentView() iup.Ihandle { return iup.GetChild(iup.GetHandle("views"), 0) }
 
 func focusView(iup.Ihandle) {}
 
@@ -300,9 +300,9 @@ func viewAlive(h iup.Ihandle) bool {
 // bus is the element that receives the messages background goroutines post to the main loop.
 func bus() iup.Ihandle { return iup.GetHandle("dlg") }
 
-func markTab(iup.Ihandle, string, int) {}
+func markView(iup.Ihandle, string, int) {}
 
-func setTabTip(iup.Ihandle, string) {}
+func setViewTip(iup.Ihandle, string) {}
 
 // layoutSummary stacks a details view in a vertical scroll: the poster, the facts, the buttons, the overview; Favorite is in the app bar.
 func layoutSummary(holder iup.Ihandle, v summaryView) iup.Ihandle {

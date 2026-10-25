@@ -69,7 +69,7 @@ func playerTitle(s bukanir.TSummary) string {
 	return s.Title
 }
 
-func onTrailer(s bukanir.TSummary, tab, btn iup.Ihandle) {
+func onTrailer(s bukanir.TSummary, view, btn iup.Ihandle) {
 	engines := playbackEngines(false)
 	var audioEngines []string
 	for _, e := range availableEngines(true) {
@@ -78,9 +78,9 @@ func onTrailer(s bukanir.TSummary, tab, btn iup.Ihandle) {
 		}
 	}
 	disablePlayButton(btn)
-	phase := beginPlayback(tab)
+	phase := beginPlayback(view)
 	postStatus("Loading trailer...")
-	sess := newSession(tab)
+	sess := newSession(view)
 	playbacks.Add(1)
 	go func() {
 		defer playbacks.Done()
@@ -140,16 +140,16 @@ func onTrailer(s bukanir.TSummary, tab, btn iup.Ihandle) {
 }
 
 // onWatch streams the movie's torrent through a local HTTP server into a player window.
-func onWatch(m bukanir.TMovie, s bukanir.TSummary, tab, btn iup.Ihandle) {
+func onWatch(m bukanir.TMovie, s bukanir.TSummary, view, btn iup.Ihandle) {
 	if m.Magnet == "" {
 		postStatus("No torrent found for this title right now")
 		return
 	}
 	engines := playbackEngines(false)
 	disablePlayButton(btn)
-	phase := beginPlayback(tab)
+	phase := beginPlayback(view)
 	postStatus("Starting torrent...")
-	sess := newSession(tab)
+	sess := newSession(view)
 	playbacks.Add(1)
 	go func() {
 		defer playbacks.Done()
@@ -446,18 +446,18 @@ func waitForBuffer(ctx context.Context, tr *bukanir.Torrent) {
 }
 
 type session struct {
-	tab    iup.Ihandle
+	view   iup.Ihandle
 	ctx    context.Context
 	cancel context.CancelFunc
 	mu     sync.Mutex
 	player *videoPlayer
 }
 
-func newSession(tab iup.Ihandle) *session {
+func newSession(view iup.Ihandle) *session {
 	ctx, cancel := context.WithCancel(context.Background())
-	s := &session{tab: tab, ctx: ctx, cancel: cancel}
+	s := &session{view: view, ctx: ctx, cancel: cancel}
 	sessionsMu.Lock()
-	sessions[tab] = append(sessions[tab], s)
+	sessions[view] = append(sessions[view], s)
 	sessionsMu.Unlock()
 	return s
 }
@@ -466,15 +466,15 @@ func (s *session) end() {
 	s.cancel()
 	sessionsMu.Lock()
 	defer sessionsMu.Unlock()
-	list := sessions[s.tab]
+	list := sessions[s.view]
 	for i, o := range list {
 		if o == s {
-			sessions[s.tab] = append(list[:i], list[i+1:]...)
+			sessions[s.view] = append(list[:i], list[i+1:]...)
 			break
 		}
 	}
-	if len(sessions[s.tab]) == 0 {
-		delete(sessions, s.tab)
+	if len(sessions[s.view]) == 0 {
+		delete(sessions, s.view)
 	}
 }
 
@@ -508,10 +508,10 @@ func stopAllSessions() {
 	}
 }
 
-// stopSessions cancels every playback started from tab and quits its player if one runs.
-func stopSessions(tab iup.Ihandle) {
+// stopSessions cancels every playback started from view and quits its player if one runs.
+func stopSessions(view iup.Ihandle) {
 	sessionsMu.Lock()
-	list := append([]*session(nil), sessions[tab]...)
+	list := append([]*session(nil), sessions[view]...)
 	sessionsMu.Unlock()
 	for _, s := range list {
 		s.quit()

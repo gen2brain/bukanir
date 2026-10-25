@@ -150,13 +150,13 @@ func quitOnSignal() {
 
 // startup kicks off the initial content load in the background.
 func startup(ctx context.Context) {
-	tab := iup.GetHandle("content0")
-	loadInTab(tab, func() {
+	view := iup.GetHandle("content0")
+	loadInView(view, func() {
 		movies, err := loadTop(ctx)
 		if err != nil {
 			iup.PostMessage(iup.GetHandle("status"), "error: "+err.Error(), 0, nil)
 			return
 		}
-		iup.PostMessage(tab, "", 0, movies)
+		iup.PostMessage(view, "", 0, movies)
 	})
 }

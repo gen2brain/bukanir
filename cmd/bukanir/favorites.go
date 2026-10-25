@@ -19,7 +19,7 @@ import (
 
 var (
 	favorites       []favorite // newest first
-	favoritesTab    iup.Ihandle
+	favoritesView   iup.Ihandle
 	favoriteActions = map[iup.Ihandle]func(){}
 	favoriteButtons = map[iup.Ihandle]favoriteButton{}
 )
@@ -38,7 +38,7 @@ type favorite struct {
 	Added        time.Time        `json:"added"`
 }
 
-// favoriteButton is the star toggle on a details tab, refreshed when the title is toggled elsewhere.
+// favoriteButton is the star toggle on a details view, refreshed when the title is toggled elsewhere.
 type favoriteButton struct {
 	button iup.Ihandle
 	movie  bukanir.TMovie
@@ -132,7 +132,7 @@ func toggleFavorite(m bukanir.TMovie) {
 			setFavoriteIcon(fb.button, on)
 		}
 	}
-	if reload, open := reloaders[favoritesTab]; open && favoritesTab != 0 {
+	if reload, open := reloaders[favoritesView]; open && favoritesView != 0 {
 		reload(context.Background())
 	}
 }
@@ -165,29 +165,29 @@ func favoriteMovies() []bukanir.TMovie {
 	return out
 }
 
-// forgetFavoritesTab drops the favorites state of a closing tab.
-func forgetFavoritesTab(tab iup.Ihandle) {
-	if fb, ok := favoriteButtons[tab]; ok {
+// forgetFavoritesView drops the favorites state of a closing view.
+func forgetFavoritesView(view iup.Ihandle) {
+	if fb, ok := favoriteButtons[view]; ok {
 		delete(monoButtons, fb.button)
 	}
-	delete(favoriteActions, tab)
-	delete(favoriteButtons, tab)
-	if tab == favoritesTab {
-		favoritesTab = 0
+	delete(favoriteActions, view)
+	delete(favoriteButtons, view)
+	if view == favoritesView {
+		favoritesView = 0
 	}
 }
 
-// openFavorites shows the Favorites tab, switching to it when it is already open.
+// openFavorites shows the Favorites view, switching to it when it is already open.
 func openFavorites() {
-	if reload, open := reloaders[favoritesTab]; open && favoritesTab != 0 {
-		focusView(favoritesTab)
+	if reload, open := reloaders[favoritesView]; open && favoritesView != 0 {
+		focusView(favoritesView)
 		reload(context.Background())
 		return
 	}
-	holder := gridTab()
+	holder := gridView()
 	holder.SetAttribute("EMPTYTEXT", "No favorites yet. Use the star on a title to add one.")
 	showList("Favorites", holder, true)
-	favoritesTab = holder
+	favoritesView = holder
 	reload := func(context.Context) { iup.PostMessage(holder, "", 0, favoriteMovies()) }
 	setReloader(holder, reload)
 	reload(context.Background())

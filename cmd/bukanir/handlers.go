@@ -34,15 +34,15 @@ var (
 	genreList     []bukanir.TGenre
 )
 
-// reloaders holds each open tab's reload function, keyed by the tab holder.
+// reloaders holds each open view's reload function, keyed by the view holder.
 var reloaders = map[iup.Ihandle]func(context.Context){}
 
-// tabSorts holds the sort state of each open browse tab, keyed by the tab holder.
-var tabSorts = map[iup.Ihandle]*tabSort{}
+// viewSorts holds the sort state of each open browse view, keyed by the view holder.
+var viewSorts = map[iup.Ihandle]*viewSort{}
 
 func currentYear() int { return time.Now().Year() }
 
-// runSearch opens a grid tab with the results of a text query.
+// runSearch opens a grid view with the results of a text query.
 func runSearch(query string) {
 	query = strings.TrimSpace(query)
 	if query == "" {
@@ -154,53 +154,53 @@ func topCategory(text string) bukanir.Category {
 	return bukanir.CategoryMovies
 }
 
-func setReloader(tab iup.Ihandle, reload func(context.Context)) { reloaders[tab] = reload }
+func setReloader(view iup.Ihandle, reload func(context.Context)) { reloaders[view] = reload }
 
-// tabSort is a browse tab's last results and the order they are shown in.
-type tabSort struct {
+// viewSort is a browse view's last results and the order they are shown in.
+type viewSort struct {
 	movies []bukanir.TMovie
 	sortBy string
 }
 
-func setSortable(tab iup.Ihandle, by string) { tabSorts[tab] = &tabSort{sortBy: by} }
+func setSortable(view iup.Ihandle, by string) { viewSorts[view] = &viewSort{sortBy: by} }
 
-// showSorted shows a browse tab's results in its order; other grids show results as given.
-func showSorted(tab iup.Ihandle, movies []bukanir.TMovie) {
-	ts := tabSorts[tab]
+// showSorted shows a browse view's results in its order; other grids show results as given.
+func showSorted(view iup.Ihandle, movies []bukanir.TMovie) {
+	ts := viewSorts[view]
 	if ts == nil {
-		showMovies(tab, movies)
+		showMovies(view, movies)
 		return
 	}
 	ts.movies = movies
 	sorted := slices.Clone(movies)
 	bukanir.SortMovies(sorted, ts.sortBy)
-	showMovies(tab, sorted)
+	showMovies(view, sorted)
 }
 
-// resortCurrentTab applies sortBy to the selected browse tab.
-func resortCurrentTab() {
-	tab := currentTab()
-	ts := tabSorts[tab]
+// resortCurrentView applies sortBy to the selected browse view.
+func resortCurrentView() {
+	view := currentView()
+	ts := viewSorts[view]
 	if ts == nil || ts.sortBy == sortBy {
 		return
 	}
 	ts.sortBy = sortBy
 	if ts.movies != nil {
-		showSorted(tab, ts.movies)
+		showSorted(view, ts.movies)
 	}
 }
 
-// syncSortButton makes the Sort button show the order of tab, the selected one.
-func syncSortButton(tab iup.Ihandle) {
-	if ts := tabSorts[tab]; ts != nil && ts.sortBy != sortBy {
+// syncSortButton makes the Sort button show the order of view, the selected one.
+func syncSortButton(view iup.Ihandle) {
+	if ts := viewSorts[view]; ts != nil && ts.sortBy != sortBy {
 		sortBy = ts.sortBy
 		showFilters()
 	}
 }
 
-// onRefreshClick reloads the content of the currently selected tab.
+// onRefreshClick reloads the content of the currently selected view.
 func onRefreshClick() {
-	if r := reloaders[currentTab()]; r != nil {
+	if r := reloaders[currentView()]; r != nil {
 		r(bukanir.Refresh(context.Background()))
 	}
 }
