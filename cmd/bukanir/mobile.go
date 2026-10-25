@@ -11,6 +11,9 @@ import (
 	"github.com/gen2brain/iup-go/iup"
 )
 
+// phone selects the layouts for a narrow touch screen.
+const phone = true
+
 const (
 	gridGap    = 12
 	gridMargin = 12
@@ -18,9 +21,6 @@ const (
 
 // summaryMargin is the margin around a details view.
 const summaryMargin = 12
-
-// phone selects the layouts for a narrow touch screen.
-const phone = true
 
 // posterW and posterH fit two grid columns across the narrow side of the screen; sizePosters sets them.
 var posterW, posterH = 200, 300

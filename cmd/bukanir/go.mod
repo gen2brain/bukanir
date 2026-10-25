@@ -3,12 +3,13 @@ module github.com/gen2brain/bukanir/cmd/bukanir
 go 1.26.4
 
 replace github.com/gen2brain/bukanir => ../..
+
 replace github.com/anacrolix/torrent => github.com/gen2brain/torrent v0.0.0-20261024141642-ede56332a1e4
 
 require (
 	github.com/gen2brain/bukanir v0.0.0-00010101000000-000000000000
 	github.com/gen2brain/folio v0.2.7
-	github.com/gen2brain/iup-go/iup v0.32.1-0.20261023192851-4be8c158ff8f
+	github.com/gen2brain/iup-go/iup v0.32.1-0.20261025061713-d59b20302fbf
 	github.com/gen2brain/jpegn v0.6.1
 	github.com/gen2brain/vpx v0.2.1
 	golang.org/x/image v0.47.0

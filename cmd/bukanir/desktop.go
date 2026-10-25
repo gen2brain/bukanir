@@ -13,6 +13,9 @@ import (
 	"github.com/gen2brain/iup-go/iup"
 )
 
+// phone selects the layouts for a narrow touch screen.
+const phone = false
+
 const (
 	gridGap    = 30
 	gridMargin = 20
@@ -27,9 +30,6 @@ const summaryPosterW, summaryPosterH = 600, 900
 
 var summaryPosterSeq atomic.Int64
 
-// phone selects the layouts for a narrow touch screen.
-const phone = false
-
 // watchActions and favoriteActions run the Enter and Ctrl+D shortcuts of a details view, keyed by the view.
 var watchActions, favoriteActions = map[iup.Ihandle]func(){}, map[iup.Ihandle]func(){}
 
@@ -39,6 +39,9 @@ var (
 	spinTimer iup.Ihandle
 	spinning  bool
 )
+
+// tabActivity counts a tab's in-progress playbacks by phase.
+type tabActivity struct{ loading, playing, paused int }
 
 // mainDialog creates the main window: toolbar, tabbed content, and status bar.
 func mainDialog() iup.Ihandle {
@@ -58,15 +61,15 @@ func mainDialog() iup.Ihandle {
 	return dlg
 }
 
-// exitApp ends the main loop once quitting has cleaned up.
-func exitApp() { iup.ExitLoop() }
-
 // showMainDialog maps the main window, widens it to fit the toolbar, and shows it centered.
 func showMainDialog(dlg iup.Ihandle) {
 	iup.Map(dlg)
 	fitDialogWidth(dlg)
 	iup.ShowXY(dlg, iup.CENTER, iup.CENTER)
 }
+
+// exitApp ends the main loop once quitting has cleaned up.
+func exitApp() { iup.ExitLoop() }
 
 // fitDialogWidth widens dlg when its content needs more than the initial width.
 func fitDialogWidth(dlg iup.Ihandle) {
@@ -137,6 +140,50 @@ func popMenuOn(build func() iup.Ihandle) iup.ActionFunc {
 		iup.Destroy(menu)
 		return iup.DEFAULT
 	})
+}
+
+// logoButton opens About; the grey logo turns to the colored one under the pointer.
+func logoButton() iup.Ihandle {
+	b := iconButton("logo-gray", showAbout).SetAttributes("TIP=About")
+	b.SetCallback("ENTERWINDOW_CB", iup.EnterWindowFunc(func(ih iup.Ihandle) int {
+		ih.SetAttribute("IMAGE", "logo")
+		return iup.DEFAULT
+	}))
+	b.SetCallback("LEAVEWINDOW_CB", iup.LeaveWindowFunc(func(ih iup.Ihandle) int {
+		ih.SetAttribute("IMAGE", "logo-gray")
+		return iup.DEFAULT
+	}))
+	return b
+}
+
+// onKey handles global shortcuts: cycle tabs (Ctrl+Tab), close (Ctrl+W / Ctrl+F4),
+// watch (Enter on a detail tab). Ctrl+letter arrives uppercased with the Ctrl bit, so match K_W not K_w.
+func onKey(_ iup.Ihandle, c int) int {
+	switch c {
+	case iup.K_CR:
+		if cls := iup.GetClassName(iup.GetFocus()); cls == "text" || cls == "list" {
+			return iup.CONTINUE
+		}
+		if f := watchActions[currentView()]; f != nil {
+			f()
+			return iup.IGNORE
+		}
+	case iup.XKeyCtrl(iup.K_TAB):
+		cycleTab(1)
+		return iup.IGNORE
+	case iup.XKeyCtrl(iup.XKeyShift(iup.K_TAB)):
+		cycleTab(-1)
+		return iup.IGNORE
+	case iup.XKeyCtrl(iup.K_W), iup.XKeyCtrl(iup.K_F4):
+		closeCurrentTab()
+		return iup.IGNORE
+	case iup.XKeyCtrl(iup.K_D):
+		if f := favoriteActions[currentView()]; f != nil {
+			f()
+			return iup.IGNORE
+		}
+	}
+	return iup.CONTINUE
 }
 
 // showFilters shows the media filter and the sort order on their toolbar buttons.
@@ -279,50 +326,6 @@ func acceptSuggestion(item int) {
 
 func hideSuggestions() { iup.Hide(iup.GetHandle("suggest")) }
 
-// logoButton opens About; the grey logo turns to the colored one under the pointer.
-func logoButton() iup.Ihandle {
-	b := iconButton("logo-gray", showAbout).SetAttributes("TIP=About")
-	b.SetCallback("ENTERWINDOW_CB", iup.EnterWindowFunc(func(ih iup.Ihandle) int {
-		ih.SetAttribute("IMAGE", "logo")
-		return iup.DEFAULT
-	}))
-	b.SetCallback("LEAVEWINDOW_CB", iup.LeaveWindowFunc(func(ih iup.Ihandle) int {
-		ih.SetAttribute("IMAGE", "logo-gray")
-		return iup.DEFAULT
-	}))
-	return b
-}
-
-// onKey handles global shortcuts: cycle tabs (Ctrl+Tab), close (Ctrl+W / Ctrl+F4),
-// watch (Enter on a detail tab). Ctrl+letter arrives uppercased with the Ctrl bit, so match K_W not K_w.
-func onKey(_ iup.Ihandle, c int) int {
-	switch c {
-	case iup.K_CR:
-		if cls := iup.GetClassName(iup.GetFocus()); cls == "text" || cls == "list" {
-			return iup.CONTINUE
-		}
-		if f := watchActions[currentView()]; f != nil {
-			f()
-			return iup.IGNORE
-		}
-	case iup.XKeyCtrl(iup.K_TAB):
-		cycleTab(1)
-		return iup.IGNORE
-	case iup.XKeyCtrl(iup.XKeyShift(iup.K_TAB)):
-		cycleTab(-1)
-		return iup.IGNORE
-	case iup.XKeyCtrl(iup.K_W), iup.XKeyCtrl(iup.K_F4):
-		closeCurrentTab()
-		return iup.IGNORE
-	case iup.XKeyCtrl(iup.K_D):
-		if f := favoriteActions[currentView()]; f != nil {
-			f()
-			return iup.IGNORE
-		}
-	}
-	return iup.CONTINUE
-}
-
 func closeCurrentTab() {
 	tabs := iup.GetHandle("tabs")
 	if iup.GetChildCount(tabs) == 0 {
@@ -454,9 +457,6 @@ func registerTabIndicators() {
 	scaledImage(playGlyph(screenPixels(tabIconSize))).SetHandle("tab-play")
 	scaledImage(pauseGlyph(screenPixels(tabIconSize))).SetHandle("tab-pause")
 }
-
-// tabActivity counts a tab's in-progress playbacks by phase.
-type tabActivity struct{ loading, playing, paused int }
 
 func (a *tabActivity) add(kind string, delta int) {
 	switch kind {
