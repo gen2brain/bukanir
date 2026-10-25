@@ -3,6 +3,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/gen2brain/iup-go/iup"
 )
 
@@ -23,34 +25,46 @@ func showAbout() {
 		link(licenseURL, "GNU General Public License version 3"),
 	).SetAttributes("GAP=6")
 
-	tmdb := iup.Hbox(
-		iup.Label("").SetAttribute("IMAGE", "tmdb"),
-		iup.Vbox(
-			iup.Label("This product uses the TMDB API but is not endorsed or certified by TMDB."),
-			link(tmdbURL, tmdbURL),
-		).SetAttributes("GAP=2"),
-	).SetAttributes("GAP=12, ALIGNMENT=ACENTER")
+	notice := iup.Label("This product uses the TMDB API but is not endorsed or certified by TMDB.")
+	tmdbText := iup.Vbox(notice, link(tmdbURL, tmdbURL)).SetAttributes("GAP=2")
+	tmdbLogo := iup.Label("").SetAttribute("IMAGE", "tmdb")
 
-	help := iup.Button("Help").SetAttributes("PADDING=14x4")
 	version := iup.Button("Version").SetAttributes("PADDING=14x4")
 	closeBtn := iup.Button("Close").SetAttributes("PADDING=14x4")
-	body := iup.Vbox(
-		iup.Hbox(logo, text).SetAttributes("GAP=16, ALIGNMENT=ACENTER"),
-		iup.Label("").SetAttribute("SEPARATOR", "HORIZONTAL"),
-		tmdb,
-		iup.Hbox(iup.Fill(), help, version, closeBtn).SetAttributes("GAP=8"),
-	).SetAttributes("NMARGIN=14x14, GAP=14")
-	dlg := iup.Dialog(body).SetAttributes(map[string]string{
+	buttons := iup.Hbox(iup.Fill(), version, closeBtn).SetAttributes("GAP=8")
+	var dlg iup.Ihandle
+	if shortcutsHelp {
+		help := iup.Button("Help").SetAttributes("PADDING=14x4")
+		help.SetCallback("ACTION", iup.ActionFunc(func(iup.Ihandle) int {
+			showShortcuts(dlg)
+			return iup.DEFAULT
+		}))
+		iup.Insert(buttons, version, help)
+	}
+	var body iup.Ihandle
+	if narrowScreen {
+		const margin = 14
+		notice.SetAttributes(fmt.Sprintf("WORDWRAP=YES, RASTERSIZE=%dx", narrowWidth(margin)))
+		body = iup.Vbox(
+			logo, text,
+			iup.Label("").SetAttributes("SEPARATOR=HORIZONTAL"),
+			tmdbLogo, tmdbText, buttons,
+		).SetAttributes(fmt.Sprintf("NMARGIN=%dx%d, GAP=14", margin, margin))
+	} else {
+		body = iup.Vbox(
+			iup.Hbox(logo, text).SetAttributes("GAP=16, ALIGNMENT=ACENTER"),
+			iup.Label("").SetAttribute("SEPARATOR", "HORIZONTAL"),
+			iup.Hbox(tmdbLogo, tmdbText).SetAttributes("GAP=12, ALIGNMENT=ACENTER"),
+			buttons,
+		).SetAttributes("NMARGIN=14x14, GAP=14")
+	}
+	dlg = iup.Dialog(body).SetAttributes(map[string]string{
 		"TITLE": "About", "DIALOGFRAME": "YES", "MINBOX": "NO", "MAXBOX": "NO",
 	})
 	iup.SetAttributeHandle(dlg, "PARENTDIALOG", iup.GetHandle("dlg"))
 	iup.SetAttributeHandle(dlg, "DEFAULTESC", closeBtn)
 
 	closeBtn.SetCallback("ACTION", iup.ActionFunc(func(iup.Ihandle) int { return iup.CLOSE }))
-	help.SetCallback("ACTION", iup.ActionFunc(func(iup.Ihandle) int {
-		showShortcuts(dlg)
-		return iup.DEFAULT
-	}))
 	version.SetCallback("ACTION", iup.ActionFunc(func(iup.Ihandle) int {
 		iup.VersionShow()
 		return iup.DEFAULT

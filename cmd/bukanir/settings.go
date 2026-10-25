@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -373,28 +374,59 @@ func onSettings() {
 		return iup.DEFAULT
 	}))
 
+	var unplaced []iup.Ihandle
+	playerSummary := []string{"Playback engine", "window", "audio"}
+	playerFrames := []iup.Ihandle{frame("Playback", formRows(
+		"Engine", engine,
+		"Fullscreen", fullscreen,
+		"Audio output", audioOutput,
+	))}
+	if slices.Contains(engines, "MPV") {
+		playerSummary = append(playerSummary, "mpv")
+		playerFrames = append(playerFrames, frame("mpv", formRows(
+			"Load configuration files", mpvConfig,
+			"Extra options", mpvOptions,
+		)))
+	} else {
+		unplaced = append(unplaced, mpvConfig, mpvOptions)
+	}
+	if slices.Contains(engines, "VLC") {
+		playerSummary = append(playerSummary, "VLC")
+		playerFrames = append(playerFrames, frame("VLC", formRows(
+			"Load configuration files", vlcConfig,
+			"Extra options", vlcOptions,
+		)))
+	} else {
+		unplaced = append(unplaced, vlcConfig, vlcOptions)
+	}
+	torrentFrames := []iup.Ihandle{
+		frame("Limits", formRows(
+			"Max download rate", dlRate,
+			"Max upload rate", ulRate,
+		)),
+		frame("Peers", formRows(
+			"Peer port (0 = auto)", port,
+			"Encryption", encryption,
+		)),
+	}
+	torrentSummary := []string{"Transfer limits", "peers"}
+	if keepFilesSetting {
+		torrentSummary = append(torrentSummary, "files")
+		torrentFrames = append(torrentFrames, frame("Files", formRows(
+			"Keep downloaded files", keepFiles,
+			"Download folder", dlRow,
+		)))
+	} else {
+		unplaced = append(unplaced, keepFiles, dlRow)
+	}
+
 	pageList := []settingsPage{
 		{"General", "Appearance and cache.",
 			page(
 				frame("Interface", formRows("Appearance", appearance)),
 				frame("Cache", formRows("Days to keep cache", cacheDays)),
 			)},
-		{"Player", "Playback engine, window, audio, mpv and VLC.",
-			page(
-				frame("Playback", formRows(
-					"Engine", engine,
-					"Fullscreen", fullscreen,
-					"Audio output", audioOutput,
-				)),
-				frame("mpv", formRows(
-					"Load configuration files", mpvConfig,
-					"Extra options", mpvOptions,
-				)),
-				frame("VLC", formRows(
-					"Load configuration files", vlcConfig,
-					"Extra options", vlcOptions,
-				)),
-			)},
+		{"Player", listSentence(playerSummary), page(playerFrames...)},
 		{"Subtitles", "Subtitle download and style.",
 			page(
 				frame("Download", formRows(
@@ -415,52 +447,8 @@ func onSettings() {
 					"EZTV host", eztvHost,
 				)),
 			)},
-		{"Torrents", "Transfer limits, peers and files.",
-			page(
-				frame("Limits", formRows(
-					"Max download rate", dlRate,
-					"Max upload rate", ulRate,
-				)),
-				frame("Peers", formRows(
-					"Peer port (0 = auto)", port,
-					"Encryption", encryption,
-				)),
-				frame("Files", formRows(
-					"Keep downloaded files", keepFiles,
-					"Download folder", dlRow,
-				)),
-			)},
+		{"Torrents", listSentence(torrentSummary), page(torrentFrames...)},
 	}
-
-	sidebar := iup.List().SetAttributes(map[string]string{
-		"SPACING": "4", "VISIBLECOLUMNS": "10", "EXPAND": "VERTICAL",
-		"VISIBLELINES": strconv.Itoa(len(pageList)),
-	})
-	title := iup.Label("").SetAttributes("FONTSTYLE=Bold, FONTSIZE=16, EXPAND=HORIZONTAL")
-	summary := iup.Label("").SetAttributes(`FGCOLOR="128 128 128", EXPAND=HORIZONTAL`)
-	bodies := make([]iup.Ihandle, len(pageList))
-	for i, pg := range pageList {
-		sidebar.SetAttribute(strconv.Itoa(i+1), pg.name)
-		bodies[i] = pg.body
-	}
-	pages := iup.Zbox(bodies...).SetAttributes("ALIGNMENT=NW, EXPAND=YES")
-	showPage := func(i int) {
-		settingsPageIndex = i
-		pages.SetAttribute("VALUEPOS", strconv.Itoa(i))
-		title.SetAttribute("TITLE", pageList[i].name)
-		summary.SetAttribute("TITLE", pageList[i].summary)
-	}
-	sidebar.SetCallback("ACTION", iup.ListActionFunc(func(_ iup.Ihandle, _ string, item, state int) int {
-		if state == 1 {
-			showPage(item - 1)
-		}
-		return iup.DEFAULT
-	}))
-	if settingsPageIndex >= len(pageList) {
-		settingsPageIndex = 0
-	}
-	sidebar.SetAttribute("VALUE", strconv.Itoa(settingsPageIndex+1))
-	showPage(settingsPageIndex)
 
 	saveBtn := iup.Button("Save").SetAttributes("PADDING=14x4")
 	cancelBtn := iup.Button("Cancel").SetAttributes("PADDING=14x4")
@@ -468,11 +456,9 @@ func onSettings() {
 
 	// The normalizer equalizes every label's width so control columns line up across pages.
 	norm := iup.Normalizer(formLabels...)
-	content := iup.Vbox(title, summary, pages).SetAttributes("GAP=8, NMARGIN=12x0, EXPAND=YES")
-	columns := iup.Hbox(sidebar, iup.Label("").SetAttribute("SEPARATOR", "VERTICAL"), content).SetAttributes("GAP=8")
-	body := iup.Vbox(norm, columns, buttons).SetAttributes("NMARGIN=10x10, GAP=10")
+	body := iup.Vbox(norm, settingsBody(pageList), buttons).SetAttributes("NMARGIN=10x10, GAP=10")
 	dlg := iup.Dialog(body).SetAttributes(map[string]string{
-		"TITLE": "Settings", "DIALOGFRAME": "YES", "MINBOX": "NO", "MAXBOX": "NO",
+		"TITLE": "Settings", "DIALOGFRAME": "YES", "MINBOX": "NO", "MAXBOX": "NO", "SHRINK": "YES",
 	})
 	iup.SetAttributeHandle(dlg, "PARENTDIALOG", iup.GetHandle("dlg"))
 
@@ -514,6 +500,9 @@ func onSettings() {
 		iup.SetGlobal("APPEARANCE", s.appearance())
 	}
 	iup.Destroy(dlg)
+	for _, h := range unplaced {
+		iup.Destroy(h)
+	}
 }
 
 // applySettings persists the new settings and rebuilds the library client.
@@ -583,6 +572,14 @@ type settingsPage struct {
 	body          iup.Ihandle
 }
 
+// listSentence joins items as "a, b and c."
+func listSentence(items []string) string {
+	if len(items) == 1 {
+		return items[0] + "."
+	}
+	return strings.Join(items[:len(items)-1], ", ") + " and " + items[len(items)-1] + "."
+}
+
 func page(frames ...iup.Ihandle) iup.Ihandle {
 	return iup.Vbox(frames...).SetAttributes("GAP=10")
 }
@@ -593,6 +590,9 @@ func frame(title string, children ...iup.Ihandle) iup.Ihandle {
 }
 
 func formRows(pairs ...any) iup.Ihandle {
+	if narrowScreen {
+		return stackedRows(pairs...)
+	}
 	cells := make([]iup.Ihandle, 0, len(pairs))
 	for i := 0; i+1 < len(pairs); i += 2 {
 		label := iup.Label(pairs[i].(string)).SetAttributes("ALIGNMENT=ALEFT:ACENTER")
@@ -603,6 +603,20 @@ func formRows(pairs ...any) iup.Ihandle {
 	return iup.GridBox(cells...).SetAttributes(
 		"ORIENTATION=HORIZONTAL, NUMDIV=2, GAPLIN=6, GAPCOL=10, ALIGNMENTLIN=ACENTER, SIZECOL=1, SIZELIN=-1",
 	)
+}
+
+// stackedRows puts each label above its control; a toggle takes the label as its own title.
+func stackedRows(pairs ...any) iup.Ihandle {
+	cells := make([]iup.Ihandle, 0, len(pairs))
+	for i := 0; i+1 < len(pairs); i += 2 {
+		text, control := pairs[i].(string), pairs[i+1].(iup.Ihandle)
+		if iup.GetClassName(control) == "toggle" {
+			cells = append(cells, control.SetAttribute("TITLE", text))
+			continue
+		}
+		cells = append(cells, iup.Label(text), control)
+	}
+	return iup.Vbox(cells...).SetAttributes("GAP=4")
 }
 
 func toggle(on bool) iup.Ihandle {
@@ -706,7 +720,7 @@ func colorButton(hex string) iup.Ihandle {
 	setButtonColor(b, hex)
 	b.SetCallback("ACTION", iup.ActionFunc(func(ih iup.Ihandle) int {
 		r, g, bl := parseHexColor(ih.GetAttribute("BUKANIRCOLOR"))
-		dlg := iup.ColorDlg().SetAttributes(map[string]string{"TITLE": "Text color", "SHOWHEX": "YES"})
+		dlg := iup.ColorDlg().SetAttributes(map[string]string{"TITLE": "Text color", "SHOWHEX": "YES", "SHOWCOMPACT": yesNo(narrowScreen)})
 		dlg.SetAttribute("VALUE", fmt.Sprintf("%d %d %d", r, g, bl))
 		iup.SetAttributeHandle(dlg, "PARENTDIALOG", iup.GetDialog(ih))
 		iup.Popup(dlg, iup.CENTER, iup.CENTER)

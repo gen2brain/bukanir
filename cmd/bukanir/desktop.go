@@ -39,6 +39,15 @@ const playerSeekRow = false
 // playerVideoSize is the initial video size of a player window.
 const playerVideoSize = "960x540"
 
+// narrowScreen stacks layouts vertically: settings labels above their controls, the About contents in one column.
+const narrowScreen = false
+
+// shortcutsHelp offers the keyboard shortcuts in the About dialog.
+const shortcutsHelp = true
+
+// keepFilesSetting offers keeping the downloaded files in a chosen folder.
+const keepFilesSetting = true
+
 // singleTapOpens opens a grid title on a single click instead of a double click.
 const singleTapOpens = false
 
@@ -65,6 +74,9 @@ func mainDialog() iup.Ihandle {
 	}))
 	return dlg
 }
+
+// narrowWidth is the width a wrapped text gets on a narrow screen.
+func narrowWidth(int) int { return 0 }
 
 // exitApp ends the main loop once quitting has cleaned up.
 func exitApp() { iup.ExitLoop() }
@@ -636,4 +648,39 @@ func drawPoster(ih iup.Ihandle) int {
 	x, y := (cw-dw)/2, (ch-dh)/2
 	iup.DrawImage(ih, name, x, y, dw, dh)
 	return iup.DEFAULT
+}
+
+// settingsBody shows one settings page at a time, picked from a sidebar.
+func settingsBody(pageList []settingsPage) iup.Ihandle {
+	sidebar := iup.List().SetAttributes(map[string]string{
+		"SPACING": "4", "VISIBLECOLUMNS": "10", "EXPAND": "VERTICAL",
+		"VISIBLELINES": strconv.Itoa(len(pageList)),
+	})
+	title := iup.Label("").SetAttributes("FONTSTYLE=Bold, FONTSIZE=16, EXPAND=HORIZONTAL")
+	summary := iup.Label("").SetAttributes(`FGCOLOR="128 128 128", EXPAND=HORIZONTAL`)
+	bodies := make([]iup.Ihandle, len(pageList))
+	for i, pg := range pageList {
+		sidebar.SetAttribute(strconv.Itoa(i+1), pg.name)
+		bodies[i] = pg.body
+	}
+	pages := iup.Zbox(bodies...).SetAttributes("ALIGNMENT=NW, EXPAND=YES")
+	showPage := func(i int) {
+		settingsPageIndex = i
+		pages.SetAttribute("VALUEPOS", strconv.Itoa(i))
+		title.SetAttribute("TITLE", pageList[i].name)
+		summary.SetAttribute("TITLE", pageList[i].summary)
+	}
+	sidebar.SetCallback("ACTION", iup.ListActionFunc(func(_ iup.Ihandle, _ string, item, state int) int {
+		if state == 1 {
+			showPage(item - 1)
+		}
+		return iup.DEFAULT
+	}))
+	if settingsPageIndex >= len(pageList) {
+		settingsPageIndex = 0
+	}
+	sidebar.SetAttribute("VALUE", strconv.Itoa(settingsPageIndex+1))
+	showPage(settingsPageIndex)
+	content := iup.Vbox(title, summary, pages).SetAttributes("GAP=8, NMARGIN=12x0, EXPAND=YES")
+	return iup.Hbox(sidebar, iup.Label("").SetAttribute("SEPARATOR", "VERTICAL"), content).SetAttributes("GAP=8")
 }

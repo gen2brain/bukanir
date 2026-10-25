@@ -31,6 +31,15 @@ const playerSeekRow = true
 // playerVideoSize is a small natural size; the video expands over the room the controls leave.
 const playerVideoSize = "160x90"
 
+// narrowScreen stacks layouts vertically: settings labels above their controls, the About contents in one column.
+const narrowScreen = true
+
+// shortcutsHelp is off: a phone has no keyboard shortcuts to show.
+const shortcutsHelp = false
+
+// keepFilesSetting is off: there is no download folder to choose.
+const keepFilesSetting = false
+
 // singleTapOpens opens a grid title on a single tap.
 const singleTapOpens = true
 
@@ -68,6 +77,13 @@ func mainDialog() iup.Ihandle {
 }
 
 func showMainDialog(dlg iup.Ihandle) { iup.Show(dlg) }
+
+// narrowWidth is the screen width less a margin on each side.
+func narrowWidth(margin int) int {
+	var w, h int
+	fmt.Sscanf(iup.GetGlobal("SCREENSIZE"), "%dx%d", &w, &h)
+	return w - 2*margin
+}
 
 // exitApp ends the process once quitting has cleaned up.
 func exitApp() { os.Exit(0) }
@@ -343,4 +359,15 @@ func layoutSummary(holder iup.Ihandle, v summaryView) iup.Ihandle {
 	_, w, _ := iup.GetInt2(iup.GetDialog(holder), "CLIENTSIZE")
 	fitWrapped(holder, w)
 	return iup.ScrollBox(body).SetAttributes("SCROLLBAR=VERTICAL")
+}
+
+// settingsBody stacks every settings page in one vertical scroll.
+func settingsBody(pageList []settingsPage) iup.Ihandle {
+	var items []iup.Ihandle
+	for _, pg := range pageList {
+		title := iup.Label(pg.name).SetAttributes("FONTSTYLE=Bold, FONTSIZE=16")
+		summary := setThemed(iup.Label(pg.summary), "FGCOLOR", roleSubtle)
+		items = append(items, iup.Vbox(title, summary, pg.body).SetAttributes("GAP=6"))
+	}
+	return iup.ScrollBox(iup.Vbox(items...).SetAttributes("GAP=16")).SetAttributes("SCROLLBAR=VERTICAL")
 }
