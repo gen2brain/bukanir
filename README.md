@@ -3,7 +3,7 @@
 Bukanir
 =======
 
-Bukanir streams movies and TV shows from bittorrent magnet links.
+Bukanir streams movies and TV shows from BitTorrent magnet links.
 
 Features
 --------
