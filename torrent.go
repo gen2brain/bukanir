@@ -123,7 +123,7 @@ func NewTorrent(magnet string, cfg TorrentConfig) (*Torrent, error) {
 
 	cc := atorrent.NewDefaultClientConfig()
 	cc.DataDir = dir
-	pc, err := storage.NewBoltPieceCompletion(dir)
+	pc, err := newPieceCompletion(dir)
 	if err != nil {
 		removeTemp(tmp)
 		return nil, err
