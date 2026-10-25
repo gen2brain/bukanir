@@ -3,7 +3,6 @@ package bukanir
 import (
 	"context"
 	"errors"
-	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -25,7 +24,7 @@ func (f *fakeTor) DialContext(context.Context, string, string) (net.Conn, error)
 func (f *fakeTor) Close() error { f.closed = true; return nil }
 
 // swapTorProvider replaces the package factory for a test and restores it.
-func swapTorProvider(t *testing.T, fn func(context.Context, string, int, io.Writer) (torProvider, error)) {
+func swapTorProvider(t *testing.T, fn func(context.Context, Config, string, int) (torProvider, error)) {
 	t.Helper()
 	orig := newTorProvider
 	newTorProvider = fn
@@ -39,7 +38,7 @@ func TestTransportDirect(t *testing.T) {
 	defer srv.Close()
 
 	// Tor disabled: no provider should ever be built.
-	swapTorProvider(t, func(context.Context, string, int, io.Writer) (torProvider, error) {
+	swapTorProvider(t, func(context.Context, Config, string, int) (torProvider, error) {
 		t.Fatal("newTorProvider called with Tor disabled")
 		return nil, nil
 	})
@@ -62,7 +61,7 @@ func TestTransportDirect(t *testing.T) {
 func TestTransportTorLazyOnce(t *testing.T) {
 	var calls int32
 	fake := &fakeTor{client: &http.Client{}}
-	swapTorProvider(t, func(_ context.Context, _ string, n int, _ io.Writer) (torProvider, error) {
+	swapTorProvider(t, func(_ context.Context, _ Config, _ string, n int) (torProvider, error) {
 		atomic.AddInt32(&calls, 1)
 		if n != DefaultTorInstances {
 			t.Errorf("instances = %d, want %d", n, DefaultTorInstances)
@@ -101,7 +100,7 @@ func TestTransportTorLazyOnce(t *testing.T) {
 
 func TestTransportTorErrorCached(t *testing.T) {
 	var calls int32
-	swapTorProvider(t, func(context.Context, string, int, io.Writer) (torProvider, error) {
+	swapTorProvider(t, func(context.Context, Config, string, int) (torProvider, error) {
 		atomic.AddInt32(&calls, 1)
 		return nil, errors.New("bootstrap failed")
 	})
@@ -125,7 +124,7 @@ func TestTransportCloseDuringBootstrap(t *testing.T) {
 	started := make(chan struct{})
 	release := make(chan struct{})
 	fake := &fakeTor{client: &http.Client{}}
-	swapTorProvider(t, func(context.Context, string, int, io.Writer) (torProvider, error) {
+	swapTorProvider(t, func(context.Context, Config, string, int) (torProvider, error) {
 		close(started)
 		<-release
 		return fake, nil
@@ -163,7 +162,7 @@ func TestTransportTorStatus(t *testing.T) {
 		{"failed", fail, TorFailed},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			swapTorProvider(t, func(context.Context, string, int, io.Writer) (torProvider, error) {
+			swapTorProvider(t, func(context.Context, Config, string, int) (torProvider, error) {
 				if tc.err != nil {
 					return nil, tc.err
 				}
@@ -201,7 +200,7 @@ func TestTransportDoneWithoutStart(t *testing.T) {
 }
 
 func TestTransportInstancesFromConfig(t *testing.T) {
-	swapTorProvider(t, func(_ context.Context, _ string, n int, _ io.Writer) (torProvider, error) {
+	swapTorProvider(t, func(_ context.Context, _ Config, _ string, n int) (torProvider, error) {
 		if n != 5 {
 			t.Errorf("instances = %d, want 5", n)
 		}

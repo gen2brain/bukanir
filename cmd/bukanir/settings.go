@@ -91,6 +91,7 @@ type Settings struct {
 	SubColor         string  `json:"subColor"`
 
 	UseTor       bool   `json:"useTor"`
+	TorProxy     string `json:"torProxy"`
 	TPBHost      string `json:"tpbHost"`
 	YTSHost      string `json:"ytsHost"`
 	EZTVHost     string `json:"eztvHost"`
@@ -114,6 +115,7 @@ func defaultSettings() *Settings {
 		SubScale:         1.0,
 		SubColor:         "#FFFFFF",
 		UseTor:           false,
+		TorProxy:         bukanir.DefaultTorProxy,
 		TPBHost:          bukanir.DefaultTPBHost,
 		YTSHost:          bukanir.DefaultYTSHost,
 		EZTVHost:         bukanir.DefaultEZTVHost,
@@ -214,6 +216,7 @@ func (s *Settings) toConfig() bukanir.Config {
 	cfg.CacheDir = cacheDir
 	cfg.Tor = s.UseTor
 	cfg.TorLog = logs
+	cfg.TorProxy = s.TorProxy
 	cfg.TPBHost = s.TPBHost
 	cfg.YTSHost = s.YTSHost
 	cfg.EZTVHost = s.EZTVHost
@@ -341,6 +344,8 @@ func onSettings() {
 	subColor := colorButton(s.SubColor)
 
 	useTor := toggle(s.UseTor)
+	torProxy := iup.Text().SetAttributes("VISIBLECOLUMNS=16")
+	torProxy.SetAttribute("VALUE", s.TorProxy)
 	tpbHost := editableChoice(s.TPBHost, []string{bukanir.DefaultTPBHost, tpbOnion})
 	ytsHost := editableChoice(s.YTSHost, []string{bukanir.DefaultYTSHost})
 	eztvHost := editableChoice(s.EZTVHost, eztvMirrors)
@@ -420,6 +425,13 @@ func onSettings() {
 		unplaced = append(unplaced, keepFiles, dlRow)
 	}
 
+	torRows := []any{"Route peers through Tor", useTor}
+	if bukanir.SystemTor {
+		torRows = append(torRows, "SOCKS5 address", torProxy)
+	} else {
+		unplaced = append(unplaced, torProxy)
+	}
+
 	pageList := []settingsPage{
 		{"General", "Appearance and cache.",
 			page(
@@ -440,7 +452,7 @@ func onSettings() {
 			)},
 		{"Network", "Tor and torrent sites.",
 			page(
-				frame("Tor", formRows("Route peers through Tor", useTor)),
+				frame("Tor", formRows(torRows...)),
 				frame("Sources", formRows(
 					"TPB host", tpbHost,
 					"YTS host", ytsHost,
@@ -480,6 +492,7 @@ func onSettings() {
 		next.SubScale = parseFloatDefault(subScale.GetAttribute("VALUE"), s.SubScale)
 		next.SubColor = subColor.GetAttribute("BUKANIRCOLOR")
 		next.UseTor = isOn(useTor)
+		next.TorProxy = strings.TrimSpace(torProxy.GetAttribute("VALUE"))
 		next.DownloadRate = rateChoices[listIndex(dlRate)]
 		next.UploadRate = rateChoices[listIndex(ulRate)]
 		next.Port = atoiDefault(port.GetAttribute("VALUE"), s.Port)

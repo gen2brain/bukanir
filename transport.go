@@ -4,14 +4,11 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
-
-	arti "github.com/gen2brain/go-arti"
 )
 
 // DefaultTorInstances is the number of Tor instances used when Config.TorInstances is zero.
@@ -20,16 +17,10 @@ const DefaultTorInstances = 2
 // DefaultTorCircuits is the number of isolated circuits each Tor instance spreads connections over.
 const DefaultTorCircuits = 2
 
-var errTransportClosed = errors.New("bukanir: client closed")
+// DefaultTorProxy is the SOCKS5 address of the system Tor daemon used when Config.TorProxy is empty.
+const DefaultTorProxy = "127.0.0.1:9050"
 
-// newTorProvider builds a bootstrapped Tor provider.
-var newTorProvider = func(ctx context.Context, cacheDir string, instances int, stderr io.Writer) (torProvider, error) {
-	opts := []arti.Option{arti.WithCircuits(DefaultTorCircuits)}
-	if stderr != nil {
-		opts = append(opts, arti.WithStderr(stderr))
-	}
-	return arti.NewPool(ctx, cacheDir, instances, opts...)
-}
+var errTransportClosed = errors.New("bukanir: client closed")
 
 type torProvider interface {
 	HTTPClient() *http.Client
@@ -102,7 +93,7 @@ func (t *transport) ensureTor() error {
 		t.starting = true
 		t.mu.Unlock()
 
-		p, err := newTorProvider(t.ctx, t.cacheDir, t.instances, t.cfg.TorLog)
+		p, err := newTorProvider(t.ctx, t.cfg, t.cacheDir, t.instances)
 		t.mu.Lock()
 		defer t.mu.Unlock()
 		switch {

@@ -57,6 +57,8 @@ type Config struct {
 	UserAgent string
 	// TorLog, if set, receives the embedded Tor client's diagnostic output.
 	TorLog io.Writer
+	// TorProxy is the SOCKS5 address of the system Tor daemon in builds with the systemtor tag.
+	TorProxy string
 }
 
 // DefaultConfig returns a Config with caching, timeout, and user agent set.
@@ -77,6 +79,13 @@ func (c Config) withDefaults() Config {
 		c.UserAgent = DefaultUserAgent
 	}
 	return c
+}
+
+func (c *Config) torProxy() string {
+	if c.TorProxy != "" {
+		return c.TorProxy
+	}
+	return DefaultTorProxy
 }
 
 func (c *Config) tpbHost() string {
