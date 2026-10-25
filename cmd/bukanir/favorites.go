@@ -20,7 +20,6 @@ import (
 var (
 	favorites       []favorite // newest first
 	favoritesView   iup.Ihandle
-	favoriteActions = map[iup.Ihandle]func(){}
 	favoriteButtons = map[iup.Ihandle]favoriteButton{}
 )
 
@@ -170,7 +169,6 @@ func forgetFavoritesView(view iup.Ihandle) {
 	if fb, ok := favoriteButtons[view]; ok {
 		delete(monoButtons, fb.button)
 	}
-	delete(favoriteActions, view)
 	delete(favoriteButtons, view)
 	if view == favoritesView {
 		favoritesView = 0

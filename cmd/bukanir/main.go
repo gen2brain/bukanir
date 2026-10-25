@@ -77,7 +77,6 @@ func main() {
 
 	loadIcons()
 	loadLoadingAnimation()
-	registerTabIndicators()
 
 	cfg := settings.toConfig()
 	logs.setRedactor(bukanir.SecretValues(cfg))

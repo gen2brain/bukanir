@@ -90,11 +90,11 @@ func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 
 	watch := accentButton("&WATCH")
 	playButton(watch, func() { onWatch(m, s, holder, watch) })
-	watchActions[holder] = func() {
+	setWatchShortcut(holder, func() {
 		if watch.GetAttribute("ACTIVE") != "NO" {
 			onWatch(m, s, holder, watch)
 		}
-	}
+	})
 	v.actions = []iup.Ihandle{watch}
 	if s.TrailerKey != "" {
 		trailer := accentButton("&TRAILER")
@@ -148,7 +148,7 @@ func favoriteToggle(holder, star iup.Ihandle, m bukanir.TMovie) {
 		toggleFavorite(m)
 		return iup.DEFAULT
 	}))
-	favoriteActions[holder] = func() { toggleFavorite(m) }
+	setFavoriteShortcut(holder, func() { toggleFavorite(m) })
 	favoriteButtons[holder] = favoriteButton{star, m}
 }
 

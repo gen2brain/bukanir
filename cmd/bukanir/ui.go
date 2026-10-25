@@ -22,9 +22,6 @@ const suggestLabelMax = 60
 // suggestTitles holds the plain titles behind the current suggestion list.
 var suggestTitles []string
 
-// watchActions starts the current detail view's playback on Enter, keyed by the view.
-var watchActions = map[iup.Ihandle]func(){}
-
 // statusRow is one status bar; every screen has its own, and all of them show the same state.
 type statusRow struct{ label, progress, tor iup.Ihandle }
 
@@ -309,7 +306,7 @@ func forgetView(view iup.Ihandle) {
 	stopSessions(view)
 	delete(reloaders, view)
 	delete(viewSorts, view)
-	delete(watchActions, view)
+	forgetShortcuts(view)
 	forgetFavoritesView(view)
 }
 
@@ -338,20 +335,6 @@ func clearChildren(h iup.Ihandle) {
 		iup.Destroy(c)
 	}
 	releaseImages()
-}
-
-// tabActivity counts a tab's in-progress playbacks by phase.
-type tabActivity struct{ loading, playing, paused int }
-
-func (a *tabActivity) add(kind string, delta int) {
-	switch kind {
-	case "load":
-		a.loading += delta
-	case "play":
-		a.playing += delta
-	case "pause":
-		a.paused += delta
-	}
 }
 
 // loadInView runs fetch in the background while view shows the loading spinner.

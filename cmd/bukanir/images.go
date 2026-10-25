@@ -38,9 +38,6 @@ const iconGrid = 24
 // loadingFrames holds the spinner frame image names shared by loading boxes and tab indicators.
 var loadingFrames []string
 
-// tabSpinFrames holds the registered image names for the tab loading spinner.
-var tabSpinFrames []string
-
 //go:embed images/bukanir.svg
 var svgLogo []byte
 
@@ -94,13 +91,6 @@ func loadingBox(text string) iup.Ihandle {
 	caption := setThemed(iup.Label(text), "FGCOLOR", roleSubtle)
 	row := iup.Hbox(iup.Fill(), spinner, caption, iup.Fill()).SetAttributes("ALIGNMENT=ACENTER, GAP=8")
 	return iup.Vbox(iup.Fill(), row, iup.Fill()).SetAttributes("EXPAND=YES")
-}
-
-// registerTabIndicators registers the tab-indicator images (spinner, play, pause).
-func registerTabIndicators() {
-	scaledImage(playGlyph(screenPixels(tabIconSize))).SetHandle("tab-play")
-	scaledImage(pauseGlyph(screenPixels(tabIconSize))).SetHandle("tab-pause")
-	tabSpinFrames = loadingFrames
 }
 
 // svgColor formats c as an SVG fill color with its opacity.

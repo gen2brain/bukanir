@@ -30,6 +30,9 @@ var summaryPosterSeq atomic.Int64
 // phone selects the layouts for a narrow touch screen.
 const phone = false
 
+// watchActions and favoriteActions run the Enter and Ctrl+D shortcuts of a details view, keyed by the view.
+var watchActions, favoriteActions = map[iup.Ihandle]func(){}, map[iup.Ihandle]func(){}
+
 var (
 	tabActs   = map[iup.Ihandle]*tabActivity{}
 	spinIndex int
@@ -39,6 +42,7 @@ var (
 
 // mainDialog creates the main window: toolbar, tabbed content, and status bar.
 func mainDialog() iup.Ihandle {
+	registerTabIndicators()
 	dlg := iup.Dialog(layout()).SetAttributes(map[string]string{
 		"TITLE":      appName,
 		"ICON":       "appicon",
@@ -445,6 +449,34 @@ func onTabMessage(tabs iup.Ihandle, msg string, delta int, p any) int {
 // bus is the element that receives the messages background goroutines post to the main loop.
 func bus() iup.Ihandle { return iup.GetHandle("tabs") }
 
+// registerTabIndicators registers the tab play and pause images.
+func registerTabIndicators() {
+	scaledImage(playGlyph(screenPixels(tabIconSize))).SetHandle("tab-play")
+	scaledImage(pauseGlyph(screenPixels(tabIconSize))).SetHandle("tab-pause")
+}
+
+// tabActivity counts a tab's in-progress playbacks by phase.
+type tabActivity struct{ loading, playing, paused int }
+
+func (a *tabActivity) add(kind string, delta int) {
+	switch kind {
+	case "load":
+		a.loading += delta
+	case "play":
+		a.playing += delta
+	case "pause":
+		a.paused += delta
+	}
+}
+
+func setWatchShortcut(view iup.Ihandle, fn func())    { watchActions[view] = fn }
+func setFavoriteShortcut(view iup.Ihandle, fn func()) { favoriteActions[view] = fn }
+
+func forgetShortcuts(view iup.Ihandle) {
+	delete(watchActions, view)
+	delete(favoriteActions, view)
+}
+
 // markView adjusts a tab's activity from any goroutine: kind is "load", "play" or "pause".
 func markView(tab iup.Ihandle, kind string, delta int) {
 	iup.PostMessage(bus(), kind, delta, tab)
@@ -505,10 +537,10 @@ func selectNeighborTab(tabs iup.Ihandle, pos int) {
 }
 
 func spinImage() string {
-	if len(tabSpinFrames) == 0 {
+	if len(loadingFrames) == 0 {
 		return ""
 	}
-	return tabSpinFrames[spinIndex]
+	return loadingFrames[spinIndex]
 }
 
 // syncSpinner runs a single shared timer while any tab is loading.
@@ -536,11 +568,11 @@ func syncSpinner() {
 
 // onSpinTick advances the spinner frame on every loading tab.
 func onSpinTick(iup.Ihandle) int {
-	if len(tabSpinFrames) == 0 {
+	if len(loadingFrames) == 0 {
 		return iup.DEFAULT
 	}
-	spinIndex = (spinIndex + 1) % len(tabSpinFrames)
-	frame := tabSpinFrames[spinIndex]
+	spinIndex = (spinIndex + 1) % len(loadingFrames)
+	frame := loadingFrames[spinIndex]
 	tabs := iup.GetHandle("tabs")
 	for tab, a := range tabActs {
 		if a.loading > 0 && a.playing == 0 {

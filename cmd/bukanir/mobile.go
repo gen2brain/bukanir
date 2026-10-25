@@ -304,6 +304,10 @@ func markView(iup.Ihandle, string, int) {}
 
 func setViewTip(iup.Ihandle, string) {}
 
+func setWatchShortcut(iup.Ihandle, func())    {}
+func setFavoriteShortcut(iup.Ihandle, func()) {}
+func forgetShortcuts(iup.Ihandle)             {}
+
 // layoutSummary stacks a details view in a vertical scroll: the poster, the facts, the buttons, the overview; Favorite is in the app bar.
 func layoutSummary(holder iup.Ihandle, v summaryView) iup.Ihandle {
 	m := v.movie
