@@ -33,7 +33,7 @@ const dialogIcon = "appicon"
 // playerVolumeControls shows the mute button and the volume slider in the player controls.
 const playerVolumeControls = true
 
-// playerSeekRow puts the seek bar on its own row above the player buttons.
+// playerSeekRow puts the seek bar and the time on their own row above the player buttons.
 const playerSeekRow = false
 
 // playerVideoSize is the initial video size of a player window.

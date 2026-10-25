@@ -232,8 +232,8 @@ func (p *videoPlayer) build() {
 	}
 	if playerSeekRow {
 		p.controls = iup.Vbox(
-			p.position,
-			iup.Hbox(p.playBtn, p.elapsed, iup.Fill(), p.subBtn, p.muteBtn, p.volume, p.fullBtn).SetAttributes("ALIGNMENT=ACENTER, GAP=6"),
+			iup.Hbox(p.position, p.elapsed).SetAttributes("ALIGNMENT=ACENTER, GAP=6"),
+			iup.Hbox(p.playBtn, iup.Fill(), p.subBtn, p.muteBtn, p.volume, p.fullBtn).SetAttributes("ALIGNMENT=ACENTER, GAP=6"),
 		).SetAttributes("GAP=2, NMARGIN=6x4")
 	} else {
 		p.controls = iup.Hbox(p.playBtn, p.elapsed, p.position, p.subBtn, p.muteBtn, p.volume, p.fullBtn).SetAttributes("ALIGNMENT=ACENTER, GAP=6, NMARGIN=6x4")

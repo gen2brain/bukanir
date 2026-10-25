@@ -25,7 +25,7 @@ const dialogIcon = ""
 // playerVolumeControls is off: the volume keys set and mute the volume.
 const playerVolumeControls = false
 
-// playerSeekRow puts the seek bar on its own row above the player buttons.
+// playerSeekRow puts the seek bar and the time on their own row above the player buttons.
 const playerSeekRow = true
 
 // playerVideoSize is a small natural size; the video expands over the room the controls leave.
