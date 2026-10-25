@@ -1,4 +1,4 @@
-<p align="center"><img src="cmd/bukanir/images/bukanir.png" alt="Bukanir" width="128" height="128"></p>
+<p align="center"><img src="cmd/bukanir/images/bukanir.svg" alt="Bukanir" width="128" height="128"></p>
 
 Bukanir
 =======
