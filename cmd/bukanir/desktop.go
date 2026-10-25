@@ -27,29 +27,8 @@ const summaryPosterW, summaryPosterH = 600, 900
 
 var summaryPosterSeq atomic.Int64
 
-// dialogIcon is the window icon of secondary windows.
-const dialogIcon = "appicon"
-
-// playerVolumeControls shows the mute button and the volume slider in the player controls.
-const playerVolumeControls = true
-
-// playerSeekRow puts the seek bar and the time on their own row above the player buttons.
-const playerSeekRow = false
-
-// playerVideoSize is the initial video size of a player window.
-const playerVideoSize = "960x540"
-
-// narrowScreen stacks layouts vertically: settings labels above their controls, the About contents in one column.
-const narrowScreen = false
-
-// shortcutsHelp offers the keyboard shortcuts in the About dialog.
-const shortcutsHelp = true
-
-// keepFilesSetting offers keeping the downloaded files in a chosen folder.
-const keepFilesSetting = true
-
-// singleTapOpens opens a grid title on a single click instead of a double click.
-const singleTapOpens = false
+// phone selects the layouts for a narrow touch screen.
+const phone = false
 
 var (
 	tabActs   = map[iup.Ihandle]*tabActivity{}
@@ -74,9 +53,6 @@ func mainDialog() iup.Ihandle {
 	}))
 	return dlg
 }
-
-// narrowWidth is the width a wrapped text gets on a narrow screen.
-func narrowWidth(int) int { return 0 }
 
 // exitApp ends the main loop once quitting has cleaned up.
 func exitApp() { iup.ExitLoop() }

@@ -392,13 +392,13 @@ func posterCell(m bukanir.TMovie) (cell, target iup.Ihandle) {
 	return cell, target
 }
 
-// posterView returns an image Label sized to its poster, filled via PostMessage; where a single tap opens, a release inside it opens.
+// posterView returns an image Label sized to its poster, filled via PostMessage; on a phone a release inside it opens.
 func posterView(w, h int, onSelect, onOpen, onMenu func()) iup.Ihandle {
 	name := "poster" + strconv.FormatInt(posterSeq.Add(1), 10)
 
 	var poster iup.Ihandle
 	switch {
-	case singleTapOpens && onOpen != nil:
+	case phone && onOpen != nil:
 		poster = iup.Label("").SetAttribute("IMAGE", blankPoster(w, h))
 		poster.SetCallback("BUTTON_CB", iup.ButtonFunc(func(ih iup.Ihandle, button, pressed, x, y int, _ string) int {
 			_, pw, ph := iup.GetInt2(ih, "RASTERSIZE")

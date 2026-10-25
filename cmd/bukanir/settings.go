@@ -410,7 +410,7 @@ func onSettings() {
 		)),
 	}
 	torrentSummary := []string{"Transfer limits", "peers"}
-	if keepFilesSetting {
+	if !phone {
 		torrentSummary = append(torrentSummary, "files")
 		torrentFrames = append(torrentFrames, frame("Files", formRows(
 			"Keep downloaded files", keepFiles,
@@ -590,7 +590,7 @@ func frame(title string, children ...iup.Ihandle) iup.Ihandle {
 }
 
 func formRows(pairs ...any) iup.Ihandle {
-	if narrowScreen {
+	if phone {
 		return stackedRows(pairs...)
 	}
 	cells := make([]iup.Ihandle, 0, len(pairs))
@@ -720,7 +720,7 @@ func colorButton(hex string) iup.Ihandle {
 	setButtonColor(b, hex)
 	b.SetCallback("ACTION", iup.ActionFunc(func(ih iup.Ihandle) int {
 		r, g, bl := parseHexColor(ih.GetAttribute("BUKANIRCOLOR"))
-		dlg := iup.ColorDlg().SetAttributes(map[string]string{"TITLE": "Text color", "SHOWHEX": "YES", "SHOWCOMPACT": yesNo(narrowScreen)})
+		dlg := iup.ColorDlg().SetAttributes(map[string]string{"TITLE": "Text color", "SHOWHEX": "YES", "SHOWCOMPACT": yesNo(phone)})
 		dlg.SetAttribute("VALUE", fmt.Sprintf("%d %d %d", r, g, bl))
 		iup.SetAttributeHandle(dlg, "PARENTDIALOG", iup.GetDialog(ih))
 		iup.Popup(dlg, iup.CENTER, iup.CENTER)

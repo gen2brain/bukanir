@@ -177,8 +177,10 @@ func (p *videoPlayer) build() {
 		"MPVCONFIG":        yesNo(settings.MPVConfig),
 		"VLCCONFIG":        yesNo(settings.VLCConfig),
 	})
-	if playerVideoSize != "" {
-		p.video.SetAttribute("RASTERSIZE", playerVideoSize)
+	if phone {
+		p.video.SetAttribute("RASTERSIZE", "160x90")
+	} else {
+		p.video.SetAttribute("RASTERSIZE", "960x540")
 	}
 	if settings.MPVOptions != "" {
 		p.video.SetAttribute("MPVOPTIONS", settings.MPVOptions)
@@ -201,7 +203,7 @@ func (p *videoPlayer) build() {
 
 	p.playBtn = iconButton("player-pause", p.togglePause).SetAttribute("TIP", "Pause (Space)")
 	p.elapsed = iup.Label("0:00:00 / 0:00:00").SetAttributes("ELLIPSIS=YES")
-	if !playerSeekRow {
+	if !phone {
 		p.elapsed.SetAttribute("SIZE", "100x")
 	}
 	p.position = iup.Val("HORIZONTAL").SetAttributes("MIN=0, MAX=1, EXPAND=HORIZONTAL, ACTIVE=NO, CURSOR=HAND")
@@ -226,11 +228,11 @@ func (p *videoPlayer) build() {
 	}))
 	p.fullBtn = iconButton("player-fullscreen", func() { p.setFullscreen(true) }).SetAttribute("TIP", "Fullscreen (f)")
 
-	if !playerVolumeControls {
+	if phone {
 		p.muteBtn.SetAttributes("FLOATING=YES, VISIBLE=NO")
 		p.volume.SetAttributes("FLOATING=YES, VISIBLE=NO")
 	}
-	if playerSeekRow {
+	if phone {
 		p.controls = iup.Vbox(
 			iup.Hbox(p.position, p.elapsed).SetAttributes("ALIGNMENT=ACENTER, GAP=6"),
 			iup.Hbox(p.playBtn, iup.Fill(), p.subBtn, p.muteBtn, p.volume, p.fullBtn).SetAttributes("ALIGNMENT=ACENTER, GAP=6"),
@@ -239,8 +241,11 @@ func (p *videoPlayer) build() {
 		p.controls = iup.Hbox(p.playBtn, p.elapsed, p.position, p.subBtn, p.muteBtn, p.volume, p.fullBtn).SetAttributes("ALIGNMENT=ACENTER, GAP=6, NMARGIN=6x4")
 	}
 	p.dlg = iup.Dialog(iup.Vbox(p.video, p.controls)).SetAttributes(map[string]string{
-		"TITLE": plainText(p.pb.title), "ICON": dialogIcon, "SHRINK": "YES",
+		"TITLE": plainText(p.pb.title), "SHRINK": "YES",
 	})
+	if !phone {
+		p.dlg.SetAttribute("ICON", "appicon")
+	}
 	p.dlg.SetCallback("CLOSE_CB", iup.CloseFunc(func(iup.Ihandle) int {
 		p.close()
 		return iup.IGNORE

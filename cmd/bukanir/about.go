@@ -33,7 +33,7 @@ func showAbout() {
 	closeBtn := iup.Button("Close").SetAttributes("PADDING=14x4")
 	buttons := iup.Hbox(iup.Fill(), version, closeBtn).SetAttributes("GAP=8")
 	var dlg iup.Ihandle
-	if shortcutsHelp {
+	if !phone {
 		help := iup.Button("Help").SetAttributes("PADDING=14x4")
 		help.SetCallback("ACTION", iup.ActionFunc(func(iup.Ihandle) int {
 			showShortcuts(dlg)
@@ -42,7 +42,7 @@ func showAbout() {
 		iup.Insert(buttons, version, help)
 	}
 	var body iup.Ihandle
-	if narrowScreen {
+	if phone {
 		const margin = 14
 		notice.SetAttributes(fmt.Sprintf("WORDWRAP=YES, RASTERSIZE=%dx", narrowWidth(margin)))
 		body = iup.Vbox(
@@ -121,6 +121,13 @@ func showShortcuts(parent iup.Ihandle) {
 	iup.SetAttributeHandle(dlg, "DEFAULTESC", closeBtn)
 	iup.Popup(dlg, iup.CENTER, iup.CENTER)
 	iup.Destroy(dlg)
+}
+
+// narrowWidth is the screen width less a margin on each side.
+func narrowWidth(margin int) int {
+	var w, h int
+	fmt.Sscanf(iup.GetGlobal("SCREENSIZE"), "%dx%d", &w, &h)
+	return w - 2*margin
 }
 
 func link(url, title string) iup.Ihandle {

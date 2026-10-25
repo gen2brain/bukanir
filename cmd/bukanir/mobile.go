@@ -19,29 +19,8 @@ const (
 // summaryMargin is the margin around a details view.
 const summaryMargin = 12
 
-// dialogIcon is empty: an icon takes title space in the app bar.
-const dialogIcon = ""
-
-// playerVolumeControls is off: the volume keys set and mute the volume.
-const playerVolumeControls = false
-
-// playerSeekRow puts the seek bar and the time on their own row above the player buttons.
-const playerSeekRow = true
-
-// playerVideoSize is a small natural size; the video expands over the room the controls leave.
-const playerVideoSize = "160x90"
-
-// narrowScreen stacks layouts vertically: settings labels above their controls, the About contents in one column.
-const narrowScreen = true
-
-// shortcutsHelp is off: a phone has no keyboard shortcuts to show.
-const shortcutsHelp = false
-
-// keepFilesSetting is off: there is no download folder to choose.
-const keepFilesSetting = false
-
-// singleTapOpens opens a grid title on a single tap.
-const singleTapOpens = true
+// phone selects the layouts for a narrow touch screen.
+const phone = true
 
 // posterW and posterH fit two grid columns across the narrow side of the screen; sizePosters sets them.
 var posterW, posterH = 200, 300
@@ -77,13 +56,6 @@ func mainDialog() iup.Ihandle {
 }
 
 func showMainDialog(dlg iup.Ihandle) { iup.Show(dlg) }
-
-// narrowWidth is the screen width less a margin on each side.
-func narrowWidth(margin int) int {
-	var w, h int
-	fmt.Sscanf(iup.GetGlobal("SCREENSIZE"), "%dx%d", &w, &h)
-	return w - 2*margin
-}
 
 // exitApp ends the process once quitting has cleaned up.
 func exitApp() { os.Exit(0) }
