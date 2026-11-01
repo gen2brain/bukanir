@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 )
 
 // DefaultTorInstances is the number of Tor instances used when Config.TorInstances is zero.
@@ -16,6 +17,9 @@ const DefaultTorInstances = 2
 
 // DefaultTorCircuits is the number of isolated circuits each Tor instance spreads connections over.
 const DefaultTorCircuits = 2
+
+// OnionHTTPTimeout is the minimum timeout of a .onion request.
+const OnionHTTPTimeout = 2 * time.Minute
 
 // DefaultTorProxy is the SOCKS5 address of the system Tor daemon used when Config.TorProxy is empty.
 const DefaultTorProxy = "127.0.0.1:9050"
@@ -104,7 +108,7 @@ func (t *transport) ensureTor() error {
 			t.err = errTransportClosed
 		default:
 			c := p.HTTPClient()
-			c.Timeout = t.cfg.HTTPTimeout
+			c.Timeout = max(t.cfg.HTTPTimeout, OnionHTTPTimeout)
 			t.tor, t.torc = p, c
 		}
 	})

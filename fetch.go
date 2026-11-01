@@ -46,6 +46,7 @@ func (c *Client) doBytesAccept(ctx context.Context, method, url string, headers 
 
 		resp, err := hc.Do(req)
 		if err != nil {
+			logf("ERROR: %s %s: %v", method, url, err)
 			return nil, err
 		}
 		respBody, readErr := io.ReadAll(resp.Body)

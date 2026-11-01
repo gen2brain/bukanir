@@ -86,7 +86,7 @@ func TestTransportTorLazyOnce(t *testing.T) {
 	if calls != 1 {
 		t.Fatalf("provider built %d times, want 1", calls)
 	}
-	if fake.client.Timeout != DefaultHTTPTimeout {
+	if fake.client.Timeout != OnionHTTPTimeout {
 		t.Errorf("timeout not applied to tor client: %v", fake.client.Timeout)
 	}
 
