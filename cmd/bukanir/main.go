@@ -97,7 +97,7 @@ func main() {
 	}
 
 	dlg := mainDialog()
-	dlg.SetCallback("THEMECHANGED_CB", iup.ThemeChangedFunc(onThemeChanged))
+	dlg.SetCallback("APPEARANCECHANGED_CB", iup.AppearanceChangedFunc(onThemeChanged))
 	dlg.SetCallback("CLOSE_CB", iup.CloseFunc(func(iup.Ihandle) int {
 		quitApp()
 		return iup.IGNORE

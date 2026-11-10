@@ -9,7 +9,7 @@ replace github.com/anacrolix/torrent => github.com/gen2brain/torrent v0.0.0-2026
 require (
 	github.com/gen2brain/bukanir v0.0.0-00010101000000-000000000000
 	github.com/gen2brain/folio v0.2.7
-	github.com/gen2brain/iup-go/iup v0.32.1-0.20261101194529-74604b7bc736
+	github.com/gen2brain/iup-go/iup v0.32.1-0.20261110151153-6e8baaf4e5f3
 	github.com/gen2brain/jpegn v0.6.1
 	github.com/gen2brain/vpx v0.2.1
 	golang.org/x/image v0.47.0

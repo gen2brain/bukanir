@@ -733,7 +733,7 @@ func colorButton(hex string) iup.Ihandle {
 	setButtonColor(b, hex)
 	b.SetCallback("ACTION", iup.ActionFunc(func(ih iup.Ihandle) int {
 		r, g, bl := parseHexColor(ih.GetAttribute("BUKANIRCOLOR"))
-		dlg := iup.ColorDlg().SetAttributes(map[string]string{"TITLE": "Text color", "SHOWHEX": "YES", "SHOWCOMPACT": yesNo(phone)})
+		dlg := iup.ColorDlg().SetAttributes(map[string]string{"TITLE": "Text color", "SHOWHEX": "YES", "COMPACT": yesNo(phone)})
 		dlg.SetAttribute("VALUE", fmt.Sprintf("%d %d %d", r, g, bl))
 		iup.SetAttributeHandle(dlg, "PARENTDIALOG", iup.GetDialog(ih))
 		iup.Popup(dlg, iup.CENTER, iup.CENTER)
