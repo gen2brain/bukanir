@@ -21,8 +21,11 @@ Credentials
 
 OpenSubtitles and SubDL are used only when their keys are set in the environment:
 
-* `BUKANIR_OPENSUBTITLES_KEY`, `BUKANIR_OPENSUBTITLES_USER`, `BUKANIR_OPENSUBTITLES_PASS`
+* `BUKANIR_OPENSUBTITLES_KEY`
 * `BUKANIR_SUBDL_KEY`
+
+`BUKANIR_OPENSUBTITLES_USER` and `BUKANIR_OPENSUBTITLES_PASS` are optional; with them OpenSubtitles
+downloads count against the account's daily quota instead of the smaller one per IP address.
 
 `BUKANIR_TMDB_KEY` sets the TMDB key; release builds have one built in.
 

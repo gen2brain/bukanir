@@ -120,9 +120,12 @@ func (p openSubtitlesProvider) download(ctx context.Context, sub Subtitle) ([]by
 	return gunzipIfNeeded(data), dl.FileName, nil
 }
 
-// login returns a cached OpenSubtitles token, logging in on first use.
+// login returns a cached OpenSubtitles token, logging in on first use; no token without a user and password.
 func (p openSubtitlesProvider) login(ctx context.Context) (string, error) {
 	c := p.c
+	if c.cfg.openSubtitlesUser() == "" || c.cfg.openSubtitlesPass() == "" {
+		return "", nil
+	}
 	c.subsMu.Lock()
 	defer c.subsMu.Unlock()
 	if c.subsToken != "" {
@@ -143,9 +146,6 @@ func (p openSubtitlesProvider) login(ctx context.Context) (string, error) {
 func (p openSubtitlesProvider) doLogin(ctx context.Context) (string, error) {
 	c := p.c
 	user, pass := c.cfg.openSubtitlesUser(), c.cfg.openSubtitlesPass()
-	if user == "" || pass == "" {
-		return "", errors.New("bukanir: OpenSubtitles credentials required to download subtitles")
-	}
 	var resp osLoginResponse
 	body := map[string]string{"username": user, "password": pass}
 	if err := c.doJSON(ctx, http.MethodPost, c.subsBase+"/login", p.headers(""), body, &resp); err != nil {

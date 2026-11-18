@@ -63,8 +63,12 @@ func mockOpenSubtitles(t *testing.T, loginHits, apiHits *int32) *Client {
 		if apiHits != nil {
 			atomic.AddInt32(apiHits, 1)
 		}
-		if r.Header.Get("Authorization") != "Bearer tok123" {
-			t.Errorf("download missing bearer: %q", r.Header.Get("Authorization"))
+		want := "Bearer tok123"
+		if c.cfg.openSubtitlesUser() == "" {
+			want = ""
+		}
+		if got := r.Header.Get("Authorization"); got != want {
+			t.Errorf("download Authorization = %q, want %q", got, want)
 		}
 		w.Write([]byte(`{"link":"` + srv.URL + `/file","file_name":"sub.srt"}`))
 	})
@@ -127,14 +131,34 @@ func TestDownloadSubtitle(t *testing.T) {
 	}
 }
 
-func TestDownloadSubtitleNoCreds(t *testing.T) {
-	c, err := New(context.Background(), Config{CacheDir: t.TempDir(), OpenSubtitlesKey: "k"})
+func TestDownloadSubtitleKeyOnly(t *testing.T) {
+	t.Setenv("BUKANIR_OPENSUBTITLES_USER", "")
+	t.Setenv("BUKANIR_OPENSUBTITLES_PASS", "")
+	var logins int32
+	c := mockOpenSubtitles(t, &logins, nil)
+	c.cfg.OpenSubtitlesUser, c.cfg.OpenSubtitlesPass = "", ""
+	data, _, err := c.DownloadSubtitle(context.Background(), Subtitle{Provider: "opensubtitles", FileID: 222})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c.Close()
-	if _, _, err := c.DownloadSubtitle(context.Background(), Subtitle{Provider: "opensubtitles", FileID: 1}); err == nil {
-		t.Fatal("expected error without credentials")
+	if !bytes.Contains(data, []byte("Hello")) {
+		t.Errorf("subtitle content = %q", data)
+	}
+	if logins != 0 {
+		t.Errorf("logged in %d times, want 0", logins)
+	}
+
+	k, err := New(context.Background(), Config{CacheDir: t.TempDir(), OpenSubtitlesKey: "k"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer k.Close()
+	found := false
+	for _, p := range k.subProviders {
+		found = found || p.name() == "opensubtitles"
+	}
+	if !found {
+		t.Error("OpenSubtitles not enabled with only a key")
 	}
 }
 

@@ -84,7 +84,7 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 		yifyProvider{c},
 		movieSubtitlesProvider{c},
 	}
-	if cfg.openSubtitlesKey() != "" && cfg.openSubtitlesUser() != "" && cfg.openSubtitlesPass() != "" {
+	if cfg.openSubtitlesKey() != "" {
 		c.subProviders = append(c.subProviders, openSubtitlesProvider{c})
 	}
 	if cfg.subdlKey() != "" {
