@@ -337,7 +337,7 @@ func TestMovieSummary(t *testing.T) {
 	if s.TrailerKey != "vKQi3bBA1y8" || s.IMDbID != "tt0133093" {
 		t.Errorf("trailer/imdb = %q/%q", s.TrailerKey, s.IMDbID)
 	}
-	if len(s.Genres) != 1 || s.Genres[0] != "Action" {
+	if len(s.Genres) != 1 || s.Genres[0] != "Action" || len(s.GenreIDs) != 1 || s.GenreIDs[0] != 28 {
 		t.Errorf("genres = %+v", s.Genres)
 	}
 }

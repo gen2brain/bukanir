@@ -86,7 +86,6 @@ func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 		metaParts = append(metaParts, m.SizeHuman)
 	}
 	meta := iup.Label(strings.Join(metaParts, "   "))
-	genres := setThemed(iup.Label(plainText(strings.Join(s.Genres, ", "))), "FGCOLOR", roleDim)
 
 	watch := accentButton("&WATCH")
 	playButton(watch, func() { onWatch(m, s, holder, watch) })
@@ -102,7 +101,7 @@ func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 		v.actions = append(v.actions, trailer)
 	}
 
-	v.top = []iup.Ihandle{title, meta, genres}
+	v.top = []iup.Ihandle{title, meta}
 	if m.Release != "" {
 		l := setThemed(iup.Label("Torrent: "+plainText(m.Release)).SetAttributes("WORDWRAP=YES, EXPAND=HORIZONTAL"), "FGCOLOR", roleSubtle)
 		v.top = append(v.top, l)
@@ -117,6 +116,9 @@ func showSummary(holder iup.Ihandle, m bukanir.TMovie, s bukanir.TSummary) {
 		l := iup.Label(plainText(s.Tagline)).SetAttributes("FONTSTYLE=Italic, FONTSIZE=13, WORDWRAP=YES, EXPAND=HORIZONTAL")
 		v.top = append(v.top, l)
 		v.wrapped = append(v.wrapped, l)
+	}
+	if g := genreRow(s, m.Category.IsTV()); g != 0 {
+		v.rows = append(v.rows, g)
 	}
 	if d := directorRow(s); d != 0 {
 		v.rows = append(v.rows, d)
@@ -200,6 +202,34 @@ func directorRow(s bukanir.TSummary) iup.Ihandle {
 		})
 	})
 	return fieldRow(fieldLabel("Director:"), link)
+}
+
+// genreRow links each genre to its movies; a TV genre with no movie counterpart is an inactive button.
+func genreRow(s bukanir.TSummary, tv bool) iup.Ihandle {
+	if len(s.Genres) == 0 {
+		return 0
+	}
+	movie := map[int]bool{}
+	for _, g := range cachedGenres() {
+		movie[g.ID] = true
+	}
+	items := []iup.Ihandle{fieldLabel("Genres:")}
+	for i, name := range s.Genres {
+		id := 0
+		if i < len(s.GenreIDs) {
+			id = s.GenreIDs[i]
+		}
+		if id == 0 || (tv && len(movie) > 0 && !movie[id]) {
+			items = append(items, iup.Button(plainText(name)).SetAttributes("FLAT=YES, ACTIVE=NO"))
+			continue
+		}
+		items = append(items, linkButton(name, func() {
+			openBrowse(name, func(ctx context.Context) ([]bukanir.TMovie, error) {
+				return client.Genre(ctx, id, 0)
+			})
+		}))
+	}
+	return fieldRow(items...)
 }
 
 func castRow(s bukanir.TSummary) iup.Ihandle {

@@ -81,6 +81,7 @@ type TSummary struct {
 	Cast        []string `json:"cast"`
 	CastIDs     []int    `json:"castIds"`
 	Genres      []string `json:"genres"`
+	GenreIDs    []int    `json:"genreIds"`
 	Director    string   `json:"director"`
 	DirectorID  int      `json:"directorId"`
 	TrailerKey  string   `json:"trailerKey"`            // YouTube video key
@@ -491,6 +492,14 @@ func castIDs(cast []tmdbPerson) []int {
 	return ids
 }
 
+func genreIDs(genres []tmdbGenre) []int {
+	ids := make([]int, 0, len(genres))
+	for _, g := range genres {
+		ids = append(ids, g.ID)
+	}
+	return ids
+}
+
 func genreNames(genres []tmdbGenre) []string {
 	names := make([]string, 0, len(genres))
 	for _, g := range genres {
@@ -792,6 +801,7 @@ func summaryFromDetails(d *tmdbDetails) TSummary {
 		Cast:        castNames(d.Credits.Cast),
 		CastIDs:     castIDs(d.Credits.Cast),
 		Genres:      genreNames(d.Genres),
+		GenreIDs:    genreIDs(d.Genres),
 		Director:    name,
 		DirectorID:  dirID,
 		TrailerKey:  d.Videos.trailerKey(),
