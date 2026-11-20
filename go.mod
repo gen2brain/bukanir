@@ -3,12 +3,12 @@ module github.com/gen2brain/bukanir
 go 1.26.0
 
 require (
-	github.com/PuerkitoBio/goquery v1.13.0
-	github.com/anacrolix/torrent v1.61.1-0.20261019092134-92ad51490479
+	github.com/PuerkitoBio/goquery v1.14.0
+	github.com/anacrolix/torrent v1.63.0
 	github.com/gen2brain/go-arti v0.1.2
-	github.com/huin/goupnp v1.3.0
-	github.com/kkdai/youtube/v2 v2.10.6
-	golang.org/x/net v0.61.0
+	github.com/huin/goupnp v1.3.1
+	github.com/kkdai/youtube/v2 v2.10.8
+	golang.org/x/net v0.63.0
 	golang.org/x/time v0.16.0
 )
 
@@ -25,7 +25,7 @@ require (
 	github.com/anacrolix/log v0.17.1-0.20251118025802-918f1157b7bb // indirect
 	github.com/anacrolix/missinggo v1.3.0 // indirect
 	github.com/anacrolix/missinggo/perf v1.0.0 // indirect
-	github.com/anacrolix/missinggo/v2 v2.11.0 // indirect
+	github.com/anacrolix/missinggo/v2 v2.12.0 // indirect
 	github.com/anacrolix/mmsg v1.1.1 // indirect
 	github.com/anacrolix/multiless v0.4.0 // indirect
 	github.com/anacrolix/stm v0.5.0 // indirect
@@ -37,11 +37,11 @@ require (
 	github.com/bitly/go-simplejson v0.5.1 // indirect
 	github.com/bits-and-blooms/bitset v1.26.0 // indirect
 	github.com/bradfitz/iter v0.0.0-20191230175014-e8f45d346db8 // indirect
-	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/coder/websocket v1.8.15 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/dlclark/regexp2/v2 v2.9.0 // indirect
-	github.com/dop251/goja v0.0.0-20261016120441-313b6b662e53 // indirect
+	github.com/dlclark/regexp2/v2 v2.12.0 // indirect
+	github.com/dop251/goja v0.0.0-20261103214539-f5d1d0025744 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/edsrzf/mmap-go v1.2.0 // indirect
 	github.com/felixge/fgprof v0.9.5 // indirect
@@ -52,9 +52,8 @@ require (
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/pprof v0.0.0-20261016150608-1facf8f91b50 // indirect
+	github.com/google/pprof v0.0.0-20261103193413-97e8293de3c4 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/huandu/xstrings v1.6.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.1 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
@@ -94,11 +93,11 @@ require (
 	go.opentelemetry.io/otel/log v1.47.0 // indirect
 	go.opentelemetry.io/otel/metric v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
-	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/crypto v0.59.0 // indirect
 	golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e // indirect
-	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 	lukechampine.com/blake3 v1.4.1 // indirect
 	modernc.org/libc v1.79.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
@@ -107,4 +106,6 @@ require (
 	zombiezen.com/go/sqlite v1.4.2 // indirect
 )
 
-replace github.com/anacrolix/torrent => github.com/gen2brain/torrent v0.0.0-20261024141642-ede56332a1e4
+replace github.com/anacrolix/torrent => github.com/gen2brain/torrent v0.0.0-20261119232904-a1e18194940c
+
+replace github.com/anacrolix/missinggo/v2 => github.com/gen2brain/missinggo/v2 v2.0.0-20261119233447-0f11d378157d
