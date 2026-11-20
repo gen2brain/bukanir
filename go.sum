@@ -129,8 +129,8 @@ github.com/gen2brain/go-arti v0.1.2 h1:h/hZ7o9jUvWW2yg+SHuMkBChE072GW4Tq3bqJXBWH
 github.com/gen2brain/go-arti v0.1.2/go.mod h1:s+wYCiEW2J//n8NRmdghZtq0es8fV3g0dOtE0fh2ciE=
 github.com/gen2brain/missinggo/v2 v2.0.0-20261119233447-0f11d378157d h1:6N0I+aPvx44DseV5AuN9T+Hcp5loEWbyx0ubpKW2q3U=
 github.com/gen2brain/missinggo/v2 v2.0.0-20261119233447-0f11d378157d/go.mod h1:OySvjvTuLZvy1mpf+8OQsoT45r1CPn+TLwbgjDsBIJ8=
-github.com/gen2brain/torrent v0.0.0-20261119232904-a1e18194940c h1:vAFzsVdiU6geUo5JG2+igZ4TusfvosVuyICjMoBQTOo=
-github.com/gen2brain/torrent v0.0.0-20261119232904-a1e18194940c/go.mod h1:K4X+CWaGQrqt+1oDfZRGlCj4vyMd8kQDNxPi4M299J0=
+github.com/gen2brain/torrent v0.0.0-20261120121553-16530d3cbc00 h1:85CZKIJDNeR6uWesw/QOA5AFAJU1kLoKijktBNKi5BU=
+github.com/gen2brain/torrent v0.0.0-20261120121553-16530d3cbc00/go.mod h1:K4X+CWaGQrqt+1oDfZRGlCj4vyMd8kQDNxPi4M299J0=
 github.com/glycerine/go-unsnap-stream v0.0.0-20180323001048-9f0cb55181dd/go.mod h1:/20jfyN9Y5QPEAprSgKAUr+glWDY39ZiUEAYOEv5dsE=
 github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2/go.mod h1:/20jfyN9Y5QPEAprSgKAUr+glWDY39ZiUEAYOEv5dsE=
 github.com/glycerine/goconvey v0.0.0-20180728074245-46e3a41ad493/go.mod h1:Ogl1Tioa0aV7gstGFO7KhffUsb9M4ydbEbbxpcEDc24=
