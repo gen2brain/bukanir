@@ -31,6 +31,8 @@ type logStore struct {
 	partial  string
 	redactor *strings.Replacer
 	open     bool
+	queue    []logLine
+	queued   bool
 }
 
 // setRedactor installs a replacer that strips the given secret values.
@@ -49,13 +51,25 @@ func (s *logStore) setRedactor(secrets []string) {
 func (s *logStore) setOpen(v bool) {
 	s.mu.Lock()
 	s.open = v
+	s.queue, s.queued = nil, false
 	s.mu.Unlock()
 }
 
+// snapshot returns the ring and drops the queued lines, which the ring already holds.
 func (s *logStore) snapshot() []logLine {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.queue = nil
 	return append([]logLine(nil), s.lines...)
+}
+
+// drain takes the lines queued for the viewer.
+func (s *logStore) drain() []logLine {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	q := s.queue
+	s.queue, s.queued = nil, false
+	return q
 }
 
 // redact strips secrets; caller holds the lock.
@@ -93,13 +107,16 @@ func (s *logStore) Write(p []byte) (int, error) {
 		s.push(ln)
 		out = append(out, ln)
 	}
-	open := s.open
+	post := false
+	if s.open && len(out) > 0 {
+		s.queue = append(s.queue, out...)
+		post = !s.queued
+		s.queued = true
+	}
 	s.mu.Unlock()
 
-	if open {
-		for _, ln := range out {
-			postLogLine(ln)
-		}
+	if post {
+		iup.PostMessage(iup.GetHandle("logtext"), "", 0, nil)
 	}
 	return len(p), nil
 }
@@ -112,15 +129,6 @@ func isErrorLine(line string) bool {
 		}
 	}
 	return false
-}
-
-// postLogLine hands a line to the viewer's text widget (err flag in the code).
-func postLogLine(ln logLine) {
-	code := 0
-	if ln.err {
-		code = 1
-	}
-	iup.PostMessage(iup.GetHandle("logtext"), ln.text, code, nil)
 }
 
 // showLogView shows the modeless Log dialog, rebuilt from the captured ring.
@@ -144,8 +152,8 @@ func buildLogView() iup.Ihandle {
 		"FORMATTING": "YES",
 		"FONT":       "Monospace, 9",
 	})
-	text.SetCallback("POSTMESSAGE_CB", iup.PostMessageFunc(func(ih iup.Ihandle, line string, code int, _ any) int {
-		appendLogText(ih, line, code == 1)
+	text.SetCallback("POSTMESSAGE_CB", iup.PostMessageFunc(func(ih iup.Ihandle, _ string, _ int, _ any) int {
+		appendLogLines(ih, logs.drain())
 		return iup.DEFAULT
 	}))
 
@@ -184,24 +192,42 @@ func repopulateLog() {
 	text.SetAttribute("REMOVEFORMATTING", "ALL")
 	text.SetAttribute("VALUE", "")
 	logCharCount = 0
-	for _, ln := range logs.snapshot() {
-		appendLogText(text, ln.text, ln.err)
-	}
+	appendLogLines(text, logs.snapshot())
 }
 
-// appendLogText appends one line (red when an error) and scrolls to it.
-func appendLogText(text iup.Ihandle, line string, isErr bool) {
-	start := logCharCount
-	if logCharCount > 0 {
-		start++
+// appendLogLines appends lines with one APPEND, colors each run of error lines and scrolls to the end.
+func appendLogLines(text iup.Ihandle, lines []logLine) {
+	if len(lines) == 0 {
+		return
 	}
-	text.SetAttribute("APPEND", line)
-	end := start + utf8.RuneCountInString(line)
-	logCharCount = end
-	if isErr {
+	var b strings.Builder
+	var runs [][2]int
+	pos := logCharCount
+	if pos > 0 {
+		pos++
+	}
+	for i, ln := range lines {
+		if i > 0 {
+			b.WriteByte('\n')
+			pos++
+		}
+		b.WriteString(ln.text)
+		end := pos + utf8.RuneCountInString(ln.text)
+		if ln.err {
+			if n := len(runs); n > 0 && runs[n-1][1]+1 == pos {
+				runs[n-1][1] = end
+			} else {
+				runs = append(runs, [2]int{pos, end})
+			}
+		}
+		pos = end
+	}
+	text.SetAttribute("APPEND", b.String())
+	logCharCount = pos
+	for _, r := range runs {
 		tag := iup.User()
-		tag.SetAttributes(fmt.Sprintf(`SELECTIONPOS="%d:%d", FGCOLOR="255 85 85"`, start, end))
+		tag.SetAttributes(fmt.Sprintf(`SELECTIONPOS="%d:%d", FGCOLOR="255 85 85"`, r[0], r[1]))
 		iup.SetAttributeHandle(text, "ADDFORMATTAG", tag)
 	}
-	text.SetAttribute("SCROLLTOPOS", fmt.Sprintf("%d", end))
+	text.SetAttribute("SCROLLTOPOS", fmt.Sprintf("%d", pos))
 }
