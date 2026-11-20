@@ -16,6 +16,14 @@ Features
 * Dark, light or system appearance
 * Ads free and free as in Freedom
 
+Build
+-----
+
+The application needs the `media` build tag:
+
+    cd cmd/bukanir
+    go build -tags media
+
 Credentials
 -----------
 
