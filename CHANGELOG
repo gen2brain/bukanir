@@ -1,4 +1,4 @@
-v3.0  Nov 20, 2026:
+v3.0  Nov 27, 2026:
 
     * Desktop and Android apps are rewritten on IUP, from one code base
     * Built-in player with a choice of mpv, VLC, GStreamer or the system player, audio output, picture adjustments, subtitle tracks and delay
