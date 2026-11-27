@@ -19,10 +19,10 @@ Features
 Build
 -----
 
-The application needs the `media` build tag:
+The application needs the `media` build tag, and `gl` for the OpenGL player with mpv:
 
     cd cmd/bukanir
-    go build -tags media
+    go build -tags media,gl
 
 Credentials
 -----------

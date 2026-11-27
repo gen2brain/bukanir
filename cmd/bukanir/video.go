@@ -23,7 +23,7 @@ import (
 )
 
 // engineChoices are the IupVideo engines offered in the settings, in AUTO order.
-var engineChoices = []string{"NATIVE", "MPV", "VLC", "GSTREAMER"}
+var engineChoices = []string{"NATIVE", "MPV", "GSTREAMER", "VLC"}
 
 // languageCodes are the ISO 639-2 codes of the subtitle languages.
 var languageCodes = map[string][]string{
@@ -145,6 +145,7 @@ type videoPlayer struct {
 	dlg, video, controls, playBtn, elapsed, position, subBtn, muteBtn, volume, fullBtn, timer iup.Ihandle
 
 	started, closed, chosen bool
+	gpu                     bool
 	seek, target            float64
 	delay                   float64
 	hold, notice            int
@@ -168,9 +169,11 @@ func openVideoPlayer(sess *session, pb playback, done chan error) {
 	p.timer.SetAttribute("RUN", "YES")
 }
 
-func (p *videoPlayer) build() {
+// newVideo creates the video control for engine with the player settings and callbacks.
+func (p *videoPlayer) newVideo(engine string) iup.Ihandle {
 	r, g, b := parseHexColor(settings.SubColor)
-	p.video = iup.Video().SetAttributes(map[string]string{
+	p.gpu = gpuEngine(engine)
+	video := newVideo(engine).SetAttributes(map[string]string{
 		"EXPAND": "YES", "CANFOCUS": "YES",
 		"SUBTITLEFONTSIZE": strconv.Itoa(int(math.Round(18 * settings.SubScale))),
 		"SUBTITLECOLOR":    fmt.Sprintf("%d %d %d", r, g, b),
@@ -178,28 +181,33 @@ func (p *videoPlayer) build() {
 		"VLCCONFIG":        yesNo(settings.VLCConfig),
 	})
 	if phone {
-		p.video.SetAttribute("RASTERSIZE", "160x90")
+		video.SetAttribute("RASTERSIZE", "160x90")
 	} else {
-		p.video.SetAttribute("RASTERSIZE", "960x540")
+		video.SetAttribute("RASTERSIZE", "960x540")
 	}
 	if settings.MPVOptions != "" {
-		p.video.SetAttribute("MPVOPTIONS", settings.MPVOptions)
+		video.SetAttribute("MPVOPTIONS", settings.MPVOptions)
 	}
 	if settings.VLCOptions != "" {
-		p.video.SetAttribute("VLCOPTIONS", settings.VLCOptions)
+		video.SetAttribute("VLCOPTIONS", settings.VLCOptions)
 	}
-	p.video.SetCallback("STATECHANGED_CB", iup.StateChangedFunc(p.onState))
-	p.video.SetCallback("ERROR_CB", iup.ErrorFunc(p.onError))
-	p.video.SetCallback("PLAYEND_CB", iup.PlayEndFunc(func(iup.Ihandle) int {
+	video.SetCallback("STATECHANGED_CB", iup.StateChangedFunc(p.onState))
+	video.SetCallback("ERROR_CB", iup.ErrorFunc(p.onError))
+	video.SetCallback("PLAYEND_CB", iup.PlayEndFunc(func(iup.Ihandle) int {
 		p.close()
 		return iup.DEFAULT
 	}))
-	p.video.SetCallback("BUTTON_CB", iup.ButtonFunc(func(_ iup.Ihandle, button, pressed, _, _ int, status string) int {
+	video.SetCallback("BUTTON_CB", iup.ButtonFunc(func(_ iup.Ihandle, button, pressed, _, _ int, status string) int {
 		if button == iup.BUTTON1 && pressed != 0 && iup.IsDouble(status) {
 			p.setFullscreen(p.dlg.GetAttribute("FULLSCREEN") != "YES")
 		}
 		return iup.DEFAULT
 	}))
+	return video
+}
+
+func (p *videoPlayer) build() {
+	p.video = p.newVideo(p.pb.engines[p.engine])
 
 	p.playBtn = iconButton("player-pause", p.togglePause).SetAttribute("TIP", "Pause (Space)")
 	p.elapsed = iup.Label("0:00:00 / 0:00:00").SetAttributes("ELLIPSIS=YES")
@@ -268,6 +276,15 @@ func setIcon(b iup.Ihandle, icon string) {
 // load opens the source with the current engine; the first downloaded subtitle is shown until a track in the subtitle language appears.
 func (p *videoPlayer) load() {
 	engine := p.pb.engines[p.engine]
+	if gpuEngine(engine) != p.gpu {
+		old := p.video
+		p.video = p.newVideo(engine)
+		iup.Insert(iup.GetParent(old), old, p.video)
+		old.Destroy()
+		iup.Map(p.video)
+		iup.Refresh(p.dlg)
+		iup.SetFocus(p.video)
+	}
 	p.video.SetAttribute("URL", nil)
 	p.video.SetAttribute("BACKEND", engine)
 	p.video.SetAttribute("AUDIODEVICE", strconv.Itoa(audioDeviceIndex(p.video, settings.AudioDevice)))
@@ -319,7 +336,11 @@ func (p *videoPlayer) onError(ih iup.Ihandle, message string) int {
 	log.Printf("PLAYER: %s: %s", engineName(p.pb.engines[p.engine]), message)
 	if !p.started && p.engine+1 < len(p.pb.engines) {
 		p.engine++
-		p.load()
+		runOnMain(func() {
+			if !p.closed {
+				p.load()
+			}
+		})
 		return iup.DEFAULT
 	}
 	p.err = errors.New(message)

@@ -295,7 +295,7 @@ func onSettings() {
 	fullscreen := toggle(s.Fullscreen)
 
 	mpvConfig := toggle(s.MPVConfig)
-	mpvOptions := iup.Text().SetAttributes("VISIBLECOLUMNS=20, CUEBANNER=\"hwdec=auto\"")
+	mpvOptions := iup.Text().SetAttributes("VISIBLECOLUMNS=20, CUEBANNER=\"hwdec=no\"")
 	mpvOptions.SetAttribute("VALUE", s.MPVOptions)
 	vlcConfig := toggle(s.VLCConfig)
 	vlcOptions := iup.Text().SetAttributes("VISIBLECOLUMNS=20, CUEBANNER=\"avcodec-hw=any\"")
