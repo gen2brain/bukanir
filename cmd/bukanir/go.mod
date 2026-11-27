@@ -11,7 +11,7 @@ replace github.com/anacrolix/missinggo/v2 => github.com/gen2brain/missinggo/v2 v
 require (
 	github.com/gen2brain/bukanir v0.0.0-00010101000000-000000000000
 	github.com/gen2brain/folio v0.3.1
-	github.com/gen2brain/iup-go/iup v0.40.0
+	github.com/gen2brain/iup-go/iup v0.41.0
 	github.com/gen2brain/jpegn v0.7.1
 	github.com/gen2brain/vpx v0.2.3
 	golang.org/x/image v0.48.0
